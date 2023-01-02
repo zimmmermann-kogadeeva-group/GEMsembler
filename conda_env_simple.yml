@@ -1,0 +1,9 @@
+name: supermodel_tool
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+dependencies:
+  - python=3.9
+prefix: /home/mek/anaconda3/envs/supermodel_tool
