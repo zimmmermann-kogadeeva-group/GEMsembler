@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import cobra
 import pandas as pd
 
-
+'''
 def intersection(a, b):
     out = []
     for el in a:
@@ -17,6 +17,9 @@ def substraction(a, *args):
             if (el not in b) & (el not in out):
                 out.append(el)
     return out
+
+'''
+
 
 # region Working with Compartments for different models
 class Compartments(ABC):
@@ -113,9 +116,10 @@ class ConversionToBiGG(ABC):
                         converted_bigg_ids[key].append(v)
         return converted_bigg_ids
 
-    def prioritiseConvertedSET(self, converted_bigg_ids):
+    def prioritiseConverted(self, converted_bigg_ids):
         prior_conv_ids = {
-            "1-anno&orig": list(set(converted_bigg_ids["annotation"]) and set(converted_bigg_ids["originalDB"])),
+            "1-anno&orig": list(
+                set(converted_bigg_ids["annotation"]).intersection(set(converted_bigg_ids["originalDB"]))),
             "2-anno": list(set(converted_bigg_ids["annotation"]) - set(converted_bigg_ids["originalDB"])),
             "3-orig": list(set(converted_bigg_ids["originalDB"]) - set(converted_bigg_ids["annotation"])),
             "4-addit": list(set(converted_bigg_ids["additionalDB"]) - set(converted_bigg_ids["annotation"]) - set(
@@ -126,7 +130,15 @@ class ConversionToBiGG(ABC):
                 converted_bigg_ids["originalDB"]) - set(converted_bigg_ids["additionalDB"]) - set(
                 converted_bigg_ids["pattern"]))}
         return prior_conv_ids
-    def prioritiseConverted(self, converted_bigg_ids):
+
+    @abstractmethod
+    def runConversion(self, do_compartments: Compartments,
+                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+        """Run conversion process for different ids sources"""
+
+
+'''
+    def prioritiseConvertedNOSET(self, converted_bigg_ids):
         prior_conv_ids = {
             "1-anno&orig": intersection(converted_bigg_ids["annotation"], converted_bigg_ids["originalDB"]),
             "2-anno": substraction(converted_bigg_ids["annotation"], converted_bigg_ids["originalDB"]),
@@ -138,11 +150,7 @@ class ConversionToBiGG(ABC):
             "6-NOconv": substraction(converted_bigg_ids["NOconversion"], converted_bigg_ids["annotation"],
                 converted_bigg_ids["originalDB"], converted_bigg_ids["additionalDB"], converted_bigg_ids["pattern"])}
         return prior_conv_ids
-
-    @abstractmethod
-    def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction, ) -> [str]:
-        """Run conversion process for different ids sources"""
+'''
 
 
 class ConversionForGapseq(ConversionToBiGG):
@@ -163,7 +171,7 @@ class ConversionForGapseq(ConversionToBiGG):
         self.reaction_annotation = "bigg.reaction"
 
     def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction, ) -> [str]:
+                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
         tmp_converted = {}
         id_wo_compartment = do_compartments.getIDwoCompartment(original.id, self.compartment_pattern)
         if type(original) == cobra.core.metabolite.Metabolite:
@@ -262,10 +270,50 @@ class ConversionForAgora(ConversionToBiGG):
 
 # endregion
 
+def printStat(model_types: [str], obj_type: "metabolites" or "reactions", useroutname):
+    if useroutname is not None:
+        outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
+    else:
+        outdata = pd.read_csv("../Output/" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
+    for typ in model_types:
+        uniq_first = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index)
+        uniq_second = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                  (outdata["2-anno"] == 1) & (outdata["3-orig"] == 0)].index)
+        uniq_third = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 1)].index)
+        uniq_forth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                 (outdata["4-addit"] == 1)].index)
+        uniq_fifth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                 (outdata["4-addit"] == 0) & (outdata["5-patt"] == 1)].index)
+        uniq_sixth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                 (outdata["4-addit"] == 0) & (outdata["5-patt"] == 0) & (
+                                             outdata["6-NOconv"] == 1)].index)
+        high = len(outdata[(outdata["Model_type"] == typ) & (outdata[["1-anno&orig", "2-anno", "3-orig"]] >= 1).any(
+            axis=1)].index)
+        middle = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                             (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                             (outdata[["4-addit", "5-patt", "6-NOconv"]] >= 1).any(axis=1)].index)
+        low_no = len(outdata[(outdata["Model_type"] == typ) & (outdata[["1-anno&orig", "2-anno", "3-orig", "4-addit",
+                                                                        "5-patt", "6-NOconv"]] == 0).all(axis=1)].index)
+        print(f"For {typ} models {uniq_first}  {obj_type} were converted uniquely with 1st level")
+        print(f"For {typ} models {uniq_second}  {obj_type} were converted uniquely with 2d level")
+        print(f"For {typ} models {uniq_third}  {obj_type} were converted uniquely with 3d level")
+        print(f"For {typ} models {uniq_forth}  {obj_type} were converted uniquely with 4th level")
+        print(f"For {typ} models {uniq_fifth}  {obj_type} were converted uniquely with 5th level")
+        print(f"For {typ} models {uniq_sixth}  {obj_type} were converted uniquely with 6th level")
+        print(f"For {typ} models {high}  {obj_type} were converted with 1st, 2d or 3d level")
+        print(f"For {typ} models {middle}  {obj_type} were converted with 4th, 5th or 6th level")
+        print(f"For {typ} models {low_no}  {obj_type} were not converted at all")
+
+
 def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrategies: dict, ConvertStrategies: dict,
-                                obj_type: "metabolites" or "reactions", write_output=True, useroutname=None) -> dict:
+                              obj_type: "metabolites" or "reactions", write_output=True, stat=True,
+                              useroutname=None) -> dict:
     if write_output:
-        if useroutname is not  None:
+        if useroutname is not None:
             output_ids = open("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", "w")
             output_number = open("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", "w")
             output_NOprior = open("../Output/" + useroutname + "_" + obj_type + "_Noprior_conversion_output.tsv", "w")
@@ -295,7 +343,7 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
                                  f"{len(bigg_ids['3-orig'])}\t{len(bigg_ids['4-addit'])}\t{len(bigg_ids['5-patt'])}" \
                                  f"\t{len(bigg_ids['6-NOconv'])}\n"
                 noprior_ids_string = f"{typ}\t{obj.id}\t{noprior_ids['annotation']}\t{noprior_ids['originalDB']}" \
-                             f"\t{noprior_ids['additionalDB']}\t{noprior_ids['pattern']}\t{noprior_ids['NOconversion']}\n"
+                                     f"\t{noprior_ids['additionalDB']}\t{noprior_ids['pattern']}\t{noprior_ids['NOconversion']}\n"
                 output_ids.write(ids_string)
                 output_number.write(numbers_string)
                 output_NOprior.write(noprior_ids_string)
@@ -304,7 +352,6 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
         output_ids.close()
         output_number.close()
         output_NOprior.close()
+        if stat:
+            printStat(model_types, obj_type, useroutname)
     return all_converted
-
-if __name__ == '__main__':
-    pass
