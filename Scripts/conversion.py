@@ -1,24 +1,11 @@
+from ast import literal_eval
+import operator
+import re
 from abc import ABC, abstractmethod
 import cobra
 import pandas as pd
-
-'''
-def intersection(a, b):
-    out = []
-    for el in a:
-        if (el in b) & (el not in out):
-            out.append(el)
-    return out
-
-def substraction(a, *args):
-    out = []
-    for el in a:
-        for b in args:
-            if (el not in b) & (el not in out):
-                out.append(el)
-    return out
-
-'''
+from collections import Counter
+import general
 
 
 # region Working with Compartments for different models
@@ -137,22 +124,6 @@ class ConversionToBiGG(ABC):
         """Run conversion process for different ids sources"""
 
 
-'''
-    def prioritiseConvertedNOSET(self, converted_bigg_ids):
-        prior_conv_ids = {
-            "1-anno&orig": intersection(converted_bigg_ids["annotation"], converted_bigg_ids["originalDB"]),
-            "2-anno": substraction(converted_bigg_ids["annotation"], converted_bigg_ids["originalDB"]),
-            "3-orig": substraction(converted_bigg_ids["originalDB"], converted_bigg_ids["annotation"]),
-            "4-addit": substraction(converted_bigg_ids["additionalDB"], converted_bigg_ids["annotation"],
-                converted_bigg_ids["originalDB"]),
-            "5-patt": substraction(converted_bigg_ids["pattern"], converted_bigg_ids["annotation"],
-                converted_bigg_ids["originalDB"], converted_bigg_ids["additionalDB"]),
-            "6-NOconv": substraction(converted_bigg_ids["NOconversion"], converted_bigg_ids["annotation"],
-                converted_bigg_ids["originalDB"], converted_bigg_ids["additionalDB"], converted_bigg_ids["pattern"])}
-        return prior_conv_ids
-'''
-
-
 class ConversionForGapseq(ConversionToBiGG):
     """Conversion IDs from original modelSEED ids in gapseq model"""
 
@@ -187,7 +158,7 @@ class ConversionForGapseq(ConversionToBiGG):
         tmp_converted["NOconversion"] = []
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids]
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
 
 
 class ConversionForModelseed(ConversionToBiGG):
@@ -219,7 +190,7 @@ class ConversionForModelseed(ConversionToBiGG):
         tmp_converted["NOconversion"] = []
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids]
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
 
 
 class ConversionForAgora(ConversionToBiGG):
@@ -231,7 +202,7 @@ class ConversionForAgora(ConversionToBiGG):
                  r_additional_convert_table: pd.core.frame.DataFrame,
                  met_bigg_to_check: list, react_bigg_to_check: list):
         super(ConversionForAgora, self).__init__(met_bigg_to_check, react_bigg_to_check)
-        self.compartment_pattern = ["(c)", "(e)"]
+        self.compartment_pattern = ["[c]", "[e]"]
         self.m_original_convert_table = m_original_convert_table
         self.r_original_convert_table = r_original_convert_table
         self.m_additional_convert_table = m_additional_convert_table
@@ -265,32 +236,38 @@ class ConversionForAgora(ConversionToBiGG):
         tmp_converted["NOconversion"] = [id_wo_compartment]
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids]
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
 
 
 # endregion
 
-def printStat(model_types: [str], obj_type: "metabolites" or "reactions", useroutname):
+def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reactions", useroutname: str):
+    levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
     if useroutname is not None:
         outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
+        summarydata = open("../Output/" + useroutname + "_" + obj_type + "_conversion_summary.txt", "w")
     else:
         outdata = pd.read_csv("../Output/" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
+        summarydata = open("../Output/" + obj_type + "_conversion_summary.txt", "w")
+    outdata = outdata.drop('ID_c', axis=1)
+    outdata = outdata.drop_duplicates(keep="first")
     for typ in model_types:
-        uniq_first = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index)
-        uniq_second = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                  (outdata["2-anno"] == 1) & (outdata["3-orig"] == 0)].index)
-        uniq_third = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 1)].index)
-        uniq_forth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
-                                 (outdata["4-addit"] == 1)].index)
-        uniq_fifth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
-                                 (outdata["4-addit"] == 0) & (outdata["5-patt"] == 1)].index)
-        uniq_sixth = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                 (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
-                                 (outdata["4-addit"] == 0) & (outdata["5-patt"] == 0) & (
-                                             outdata["6-NOconv"] == 1)].index)
+        number_uniq = []
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index))
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 1) & (outdata["3-orig"] == 0)].index))
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 1)].index))
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] == 1)].index))
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] == 0) & (outdata["5-patt"] == 1)].index))
+        number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] == 0) & (outdata["5-patt"] == 0) & (
+                                               outdata["6-NOconv"] == 1)].index))
         high = len(outdata[(outdata["Model_type"] == typ) & (outdata[["1-anno&orig", "2-anno", "3-orig"]] >= 1).any(
             axis=1)].index)
         middle = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
@@ -298,33 +275,58 @@ def printStat(model_types: [str], obj_type: "metabolites" or "reactions", userou
                              (outdata[["4-addit", "5-patt", "6-NOconv"]] >= 1).any(axis=1)].index)
         low_no = len(outdata[(outdata["Model_type"] == typ) & (outdata[["1-anno&orig", "2-anno", "3-orig", "4-addit",
                                                                         "5-patt", "6-NOconv"]] == 0).all(axis=1)].index)
-        print(f"For {typ} models {uniq_first}  {obj_type} were converted uniquely with 1st level")
-        print(f"For {typ} models {uniq_second}  {obj_type} were converted uniquely with 2d level")
-        print(f"For {typ} models {uniq_third}  {obj_type} were converted uniquely with 3d level")
-        print(f"For {typ} models {uniq_forth}  {obj_type} were converted uniquely with 4th level")
-        print(f"For {typ} models {uniq_fifth}  {obj_type} were converted uniquely with 5th level")
-        print(f"For {typ} models {uniq_sixth}  {obj_type} were converted uniquely with 6th level")
+        uniq_id = len(set(outdata[outdata['Model_type'] == typ]['ID'].tolist()))
+        print(f"{uniq_id} {obj_type} in {typ} model")
+        summarydata.write(f"{uniq_id} {obj_type} in {typ} model\n")
+        for i in range(len(levels)):
+            print(f"For {typ} models {number_uniq[i]}  {obj_type} were converted uniquely with {levels[i]} level")
+            summarydata.write(f"For {typ} models {number_uniq[i]}  {obj_type} were converted uniquely with {levels[i]} level\n")
         print(f"For {typ} models {high}  {obj_type} were converted with 1st, 2d or 3d level")
         print(f"For {typ} models {middle}  {obj_type} were converted with 4th, 5th or 6th level")
         print(f"For {typ} models {low_no}  {obj_type} were not converted at all")
+        summarydata.write(f"For {typ} models {high}  {obj_type} were converted with 1st, 2d or 3d level\n")
+        summarydata.write(f"For {typ} models {middle}  {obj_type} were converted with 4th, 5th or 6th level\n")
+        summarydata.write(f"For {typ} models {low_no}  {obj_type} were not converted at all\n")
+    summarydata.close()
+
+def findManyToOne(model_types: [str], obj_type: "metabolites" or "reactions", useroutname: str):
+    levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
+    if useroutname is not None:
+        outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", sep="\t")
+        file_name = "../Output/" + useroutname + "_" + obj_type + "_many_to_one_conversion_.tsv"
+    else:
+        outdata = pd.read_csv("../Output/" + obj_type + "_ids_conversion_output.tsv", sep="\t")
+        file_name = "../Output/" + obj_type + "_many_to_one_conversion_.tsv"
+    outdata = outdata.drop('ID_c', axis=1)
+    outdata = outdata.drop_duplicates(keep="first")
+    for l in levels:
+        outdata[l] = outdata[l].apply(literal_eval)
+    repeated_data = pd.DataFrame(columns=['Model_type', 'ID', '1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv'])
+    for typ in model_types:
+        for lev in levels:
+            ids_list_in_list = outdata[(outdata["Model_type"] == typ)][lev].tolist()
+            ids_list = [item for sublist in ids_list_in_list for item in sublist]
+            ids_occurence = Counter(ids_list)
+            ids_repeated = general.findKeysByValue(ids_occurence, 1, operator.gt)
+            if ids_repeated != []:
+                for rep in ids_repeated:
+                    repeated_record = outdata[(outdata["Model_type"] == typ) & (outdata[lev].str.contains(rep, regex=False))]
+                    if len(repeated_record.index)>100:
+                        print(rep)
+                    orig_id = repeated_record["ID"].values[0]
+                    if orig_id not in repeated_data[repeated_data["Model_type"] == typ]["ID"].tolist():
+                        repeated_data = pd.concat([repeated_data, repeated_record], ignore_index=True)
+    repeated_data.to_csv(file_name, sep='\t')
 
 
 def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrategies: dict, ConvertStrategies: dict,
-                              obj_type: "metabolites" or "reactions", write_output=True, stat=True,
+                              obj_type: "metabolites" or "reactions",
+                              write_output=True, do_summary=True, do_many_to_one=True,
                               useroutname=None) -> dict:
-    if write_output:
-        if useroutname is not None:
-            output_ids = open("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", "w")
-            output_number = open("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", "w")
-            output_NOprior = open("../Output/" + useroutname + "_" + obj_type + "_Noprior_conversion_output.tsv", "w")
-        else:
-            output_ids = open("../Output/" + obj_type + "_ids_conversion_output.tsv", "w")
-            output_number = open("../Output/" + obj_type + "_numbers_conversion_output.tsv", "w")
-            output_NOprior = open("../Output/" + obj_type + "_Noprior_conversion_output.tsv", "w")
-        output_ids.write("Model_type\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
-        output_number.write("Model_type\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
-        output_NOprior.write("Model_type\tID\tanno\torig\taddit\tpatt\tNOconv\n")
     all_converted = {}
+    ids_strings = []
+    numbers_strings = []
+    noprior_ids_strings = []
     for typ in model_types:
         all_converted.update({typ: {}})
         if obj_type == "metabolites":
@@ -335,23 +337,36 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
             ids = ConvertStrategies.get(typ).runConversion(CompartStrategies.get(typ), obj)
             bigg_ids = ids[0]
             noprior_ids = ids[1]
+            id_wo_compartment = ids[2]
             compartments = CompartStrategies.get(typ).runGetCompartment(obj)
-            if write_output:
-                ids_string = f"{typ}\t{obj.id}\t{bigg_ids['1-anno&orig']}\t{bigg_ids['2-anno']}\t{bigg_ids['3-orig']}" \
-                             f"\t{bigg_ids['4-addit']}\t{bigg_ids['5-patt']}\t{bigg_ids['6-NOconv']}\n"
-                numbers_string = f"{typ}\t{obj.id}\t{len(bigg_ids['1-anno&orig'])}\t{len(bigg_ids['2-anno'])}\t" \
-                                 f"{len(bigg_ids['3-orig'])}\t{len(bigg_ids['4-addit'])}\t{len(bigg_ids['5-patt'])}" \
-                                 f"\t{len(bigg_ids['6-NOconv'])}\n"
-                noprior_ids_string = f"{typ}\t{obj.id}\t{noprior_ids['annotation']}\t{noprior_ids['originalDB']}" \
-                                     f"\t{noprior_ids['additionalDB']}\t{noprior_ids['pattern']}\t{noprior_ids['NOconversion']}\n"
-                output_ids.write(ids_string)
-                output_number.write(numbers_string)
-                output_NOprior.write(noprior_ids_string)
             all_converted.get(typ).update({obj.id: [compartments, bigg_ids]})
+            ids_strings.append(f"{typ}\t{obj.id}\t{id_wo_compartment}\t{bigg_ids['1-anno&orig']}\t{bigg_ids['2-anno']}\t{bigg_ids['3-orig']}"
+                               f"\t{bigg_ids['4-addit']}\t{bigg_ids['5-patt']}\t{bigg_ids['6-NOconv']}\n")
+            numbers_strings.append(f"{typ}\t{obj.id}\t{id_wo_compartment}\t{len(bigg_ids['1-anno&orig'])}\t{len(bigg_ids['2-anno'])}\t"
+                                   f"{len(bigg_ids['3-orig'])}\t{len(bigg_ids['4-addit'])}\t{len(bigg_ids['5-patt'])}"
+                                   f"\t{len(bigg_ids['6-NOconv'])}\n")
+            noprior_ids_strings.append(f"{typ}\t{obj.id}\t{id_wo_compartment}\t{noprior_ids['annotation']}\t{noprior_ids['originalDB']}"
+                                       f"\t{noprior_ids['additionalDB']}\t{noprior_ids['pattern']}\t{noprior_ids['NOconversion']}\n")
     if write_output:
+        if useroutname is not None:
+            output_ids = open("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", "w")
+            output_number = open("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", "w")
+            output_NOprior = open("../Output/" + useroutname + "_" + obj_type + "_Noprior_conversion_output.tsv", "w")
+        else:
+            output_ids = open("../Output/" + obj_type + "_ids_conversion_output.tsv", "w")
+            output_number = open("../Output/" + obj_type + "_numbers_conversion_output.tsv", "w")
+            output_NOprior = open("../Output/" + obj_type + "_Noprior_conversion_output.tsv", "w")
+        output_ids.write("Model_type\tID_c\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
+        output_number.write("Model_type\tID_c\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
+        output_NOprior.write("Model_type\tID_c\tID\tanno\torig\taddit\tpatt\tNOconv\n")
+        output_ids.writelines(ids_strings)
+        output_number.writelines(numbers_strings)
+        output_NOprior.writelines(noprior_ids_strings)
         output_ids.close()
         output_number.close()
         output_NOprior.close()
-        if stat:
-            printStat(model_types, obj_type, useroutname)
+        if do_summary:
+            summarizeConversion(model_types, obj_type, useroutname)
+        if do_many_to_one:
+            findManyToOne(model_types, obj_type, useroutname)
     return all_converted
