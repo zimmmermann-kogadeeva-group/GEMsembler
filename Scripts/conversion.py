@@ -240,7 +240,7 @@ class ConversionForAgora(ConversionToBiGG):
 
 # endregion
 
-def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reactions", useroutname: str):
+def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reactions", useroutname=None):
     levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
     if useroutname is not None:
         outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", sep="\t")

@@ -3,6 +3,7 @@ from os.path import join
 import pandas as pd
 from cobra.io import read_sbml_model, write_sbml_model
 import conversion
+import selection
 
 if __name__ == '__main__':
     # region Open conversion tables
@@ -44,6 +45,7 @@ if __name__ == '__main__':
 
     # region Open models
     model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
+    models_same_db = {"modelseed": ["gapseq", "modelseed"]}
     fileDir = os.path.dirname(os.path.realpath('__file__'))  # getting directory of the script for paths to files
     name_carv_hom = join(fileDir, "../Data/BU_carveme_hom.xml")
     name_gapseq = join(fileDir, "../Data/BU_gapseq.xml")
@@ -75,3 +77,7 @@ if __name__ == '__main__':
                                                               ConversionStrategies, "metabolites")
     allreact_converted = conversion.runConversionForALLmodels(models_to_convert, all_models, CompartmentsStrategies,
                                                                 ConversionStrategies, "reactions")
+    highest_m = selection.getHighestConversion(models_to_convert, allmet_converted)
+    highest_r = selection.getHighestConversion(models_to_convert, allreact_converted)
+    consist_m = selection.checkSameConversion(models_same_db, highest_m, "metabolites")
+    consist_r = selection.checkSameConversion(models_same_db, highest_r, "reactions")
