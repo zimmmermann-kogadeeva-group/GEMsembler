@@ -6,13 +6,14 @@ import pandas as pd
 
 def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_directions=False):
     r_connections = pd.DataFrame(columns=["reaction", "1metabolites", "2metabolites", "models_number"])
-    r_connections["reaction"] = bigg_database_r["bigg_id"].str.removesuffix("_c").str.removesuffix(
-        "_e").str.removesuffix("_p")
+    r_connections["reaction"] = bigg_database_r["bigg_id"]
     r_connections["models_number"] = bigg_database_r['model_list'].str.split().apply(len)
     reactions = (bigg_database_r["reaction_string"]
-                 .str.replace(r"(\d+\.\d*|\d+e-\d*)|\+", "", regex=True)
+                 .str.replace(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+", "", regex=True)
                  .apply(lambda x: f" {x} "))
     r_connections[["1metabolites", "2metabolites"]] = reactions.str.split("<->", n=1, expand=True)
+    r_connections["1metabolites"] = r_connections["1metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
+    r_connections["2metabolites"] = r_connections["2metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
     uniq_all_met = (reactions.str.replace(r"(<->)", "", regex=True)
                     .str.split().explode().unique())
     m_connections = pd.DataFrame(

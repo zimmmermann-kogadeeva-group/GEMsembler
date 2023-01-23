@@ -319,6 +319,11 @@ def findManyToOne(model_types: [str], obj_type: "metabolites" or "reactions", us
                         repeated_data = pd.concat([repeated_data, repeated_record], ignore_index=True)
     repeated_data.to_csv(file_name, sep='\t')
 
+def addCompartmentToConvertedM(compartment: str, converted_m: dict):
+    converted_m_c = {}
+    for level, ids in converted_m.items():
+        converted_m_c[level] = [i + "_" + compartment for i in ids]
+    return converted_m_c
 
 def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrategies: dict, ConvertStrategies: dict,
                               obj_type: "metabolites" or "reactions",
@@ -340,6 +345,8 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
             noprior_ids = ids[1]
             id_wo_compartment = ids[2]
             compartments = CompartStrategies.get(typ).runGetCompartment(obj)
+            if obj_type == "metabolites":
+                bigg_ids = addCompartmentToConvertedM(compartments[0], bigg_ids)
             all_converted.get(typ).update({obj.id: [compartments, bigg_ids]})
             ids_strings.append(
                 f"{typ}\t{obj.id}\t{id_wo_compartment}\t{bigg_ids['1-anno&orig']}\t{bigg_ids['2-anno']}\t{bigg_ids['3-orig']}"

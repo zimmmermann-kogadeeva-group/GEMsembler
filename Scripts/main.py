@@ -1,9 +1,11 @@
+import copy
 import os
 from os.path import join
 import pandas as pd
 from cobra.io import read_sbml_model, write_sbml_model
 import conversion
 import selection
+import curation
 
 if __name__ == '__main__':
     # region Open conversion tables
@@ -15,7 +17,7 @@ if __name__ == '__main__':
     seed_orig_r = seed_orig[seed_orig["type"] == "r"][["seed_ids", "bigg_ids"]]
     seed_orig_r.columns = ["old", "new"]
     seed_addit = pd.read_csv(join(fileDir, "../../../Databases/metabolic_ids_convertion/seed_to_bigg_metanetx.tsv"),
-                            sep="\t")
+                             sep="\t")
     seed_addit_m = seed_addit[seed_addit["type"] == "m"][["seed_ids", "bigg_ids"]]
     seed_addit_m.columns = ["old", "new"]
     seed_addit_r = seed_addit[seed_addit["type"] == "r"][["seed_ids", "bigg_ids"]]
@@ -38,7 +40,7 @@ if __name__ == '__main__':
     bigg_all_m = pd.read_csv(join(fileDir, "../../../Databases/BiGG/bigg_models_metabolites.txt"), sep="\t")
     bigg_m = list(set(bigg_all_m["universal_bigg_id"]))
     bigg_all_r = pd.read_csv(join(fileDir, "../../../Databases/BiGG/bigg_models_reactions.txt"), sep="\t")
-    bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"].str.replace("_[cep]", "", regex=True)
+    bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"]
     bigg_r = list(set(bigg_all_r["universal_bigg_id"]))
 
     # endregion
@@ -60,9 +62,17 @@ if __name__ == '__main__':
 
     # endregion
 
+    # region Perform curation
+    models_to_curate = ["modelseed"]
+    curated_models = copy.deepcopy(all_models)
+    for cur in models_to_curate:
+        curated_models[cur] = curation.removeBtypeExchange(curated_models[cur])
+    # endregion
+
     # region Perform conversion
     GapseqConv = conversion.ConversionForGapseq(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m, bigg_r)
-    ModelseedConv = conversion.ConversionForModelseed(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m, bigg_r)
+    ModelseedConv = conversion.ConversionForModelseed(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m,
+                                                      bigg_r)
     AgoraConv = conversion.ConversionForAgora(old_new_bigg_m, old_new_bigg_r, kegg_bigg_m, kegg_bigg_r, bigg_m, bigg_r)
     ConversionStrategies = {"gapseq": GapseqConv, "modelseed": ModelseedConv, "agora": AgoraConv}
     CarvemeComp = conversion.CompartmentsForCarveme()
@@ -73,11 +83,11 @@ if __name__ == '__main__':
                               "agora": AgoraComp}
 
     models_to_convert = model_type_list[1:]
-    allmet_converted = conversion.runConversionForALLmodels(models_to_convert, all_models, CompartmentsStrategies,
-                                                              ConversionStrategies, "metabolites")
-    allreact_converted = conversion.runConversionForALLmodels(models_to_convert, all_models, CompartmentsStrategies,
-                                                                ConversionStrategies, "reactions")
-    highest_m = selection.getHighestConversion(models_to_convert, allmet_converted)
-    highest_r = selection.getHighestConversion(models_to_convert, allreact_converted)
-    consist_m = selection.checkSameConversion(models_same_db, highest_m, "metabolites")
-    consist_r = selection.checkSameConversion(models_same_db, highest_r, "reactions")
+    allmet_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models, CompartmentsStrategies,
+                                                            ConversionStrategies, "metabolites")
+    allreact_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models, CompartmentsStrategies,
+                                                              ConversionStrategies, "reactions")
+    allmet_selected = selection.selectFirstConfidenceConversion(models_to_convert, allmet_converted, "metabolites",
+                                                                models_same_db)
+    allreact_selected = selection.selectFirstConfidenceConversion(models_to_convert, allreact_converted, "reactions",
+                                                                models_same_db)
