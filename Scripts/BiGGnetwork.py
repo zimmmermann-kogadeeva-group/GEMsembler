@@ -1,4 +1,3 @@
-import bisect
 import os
 from os.path import join
 import pandas as pd
@@ -12,8 +11,6 @@ def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_di
                  .str.replace(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+", "", regex=True)
                  .apply(lambda x: f" {x} "))
     r_connections[["1metabolites", "2metabolites"]] = reactions.str.split("<->", n=1, expand=True)
-    r_connections["1metabolites"] = r_connections["1metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
-    r_connections["2metabolites"] = r_connections["2metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
     uniq_all_met = (reactions.str.replace(r"(<->)", "", regex=True)
                     .str.split().explode().unique())
     m_connections = pd.DataFrame(
@@ -21,6 +18,8 @@ def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_di
          for x in uniq_all_met],
         columns=["metabolite", "reactions"]
     )
+    r_connections["1metabolites"] = r_connections["1metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
+    r_connections["2metabolites"] = r_connections["2metabolites"].str.split().apply(lambda x: " ".join(sorted(x)))
     r_connections = r_connections.sort_values(["1metabolites", "2metabolites", "models_number"],
                                               ascending=[True, True, False])
     r_connections_uniq = r_connections.drop_duplicates(["1metabolites", "2metabolites"], keep="first")
@@ -36,11 +35,11 @@ def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_di
         dupl_drop = dupl.drop_duplicates(["1metabolites", "2metabolites"], keep="first")
         mixed_reactions = list(set(dupl["reaction"].tolist())-set(dupl_drop["reaction"].tolist()))
     r_connections_no_mix = r_connections_uniq[~r_connections_uniq["reaction"].isin(mixed_reactions)]
-    return r_connections_no_mix, m_connections
+    return {"reactions": r_connections_no_mix, "metabolites": m_connections}
 
 
 if __name__ == '__main__':
     # region Open conversion tables
     fileDir = os.path.dirname(os.path.realpath('__file__'))  # getting directory of the script for pathes to files
     bigg_all_r = pd.read_csv(join(fileDir, "../../../Databases/BiGG/bigg_models_reactions.txt"), sep="\t")
-    r_table, m_table = getBiGGnetwork(bigg_all_r)
+    bigg_network = getBiGGnetwork(bigg_all_r)

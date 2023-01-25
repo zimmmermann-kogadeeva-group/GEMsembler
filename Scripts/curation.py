@@ -10,25 +10,30 @@ def checkDuplicatedReactions(model: cobra.core.model.Model):
         reactants = sorted([react.id for react in r.reactants])
         products = sorted([pro.id for pro in r.products])
         if (r.lower_bound == 0) and (r.upper_bound > 0):
-            data = pd.concat([data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
-                                                 columns=data.columns)],
-                             ignore_index=True)
+            data = pd.concat(
+                [data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
+                                    columns=data.columns)],
+                ignore_index=True)
         if (r.lower_bound < 0) and (r.upper_bound == 0):
-            data = pd.concat([data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
-                                                 columns=data.columns)],
-                             ignore_index=True)
+            data = pd.concat(
+                [data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
+                                    columns=data.columns)],
+                ignore_index=True)
         if (r.lower_bound < 0) and (r.upper_bound > 0):
-            data = pd.concat([data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
-                                                 columns=data.columns)],
-                             ignore_index=True)
-            data = pd.concat([data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
-                                                 columns=data.columns)],
-                             ignore_index=True)
+            data = pd.concat(
+                [data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
+                                    columns=data.columns)],
+                ignore_index=True)
+            data = pd.concat(
+                [data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
+                                    columns=data.columns)],
+                ignore_index=True)
     struct_duplicated = data[data.duplicated(subset=['Reactants', 'Products'], keep=False)]
     struct_duplicated = struct_duplicated.sort_values(["Reactants", "Products"])
     gpr_duplicated = data[data.duplicated(subset=['Reactants', 'Products', "GPR"], keep=False)]
     gpr_duplicated = gpr_duplicated.sort_values(["Reactants", "Products", "GPR"])
     return struct_duplicated, gpr_duplicated
+
 
 def removeBtypeExchange(curated_model: cobra.core.model.Model):
     all_met_ids = [m.id for m in curated_model.metabolites]
@@ -38,14 +43,15 @@ def removeBtypeExchange(curated_model: cobra.core.model.Model):
     met_to_remove = []
     r_to_remove = []
     for b_met in b_met_ids:
-        b_met_e = b_met.removesuffix("_b")+"_"+curated_model.metabolites.get_by_id(b_met).compartment
+        b_met_e = b_met.removesuffix("_b") + "_" + curated_model.metabolites.get_by_id(b_met).compartment
         if b_met_e in all_met_ids:
             met_to_remove.append(curated_model.metabolites.get_by_id(b_met))
         else:
             curated_model.metabolites.get_by_id(b_met).id = b_met_e
             curated_model.repair()
     for b_r in b_r_ids:
-        b_r_e = b_r.removesuffix("_b")+"_"+list(curated_model.reactions.get_by_id(b_r).compartments)[0]
+        b_r_e = b_r.removesuffix("_b") + "_" + list(curated_model.reactions.get_by_id(b_r).compartments)[0]
+        # TODO: make an approach in case compartments in specific filed is not the same as compartments at the end of id
         if b_r_e in all_r_ids:
             r_to_remove.append(curated_model.reactions.get_by_id(b_r))
         else:

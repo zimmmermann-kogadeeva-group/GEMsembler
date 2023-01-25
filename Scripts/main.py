@@ -6,6 +6,7 @@ from cobra.io import read_sbml_model, write_sbml_model
 import conversion
 import selection
 import curation
+import BiGGnetwork
 
 if __name__ == '__main__':
     # region Open conversion tables
@@ -45,6 +46,8 @@ if __name__ == '__main__':
 
     # endregion
 
+    bigg_db_network = BiGGnetwork.getBiGGnetwork(bigg_all_r)
+
     # region Open models
     model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
     models_same_db = {"modelseed": ["gapseq", "modelseed"]}
@@ -81,7 +84,6 @@ if __name__ == '__main__':
     AgoraComp = conversion.CompartmentsForAgora()
     CompartmentsStrategies = {"carveme": CarvemeComp, "gapseq": GapseqComp, "modelseed": ModelseedComp,
                               "agora": AgoraComp}
-
     models_to_convert = model_type_list[1:]
     allmet_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models, CompartmentsStrategies,
                                                             ConversionStrategies, "metabolites")
@@ -90,4 +92,6 @@ if __name__ == '__main__':
     allmet_selected = selection.selectFirstConfidenceConversion(models_to_convert, allmet_converted, "metabolites",
                                                                 models_same_db)
     allreact_selected = selection.selectFirstConfidenceConversion(models_to_convert, allreact_converted, "reactions",
-                                                                models_same_db)
+                                                                  models_same_db)
+    structural_r = selection.runAdditionalConversion(models_to_convert, allmet_selected, allreact_selected, curated_models,
+                                                     bigg_db_network, "reactions")
