@@ -12,25 +12,25 @@ import dill
 if __name__ == '__main__':
     # region Open conversion tables
     fileDir = os.path.dirname(os.path.realpath('__file__'))  # getting directory of the script for pathes to files
-    seed_orig = pd.read_csv(join(fileDir, "../../../Databases/metabolic_ids_convertion/seed_to_bigg.tsv"),
+    seed_orig = pd.read_csv(join(fileDir, "../Data/seed_to_bigg.tsv"),
                             sep="\t")
     seed_orig_m = seed_orig[seed_orig["type"] == "m"][["seed_ids", "bigg_ids"]]
     seed_orig_m.columns = ["old", "new"]
     seed_orig_r = seed_orig[seed_orig["type"] == "r"][["seed_ids", "bigg_ids"]]
     seed_orig_r.columns = ["old", "new"]
-    seed_addit = pd.read_csv(join(fileDir, "../../../Databases/metabolic_ids_convertion/seed_to_bigg_metanetx.tsv"),
+    seed_addit = pd.read_csv(join(fileDir, "../Data/seed_to_bigg_metanetx.tsv"),
                              sep="\t")
     seed_addit_m = seed_addit[seed_addit["type"] == "m"][["seed_ids", "bigg_ids"]]
     seed_addit_m.columns = ["old", "new"]
     seed_addit_r = seed_addit[seed_addit["type"] == "r"][["seed_ids", "bigg_ids"]]
     seed_addit_r.columns = ["old", "new"]
-    kegg_bigg = pd.read_csv(join(fileDir, "../../../Databases/metabolic_ids_convertion/kegg_to_bigg_metanetx.tsv"),
+    kegg_bigg = pd.read_csv(join(fileDir, "../Data/kegg_to_bigg_metanetx.tsv"),
                             sep="\t")
     kegg_bigg_m = kegg_bigg[kegg_bigg["type"] == "m"][["kegg_ids", "bigg_ids"]]
     kegg_bigg_m.columns = ["old", "new"]
     kegg_bigg_r = kegg_bigg[kegg_bigg["type"] == "r"][["kegg_ids", "bigg_ids"]]
     kegg_bigg_r.columns = ["old", "new"]
-    old_new_bigg = pd.read_csv(join(fileDir, "../../../Databases/metabolic_ids_convertion/old_to_new_bigg.tsv"),
+    old_new_bigg = pd.read_csv(join(fileDir, "../../../Data/old_to_new_bigg.tsv"),
                                sep="\t")
     old_new_bigg_m = old_new_bigg[old_new_bigg["type"] == "m"][["old_bigg_ids", "bigg_ids"]]
     old_new_bigg_m.columns = ["old", "new"]
@@ -39,9 +39,9 @@ if __name__ == '__main__':
     old_new_bigg_r.columns = ["old", "new"]
     old_new_bigg_r["new"] = old_new_bigg_r[
         "new"]  # .str.replace("_[cep]", "", regex = True) - not sure, whether it  is reasnable
-    bigg_all_m = pd.read_csv(join(fileDir, "../../../Databases/BiGG/bigg_models_metabolites.txt"), sep="\t")
+    bigg_all_m = pd.read_csv(join(fileDir, "../Data/bigg_models_metabolites.txt"), sep="\t")
     bigg_m = list(set(bigg_all_m["universal_bigg_id"]))
-    bigg_all_r = pd.read_csv(join(fileDir, "../../../Databases/BiGG/bigg_models_reactions.txt"), sep="\t")
+    bigg_all_r = pd.read_csv(join(fileDir, "../Data/bigg_models_reactions.txt"), sep="\t")
     bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"]
     bigg_r = list(set(bigg_all_r["universal_bigg_id"]))
 
