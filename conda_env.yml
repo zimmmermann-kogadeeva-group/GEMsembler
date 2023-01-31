@@ -16,6 +16,7 @@ dependencies:
   - commonmark=0.9.1=py_0
   - dataclasses=0.8=pyhc8e2a94_3
   - depinfo=1.7.0=pyhd8ed1ab_0
+  - dill=0.3.6=pyhd8ed1ab_1
   - diskcache=5.4.0=pyhd8ed1ab_0
   - future=0.18.2=pyhd8ed1ab_6
   - glpk=5.0=h445213a_0

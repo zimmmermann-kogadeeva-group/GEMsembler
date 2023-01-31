@@ -8,4 +8,5 @@ dependencies:
   - python=3.9
   - cobra
   - numpy=1.23
+  - dill
 prefix: /home/mek/anaconda3/envs/supermodel_tool

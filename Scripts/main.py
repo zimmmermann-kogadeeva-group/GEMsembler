@@ -1,12 +1,13 @@
 import copy
 import os
-from os.path import join
+from os.path import join, exists
 import pandas as pd
 from cobra.io import read_sbml_model, write_sbml_model
 import conversion
 import selection
 import curation
 import BiGGnetwork
+import dill
 
 if __name__ == '__main__':
     # region Open conversion tables
@@ -45,8 +46,12 @@ if __name__ == '__main__':
     bigg_r = list(set(bigg_all_r["universal_bigg_id"]))
 
     # endregion
-
-    bigg_db_network = BiGGnetwork.getBiGGnetwork(bigg_all_r)
+    bigg_network_dill_file = join(fileDir, "../Scripts/bigg_network.pkl")
+    if exists(bigg_network_dill_file):
+        bigg_db_network = dill.load(open(bigg_network_dill_file, "rb"))
+    else:
+        bigg_db_network = BiGGnetwork.getBiGGnetwork(bigg_all_r)
+        dill.dump(bigg_db_network, open(bigg_network_dill_file, "wb"))
 
     # region Open models
     model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
@@ -57,11 +62,16 @@ if __name__ == '__main__':
     name_modelseed = join(fileDir, "../Data/BU_modelSEED.sbml")
     name_agora = join(fileDir, "../Data/BU_agora.xml")
     names = {"carveme": name_carv_hom, "gapseq": name_gapseq, "modelseed": name_modelseed, "agora": name_agora}
-    all_models = {}
-    for typ in model_type_list:
-        nam = names.get(typ)
-        model = read_sbml_model(nam)
-        all_models.update({typ: model})
+    all_models_dill_file = join(fileDir, "../Scripts/all_models.pkl")
+    if exists(all_models_dill_file):
+        all_models = dill.load(open(all_models_dill_file, "rb"))
+    else:
+        all_models = {}
+        for typ in model_type_list:
+            nam = names.get(typ)
+            model = read_sbml_model(nam)
+            all_models.update({typ: model})
+        dill.dump(all_models, open(all_models_dill_file, "wb"))
 
     # endregion
 
@@ -89,9 +99,9 @@ if __name__ == '__main__':
                                                             ConversionStrategies, "metabolites")
     allreact_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models, CompartmentsStrategies,
                                                               ConversionStrategies, "reactions")
-    allmet_selected = selection.selectFirstConfidenceConversion(models_to_convert, allmet_converted, "metabolites",
+    allmet_selected = selection.selectBasedOnConversionQuality(models_to_convert, allmet_converted, "metabolites",
                                                                 models_same_db)
-    allreact_selected = selection.selectFirstConfidenceConversion(models_to_convert, allreact_converted, "reactions",
+    allreact_selected = selection.selectBasedOnConversionQuality(models_to_convert, allreact_converted, "reactions",
                                                                   models_same_db)
     structural_r = selection.runAdditionalConversion(models_to_convert, allmet_selected, allreact_selected, curated_models,
                                                      bigg_db_network, "reactions")

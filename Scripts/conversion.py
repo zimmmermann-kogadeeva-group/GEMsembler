@@ -254,7 +254,7 @@ def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reaction
         number_uniq = []
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
-                                       (outdata["2-anno"] == 1) & (outdata["3-orig"] == 0)].index))
+                                       (outdata["2-anno"] == 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 0) & (outdata["3-orig"] == 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
@@ -335,10 +335,12 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
     noprior_ids_strings = []
     for typ in model_types:
         all_converted.update({typ: {}})
+
         if obj_type == "metabolites":
             objects = all_models.get(typ).metabolites
-        if obj_type == "reactions":
+        elif obj_type == "reactions":
             objects = all_models.get(typ).reactions
+
         for obj in objects:
             ids = ConvertStrategies.get(typ).runConversion(CompartStrategies.get(typ), obj)
             bigg_ids = ids[0]
