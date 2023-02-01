@@ -45,7 +45,7 @@ def checkSameConversion(models_same_db: dict, highest_converted: dict, obj_type:
             bigg_ids = []
             types_present = []
             for typ in models:
-                if highest_converted.get(typ).get(id)[1] is not None:
+                if highest_converted.get(typ).get(id) is not None:
                     types_present.append(typ)
                     if highest_converted.get(typ).get(id)[1]:
                         bigg_ids.append(highest_converted.get(typ).get(id)[1])
@@ -75,7 +75,7 @@ def checkSameConversion(models_same_db: dict, highest_converted: dict, obj_type:
                                 changed_stat.get(present)["zero_to_n"] = changed_stat.get(present)["zero_to_n"] + 1
                         else:
                             consistent_highest.get(present).update({id: [highest_converted.get(present).get(id)[0],
-                                                                         highest_converted.get(present).get(id)]})
+                                                                         highest_converted.get(present).get(id)[1]]})
                 else:
                     for pr in types_present:
                         not_consistent_highest.get(pr).update(
@@ -123,10 +123,10 @@ def checkManyToOne(model_types: [str], to_one: dict):
             {typ: {orig_ids[0]: [to_one.get(typ).get(orig_ids[0])[0], conv_id] for conv_id, orig_ids in
                    reversed_to_one.items() if len(orig_ids) == 1}})
         many_to_one.update({typ: {}})
-        for key, value in reversed_to_one.items():
+        for value in reversed_to_one.values():
             if len(value) > 1:
                 for val in value:
-                    many_to_one.get(typ).update({val: [to_one.get(typ).get(val), key]})
+                    many_to_one.get(typ).update({val: to_one.get(typ).get(val)})
     return one_to_one, many_to_one
 
 
@@ -153,7 +153,7 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
     compart1 = []
     met1_to_many = {}
     for met1 in orig_met1:
-        compart1.append(consistent[met1][0][0])
+        # compart1.append(consistent[met1][0][0])
         if met1 in first_confidence_conversion:
             bigg_met1.append(first_confidence_conversion[met1][1])
         elif met1 in one_to_many_conversion:
@@ -164,7 +164,7 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
     met2_to_many = {}
     for met2 in orig_met2:
         if met2 in first_confidence_conversion:
-            compart2.append(consistent[met2][0][0])
+            # compart2.append(consistent[met2][0][0])
             bigg_met2.append(first_confidence_conversion[met2][1])
         elif met2 in one_to_many_conversion:
             met2_to_many.update({met2: one_to_many_conversion[met2]})
@@ -179,39 +179,39 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
             bigg_r = bigg_r.values[0]
             comment = "Found_via_pure_reaction_equation"
         else:
-            for c1 in compart1:
-                bigg_met1_mod = bigg_met1.split()
-                if "h_" + c1 in bigg_met1:
-                    bigg_met1_mod.remove("h_"+c1)
-                else:
-                    bigg_met1_mod.append("h_"+c1)
+            # for c1 in compart1:
+            #     bigg_met1_mod = bigg_met1.split()
+            #     if "h_" + c1 in bigg_met1_mod:
+            #         bigg_met1_mod.remove("h_"+c1)
+            #     else:
+            #         bigg_met1_mod.append("h_"+c1)
             bigg_r = None
             comment = "Not_found_in_BiGG_network"
             # TODO: If not found try 1) add h 2) remove h 3) change c and e compartment to c and p or e and p
             # TODO: Write modifications made at the begging/end of id
-    elif (len(bigg_met1) + len(met1_to_many.keys()) == len(orig_met1)) & (
-        len(bigg_met2) + len(met2_to_many.keys()) == len(orig_met2)):
-        bigg_variants = []
-        if met1_to_many != {}:
-            for key1, val1 in met1_to_many.items():
-                for met_variant1 in val1:
-                    bigg_met1.append(met_variant1)
-                    bigg_met1 = " ".join(sorted(bigg_met1))
-                    if met2_to_many != {}:
-                        for key2, val2 in met2_to_many.items():
-                            for met_variant2 in val2:
-                                bigg_met2.append(met_variant2)
-                                bigg_met2 = " ".join(sorted(bigg_met2))
-                                bigg_r = BiGG_network_r[
-                                    ((BiGG_network_r["1metabolites"] == bigg_met1) & (
-                                            BiGG_network_r["2metabolites"] == bigg_met2)) | (
-                                            (BiGG_network_r["1metabolites"] == bigg_met2) & (
-                                            BiGG_network_r["2metabolites"] == bigg_met1))][
-                                    "reaction"]
-                                if not bigg_r.empty:
-                                    bigg_r = bigg_r.values[0]
-                                    comment = f"Found_via_one_to_many_metabolites: "
-
+    # elif (len(bigg_met1) + len(met1_to_many.keys()) == len(orig_met1)) & (
+    #     len(bigg_met2) + len(met2_to_many.keys()) == len(orig_met2)):
+    #     bigg_variants = []
+    #     if met1_to_many != {}:
+    #         for key1, val1 in met1_to_many.items():
+    #             for met_variant1 in val1[1]:
+    #                 bigg_met1.append(met_variant1)
+    #                 print("a")
+    #                 bigg_met1 = " ".join(sorted(bigg_met1))
+    #                 if met2_to_many != {}:
+    #                     for key2, val2 in met2_to_many.items():
+    #                         for met_variant2 in val2:
+    #                             bigg_met2.append(met_variant2)
+    #                             bigg_met2 = " ".join(sorted(bigg_met2))
+    #                             bigg_r = BiGG_network_r[
+    #                                 ((BiGG_network_r["1metabolites"] == bigg_met1) & (
+    #                                         BiGG_network_r["2metabolites"] == bigg_met2)) | (
+    #                                         (BiGG_network_r["1metabolites"] == bigg_met2) & (
+    #                                         BiGG_network_r["2metabolites"] == bigg_met1))][
+    #                                 "reaction"]
+    #                             if not bigg_r.empty:
+    #                                 bigg_r = bigg_r.values[0]
+    #                                 comment = f"Found_via_one_to_many_metabolites: "
     else:
         bigg_r = None
         comment = "Not_all_metabolites_for_reaction_are_converted"
@@ -232,14 +232,14 @@ def functionA(reaction_id: str, bigg_r_ids: [str], model: cobra.core.model.Model
     bigg_met1 = []
     for met1 in orig_met1:
         if met1 in first_confidence_conversion:
-            bigg_met1.append(first_confidence_conversion[met1])
+            bigg_met1.append(first_confidence_conversion[met1][1])
         else:
             bigg_met1.append(met1)
     orig_met2 = [pro.id for pro in model.reactions.get_by_id(reaction_id).products]
     bigg_met2 = []
     for met2 in orig_met2:
         if met2 in first_confidence_conversion:
-            bigg_met2.append(first_confidence_conversion[met2])
+            bigg_met2.append(first_confidence_conversion[met2][1])
         else:
             bigg_met2.append(met2)
     bigg_met1 = " ".join(bigg_met1)
@@ -305,7 +305,7 @@ def runAdditionalConversion(model_types: [str], first_stage_selected_m: dict, fi
                         structural_conversion.get(typ).get(key).update({orig_id: [select_bigg_id, structural_bigg_id]})
                         if structural_bigg_id[1] in ["Not_found_in_BiGG_network",
                                                      "Not_all_metabolites_for_reaction_are_converted"]:
-                            functionA(orig_id, select_bigg_id, all_models.get(typ), first_confidence_converted_m,
+                            functionA(orig_id, select_bigg_id[1], all_models.get(typ), first_confidence_converted_m,
                                       bigg_network.get("reactions"))
             # TODO: check for not found and many_to_one problem after convertReactionViaNetworkStructure functiom
             #   and pass all this to functionA

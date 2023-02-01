@@ -30,7 +30,7 @@ if __name__ == '__main__':
     kegg_bigg_m.columns = ["old", "new"]
     kegg_bigg_r = kegg_bigg[kegg_bigg["type"] == "r"][["kegg_ids", "bigg_ids"]]
     kegg_bigg_r.columns = ["old", "new"]
-    old_new_bigg = pd.read_csv(join(fileDir, "../../../Data/old_to_new_bigg.tsv"),
+    old_new_bigg = pd.read_csv(join(fileDir, "../Data/old_to_new_bigg.tsv"),
                                sep="\t")
     old_new_bigg_m = old_new_bigg[old_new_bigg["type"] == "m"][["old_bigg_ids", "bigg_ids"]]
     old_new_bigg_m.columns = ["old", "new"]
