@@ -1,6 +1,6 @@
 import copy
 import itertools
-from itertools import groupby
+from itertools import groupby, combinations
 import operator
 from copy import deepcopy
 import pandas as pd
@@ -211,7 +211,41 @@ def workWithH(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r, addit_co
     return bigg_r
 
 
-def trySeveralMetabolites(reaction_id: str, bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2, BiGG_network_r):
+def addPeriplasmic(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r, addit_comment=""):
+
+    bigg_r = {}
+    # bigg_r_H = {}
+    bigg1_comb = []
+    for r1 in range(len(bigg_met1)+1):
+        bigg1_comb = bigg1_comb + list(combinations(bigg_met1, r1))
+    bigg2_comb = []
+    for r2 in range(len(bigg_met2)+1):
+        bigg2_comb = bigg2_comb + list(combinations(bigg_met2, r2))
+    for comb1 in bigg1_comb:
+        for comb2 in bigg2_comb:
+            bigg1 = list(set(bigg_met1) - set(comb1))
+            if comb1:
+                bigg1_p = [m1[:-1]+"p" for m1 in comb1]
+            else:
+                bigg1_p = []
+            bigg2 = list(set(bigg_met2) - set(comb2))
+            if comb2:
+                bigg2_p = [m2[:-1]+"p" for m2 in comb2]
+            else:
+                bigg2_p = []
+            tmp_bigg_r = findReactionViaPureEquation(bigg1+bigg1_p, bigg2+bigg2_p, BiGG_network_r,
+                                                     "Found_via_adding_periplasmic_compartment")
+            # tmp_bigg_r_H = workWithH(bigg1+bigg1_p, bigg2+bigg2_p, compart1+["p"], compart2+["p"], BiGG_network_r,
+            #                          "Found_via_adding_periplasmic_compartment")
+            if tmp_bigg_r: bigg_r.update(tmp_bigg_r)
+            # if tmp_bigg_r_H: bigg_r_H.update(tmp_bigg_r_H)
+    if bigg_r:
+        return bigg_r
+    # else:
+    #     return bigg_r_H
+
+
+def trySeveralMetabolites(bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2, BiGG_network_r):
     bigg_r = {}
     bigg_r_H = {}
     bigg_to_many_variants1 = []
@@ -295,11 +329,13 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
         if not bigg_r:
             bigg_r = workWithH(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r)
             if not bigg_r:
-                bigg_r = {"NOT_found": "Not_found_in_BiGG_network"}
+                bigg_r = addPeriplasmic(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r)
+                if not bigg_r:
+                    bigg_r = {"NOT_found": "Not_found_in_BiGG_network"}
             # TODO: If not found try 3) change c and e compartment to c and p or e and p
     elif (len(bigg_met1) + len(met1_to_many.keys()) == len(orig_met1)) & (
             len(bigg_met2) + len(met2_to_many.keys()) == len(orig_met2)):
-        bigg_r = trySeveralMetabolites(reaction_id, bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2, BiGG_network_r)
+        bigg_r = trySeveralMetabolites(bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2, BiGG_network_r)
         if not bigg_r:
             bigg_r = {"NOT_found": "Not_found_via_one_to_many_metabolites"}
     else:
