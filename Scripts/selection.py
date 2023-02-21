@@ -92,7 +92,11 @@ def checkDBConsistency(models_same_db: dict, highest_converted: dict, obj_type: 
             print(f"For {key} model {value['zero_to_one']} {obj_type} were changed from no found ids to one")
             print(f"For {key} model {value['n_to_n']} {obj_type} were changed from several ids to smaller amount of ids")
             print(f"For {key} model {value['zero_to_n']} {obj_type} were changed from no found ids to several")
-    return consistent_highest, not_consistent_highest
+    consistent = copy.deepcopy(highest_converted)
+    for same_models in models_same_db.values():
+        for model in same_models:
+            consistent[model] = consistent_highest[model]
+    return consistent, consistent_highest, not_consistent_highest
 
 
 def checkToOneToMany(model_types: [str], consistent_highest: dict):
@@ -135,16 +139,10 @@ def checkFromOneFromMany(model_types: [str], to_smth: dict):
 def runSelection(model_types: [str], converted_obj: dict, obj_type: "metabolites" or "reactions",
                  models_same_db: dict):
     highest = getHighestConversion(model_types, converted_obj)
-    consist, not_consistent = checkDBConsistency(models_same_db, highest, obj_type)
-    consistent = copy.deepcopy(highest)
-    for same_models in models_same_db.values():
-        for model in same_models:
-            consistent[model] = consist[model]
+    consistent, consist, not_consistent = checkDBConsistency(models_same_db, highest, obj_type)
     to_one, to_many, not_converted = checkToOneToMany(model_types, consistent)
     one_to_one, many_to_one = checkFromOneFromMany(model_types, to_one)
     one_to_many, many_to_many = checkFromOneFromMany(model_types, to_many)
     return {"one_to_one": one_to_one, "one_to_many": one_to_many, "many_to_one": many_to_one, "many_to_many": many_to_many,
                                           "not_converted": not_converted, "not_consistent": not_consistent,
             "intermediate_data": {"highest": highest, "consistent": consist, "to_one": to_one, "to_many": to_many}}
-
-

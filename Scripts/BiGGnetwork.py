@@ -39,6 +39,8 @@ def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_di
         dupl_drop = dupl.drop_duplicates(["1metabolites", "2metabolites"], keep="first")
         mixed_reactions = list(set(dupl["reaction"].tolist())-set(dupl_drop["reaction"].tolist()))
     r_connections_no_mix = r_connections_uniq[~r_connections_uniq["reaction"].isin(mixed_reactions)]
+    r_connections_no_mix["equation"] = r_connections_no_mix[["1metabolites", "2metabolites"]].values.tolist()
+    r_connections_no_mix["equation"] = r_connections_no_mix["equation"].apply(lambda x: "<->".join(sorted(x)))
     return {"reactions": r_connections_no_mix, "metabolites": m_connections, "additional": [a, b, c, d]}
 
 

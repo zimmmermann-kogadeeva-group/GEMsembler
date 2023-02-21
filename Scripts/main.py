@@ -115,118 +115,16 @@ if __name__ == '__main__':
                                              models_same_db)
     allreact_selected = selection.runSelection(models_to_convert, allreact_converted, "reactions",
                                                models_same_db)
-    structural_r_all, structural_r_one = structural.runAdditionalConversion(models_to_convert, allmet_selected,
-                                                                           allreact_selected, curated_models,
-                                                                           bigg_db_network, "reactions")
-    '''
-    # check structural reaction consistency
-    tmp_r_one_consist, struct_r_one_not_consist = selection.checkDBConsistency(models_same_db, structural_r_one,
-                                                                                "reactions", write_files=False,
-                                                                               do_stat=False)
-    struct_r_one_consist = deepcopy(structural_r_one)
-    for same_models in models_same_db.values():
-        for model in same_models:
-            struct_r_one_consist[model] = tmp_r_one_consist[model]
-    # check structural reactions many_to_one
-    for typ in models_to_convert:
-        struct_r_one_consist[typ] = {k: [v[0], v[1][0]] for k, v in struct_r_one_consist[typ].items()}
-    structural_r_one_one, structural_r_many_one = selection.checkFromOneFromMany(models_to_convert, struct_r_one_consist)
+    structural_r_info, structural_r_sel = structural.runStructuralConversion(models_to_convert, allmet_selected.get("one_to_one"),
+                                                                             allmet_selected, allreact_selected, curated_models,
+                                                                             bigg_db_network, allmet_selected.get("one_to_many"))
+    struct_r_consistent, struct_r_consist, struct_r_not_consist = selection.checkDBConsistency(models_same_db,
+                                                                        structural_r_sel, "reactions",
+                                                                        write_files=False, do_stat=False)
+    struct_r_uniq, struct_r_not_uniq = selection.checkFromOneFromMany(models_to_convert, struct_r_consistent)
+    met_struct, a, b, c, d = structural.runSuggestionsMet(models_to_convert,structural_r_info, struct_r_uniq, allmet_selected, models_same_db, curated_models, bigg_db_network)
+    test_r, test_r_one = structural.runStructuralConversion(models_to_convert, met_struct, allmet_selected, allreact_selected, curated_models, bigg_db_network)
+    test_r_consistent, test_r_consist, test_r_not_consist = selection.checkDBConsistency(models_same_db, test_r_one,
+                                                                        "reactions", write_files=False, do_stat=False)
+    test_r_uniq, test_r_not_uniq = selection.checkFromOneFromMany(models_to_convert, test_r_consistent)
 
-
-
-    # make suggestions based on one_t_one consistent reactions for one_to_many metabolites
-    suggestions_one_many_m, suggestions_one_many_m_sel = selection.getSuggestionForMetabolites(models_to_convert,
-                                                                                               structural_r_one_one,
-                                                                                               structural_r_all)
-    # unite suggestions coming for models from the same database
-    met_same_db = set()
-    for same_models in models_same_db.values():
-        for model in same_models:
-            met_same_db = met_same_db | set(suggestions_one_many_m_sel.get(model).keys())
-    unite_suggestions_one_many_m_sel = {}
-    for typ in models_to_convert:
-        unite_suggestions_one_many_m_sel[typ] = {
-            key: [allmet_selected.get("intermediate_data").get("highest").get(typ).get(key)[0], val] for key, val in
-            suggestions_one_many_m_sel.get(typ).items()}
-        if typ in allmet_selected.get("intermediate_data").get("consistent").keys():
-            for met_to_add in met_same_db:
-                if (met_to_add not in list(suggestions_one_many_m_sel.get(typ).keys())) & (
-                        met_to_add in list(allmet_selected.get("intermediate_data").get("consistent").get(typ).keys())):
-                    unite_suggestions_one_many_m_sel.get(typ).update({met_to_add: allmet_selected.get(
-                        "intermediate_data").get("consistent").get(typ).get(met_to_add)})
-    # check metabolite suggestions for consistency
-    tmp_m_sug_consist, m_sug_not_consist = selection.checkDBConsistency(models_same_db,
-                                                                        unite_suggestions_one_many_m_sel,
-                                                                         "metabolites", write_files=False,
-                                                                        do_stat=False)
-    # check metabolites suggestions for many_to_one
-    met_suggestions = deepcopy(unite_suggestions_one_many_m_sel)
-    for same_models in models_same_db.values():
-        for model in same_models:
-            met_suggestions[model] = tmp_m_sug_consist[model]
-    tmp_first_structural_met = {}
-    for typ in models_to_convert:
-        met_suggestions[typ] = {k: [v[0], v[1][0], {"selection_type": "structural_suggestions_for_one_many"}] for k, v
-                                in met_suggestions[typ].items()}
-        tmp_first_structural_met.update({typ: met_suggestions[typ]})
-        tmp_first_structural_met.get(typ).update(
-            {key: [val[0], val[1], {"selection_type": "selection_one_one"}] for key, val in
-             allmet_selected.get("one_to_one").get(typ).items()})
-    first_structural_met, first_structural_met_many_one = selection.checkFromOneFromMany(models_to_convert,
-                                                                                         tmp_first_structural_met)
-
-
-
-    # make suggestions for many_to_one metabolite
-    many_to_one_suggestions = {}
-    for typ in models_to_convert:
-        many_to_one_suggestions.update({typ:
-                                            selection.ManyOneMetFromStructuralMet(
-                                                allmet_selected.get("many_to_one").get(typ), curated_models.get(typ),
-                                                first_structural_met.get(typ), bigg_db_network.get("reactions"))})
-   # unite suggestions coming for models from the same database
-    met_same_db_mo = set()
-    for same_models in models_same_db.values():
-        for model in same_models:
-            met_same_db_mo = met_same_db_mo | set(many_to_one_suggestions.get(model).keys())
-    unite_suggestions_many_one_m_sel = {}
-    for typ in models_to_convert:
-        unite_suggestions_many_one_m_sel[typ] = {k: [v[0], [v[1]]] for k, v in many_to_one_suggestions.get(typ).items()}
-        if typ in allmet_selected.get("intermediate_data").get("consistent").keys():
-            for met_to_add in met_same_db_mo:
-                if (met_to_add not in list(many_to_one_suggestions.get(typ).keys())) & (
-                        met_to_add in list(allmet_selected.get("intermediate_data").get("consistent").get(typ).keys())):
-                    unite_suggestions_many_one_m_sel.get(typ).update({met_to_add: allmet_selected.get(
-                        "intermediate_data").get("consistent").get(typ).get(met_to_add)})
-    # check metabolite suggestions for consistency
-    tmp_mo_m_sug_consist, mo_m_sug_not_consist = selection.checkDBConsistency(models_same_db,
-                                                                              unite_suggestions_many_one_m_sel,
-                                                                         "metabolites", write_files=False,
-                                                                              do_stat=False)
-    # check metabolites suggestions for many_to_one
-    mo_met_suggestions = deepcopy(unite_suggestions_many_one_m_sel)
-    for same_models in models_same_db.values():
-        for model in same_models:
-            mo_met_suggestions[model] = tmp_mo_m_sug_consist[model]
-    tmp_final_met = {}
-    for typ in models_to_convert:
-        mo_met_suggestions[typ] = {k: [v[0], v[1][0], {"selection_type": "structural_suggestions_for_one_many"}] for k, v
-                                in mo_met_suggestions[typ].items()}
-        tmp_final_met.update({typ: mo_met_suggestions[typ]})
-        tmp_final_met.get(typ).update(first_structural_met.get(typ))
-    final_metabolites, final_metabolites_many_one = selection.checkFromOneFromMany(models_to_convert,
-                                                                                   tmp_final_met)
-    test_r, test_r_one = selection.test(models_to_convert,final_metabolites, allmet_selected, allreact_selected, curated_models, bigg_db_network, "reactions")
-    # check consistency for rtest
-    tmp_r_consist, struct_r_not_consist = selection.checkDBConsistency(models_same_db, test_r_one,
-                                                                                "reactions", write_files=False,
-                                                                       do_stat=False)
-    struct_r_consist = deepcopy(test_r_one)
-    for same_models in models_same_db.values():
-        for model in same_models:
-            struct_r_consist[model] = tmp_r_consist[model]
-    # check structural reactions many_to_one
-    for typ in models_to_convert:
-        struct_r_consist[typ] = {k: [v[0], v[1][0]] for k, v in struct_r_consist[typ].items()}
-    test_structural_r_one_one_one, test_structural_r_many_one = selection.checkFromOneFromMany(models_to_convert, struct_r_consist)
-    '''
