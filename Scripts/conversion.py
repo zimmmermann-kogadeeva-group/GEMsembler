@@ -1,3 +1,4 @@
+import re
 from ast import literal_eval
 import operator
 from abc import ABC, abstractmethod
@@ -8,57 +9,57 @@ import general
 
 
 # region Working with Compartments for different models
-class Compartments(ABC):
-
-    def getIDwoCompartment(self, original_id: str, pattern_to_remove: [str]) -> str:
-        id_wo_compartment = original_id
-        for pattern in pattern_to_remove:
-            id_wo_compartment = id_wo_compartment.removesuffix(pattern)
-        return id_wo_compartment
-
-    @abstractmethod
-    def getCompartment(self, original_compartment: str) -> str:
-        """get compartments in standardised form"""
-
-    def runGetCompartment(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
-        if type(original) == cobra.core.metabolite.Metabolite:
-            standard_compartments = [self.getCompartment(original.compartment)]
-        if type(original) == cobra.core.reaction.Reaction:
-            standard_compartments = []
-            for comp in original.compartments:
-                standard_compartments.append(self.getCompartment(comp))
-        return standard_compartments
-
-
-class CompartmentsForCarveme(Compartments):
-
-    def getCompartment(self, original_compartment: str) -> str:
-        standard_compartment = original_compartment.split("_")[1]
-        return standard_compartment
-
-
-class CompartmentsForGapseq(Compartments):
-
-    def getCompartment(self, original_compartment: str) -> str:
-        standard_compartment = original_compartment[:-1]
-        return standard_compartment
-
-
-class CompartmentsForModelseed(Compartments):
-
-    def getCompartment(self, original_compartment: str) -> str:
-        standard_compartment = original_compartment[:-1]
-        return standard_compartment
-
-
-class CompartmentsForAgora(Compartments):
-
-    def getCompartment(self, original_compartment: str) -> str:
-        standard_compartment = original_compartment
-        return standard_compartment
-
-
-# endregion
+# class Compartments(ABC):
+#
+#     def getIDwoCompartment(self, original_id: str, pattern_to_remove: [str]) -> str:
+#         id_wo_compartment = original_id
+#         for pattern in pattern_to_remove:
+#             id_wo_compartment = id_wo_compartment.removesuffix(pattern)
+#         return id_wo_compartment
+#
+#     @abstractmethod
+#     def getCompartment(self, original_compartment: str) -> str:
+#         """get compartments in standardised form"""
+#
+#     def runGetCompartment(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+#         if type(original) == cobra.core.metabolite.Metabolite:
+#             standard_compartments = [self.getCompartment(original.compartment)]
+#         if type(original) == cobra.core.reaction.Reaction:
+#             standard_compartments = []
+#             for comp in original.compartments:
+#                 standard_compartments.append(self.getCompartment(comp))
+#         return standard_compartments
+#
+#
+# class CompartmentsForCarveme(Compartments):
+#
+#     def getCompartment(self, original_compartment: str) -> str:
+#         standard_compartment = original_compartment.split("_")[1]
+#         return standard_compartment
+#
+#
+# class CompartmentsForGapseq(Compartments):
+#
+#     def getCompartment(self, original_compartment: str) -> str:
+#         standard_compartment = original_compartment[:-1]
+#         return standard_compartment
+#
+#
+# class CompartmentsForModelseed(Compartments):
+#
+#     def getCompartment(self, original_compartment: str) -> str:
+#         standard_compartment = original_compartment[:-1]
+#         return standard_compartment
+#
+#
+# class CompartmentsForAgora(Compartments):
+#
+#     def getCompartment(self, original_compartment: str) -> str:
+#         standard_compartment = original_compartment
+#         return standard_compartment
+#
+#
+# # endregion
 
 # region Working on converting ids for different models from different sources
 class ConversionToBiGG(ABC):
@@ -117,11 +118,32 @@ class ConversionToBiGG(ABC):
                 converted_bigg_ids["pattern"]))}
         return prior_conv_ids
 
+    def addCompartmentToConvertedM(self, compartment: str, converted_m: dict):
+        converted_m_c = {}
+        for level, ids in converted_m.items():
+            converted_m_c[level] = [i + "_" + compartment for i in ids]
+        return converted_m_c
+
     @abstractmethod
-    def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+    def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
         """Run conversion process for different ids sources"""
 
+    def getIDwoCompartment(self, original_id: str, pattern_to_remove: str) -> str:
+        id_wo_compartment = re.sub(pattern_to_remove, "", original_id)
+        return id_wo_compartment
+
+    @abstractmethod
+    def getCompartment(self, original_compartment: str) -> str:
+        """get compartments in standardised form"""
+
+    def runGetCompartment(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+        if type(original) == cobra.core.metabolite.Metabolite:
+            standard_compartments = [self.getCompartment(original.compartment)]
+        if type(original) == cobra.core.reaction.Reaction:
+            standard_compartments = []
+            for comp in original.compartments:
+                standard_compartments.append(self.getCompartment(comp))
+        return standard_compartments
 
 class ConversionForGapseq(ConversionToBiGG):
     """Conversion IDs from original modelSEED ids in gapseq model"""
@@ -132,7 +154,7 @@ class ConversionForGapseq(ConversionToBiGG):
                  r_additional_convert_table: pd.core.frame.DataFrame,
                  met_bigg_to_check: list, react_bigg_to_check: list):
         super(ConversionForGapseq, self).__init__(met_bigg_to_check, react_bigg_to_check)
-        self.compartment_pattern = ["_c0", "_e0", "_p0"]
+        self.compartment_pattern = "_(c0|e0|p0)$"
         self.m_original_convert_table = m_original_convert_table
         self.r_original_convert_table = r_original_convert_table
         self.m_additional_convert_table = m_additional_convert_table
@@ -140,16 +162,19 @@ class ConversionForGapseq(ConversionToBiGG):
         self.metabolite_annotation = "bigg.metabolite"
         self.reaction_annotation = "bigg.reaction"
 
-    def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+    def getCompartment(self, original_compartment: str) -> str:
+        standard_compartment = original_compartment[:-1]
+        return standard_compartment
+
+    def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
         tmp_converted = {}
-        id_wo_compartment = do_compartments.getIDwoCompartment(original.id, self.compartment_pattern)
+        id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
         if type(original) == cobra.core.metabolite.Metabolite:
             tmp_converted["annotation"] = super().convertViaAnnotation(original.annotation,
                                                                        self.metabolite_annotation)
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.m_original_convert_table)
             tmp_converted["additionalDB"] = super().convertViaTable(id_wo_compartment, self.m_additional_convert_table)
-        if type(original) == cobra.core.reaction.Reaction:
+        elif type(original) == cobra.core.reaction.Reaction:
             tmp_converted["annotation"] = super().convertViaAnnotation(original.annotation, self.reaction_annotation)
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.r_original_convert_table)
             tmp_converted["additionalDB"] = super().convertViaTable(id_wo_compartment, self.r_additional_convert_table)
@@ -157,7 +182,10 @@ class ConversionForGapseq(ConversionToBiGG):
         tmp_converted["NOconversion"] = []
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
+        compartments = super().runGetCompartment(original)
+        if type(original) == cobra.core.metabolite.Metabolite:
+            prioritise_bigg_ids = super().addCompartmentToConvertedM(compartments[0], prioritise_bigg_ids)
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment, compartments]
 
 
 class ConversionForModelseed(ConversionToBiGG):
@@ -169,27 +197,33 @@ class ConversionForModelseed(ConversionToBiGG):
                  r_additional_convert_table: pd.core.frame.DataFrame,
                  met_bigg_to_check: list, react_bigg_to_check: list):
         super(ConversionForModelseed, self).__init__(met_bigg_to_check, react_bigg_to_check)
-        self.compartment_pattern = ["_c0", "_e0", "_b"]
+        self.compartment_pattern = "_(c0|e0|b)$"
         self.m_original_convert_table = m_original_convert_table
         self.r_original_convert_table = r_original_convert_table
         self.m_additional_convert_table = m_additional_convert_table
         self.r_additional_convert_table = r_additional_convert_table
 
-    def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+    def getCompartment(self, original_compartment: str) -> str:
+        standard_compartment = original_compartment[:-1]
+        return standard_compartment
+
+    def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
         tmp_converted = {"annotation": []}
-        id_wo_compartment = do_compartments.getIDwoCompartment(original.id, self.compartment_pattern)
+        id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
         if type(original) == cobra.core.metabolite.Metabolite:
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.m_original_convert_table)
             tmp_converted["additionalDB"] = super().convertViaTable(id_wo_compartment, self.m_additional_convert_table)
-        if type(original) == cobra.core.reaction.Reaction:
+        elif type(original) == cobra.core.reaction.Reaction:
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.r_original_convert_table)
             tmp_converted["additionalDB"] = super().convertViaTable(id_wo_compartment, self.r_additional_convert_table)
         tmp_converted["pattern"] = []
         tmp_converted["NOconversion"] = []
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
+        compartments = super().runGetCompartment(original)
+        if type(original) == cobra.core.metabolite.Metabolite:
+            prioritise_bigg_ids = super().addCompartmentToConvertedM(compartments[0], prioritise_bigg_ids)
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment, compartments]
 
 
 class ConversionForAgora(ConversionToBiGG):
@@ -201,7 +235,7 @@ class ConversionForAgora(ConversionToBiGG):
                  r_additional_convert_table: pd.core.frame.DataFrame,
                  met_bigg_to_check: list, react_bigg_to_check: list):
         super(ConversionForAgora, self).__init__(met_bigg_to_check, react_bigg_to_check)
-        self.compartment_pattern = ["[c]", "[e]"]
+        self.compartment_pattern = "\[(c|e)\]$"
         self.m_original_convert_table = m_original_convert_table
         self.r_original_convert_table = r_original_convert_table
         self.m_additional_convert_table = m_additional_convert_table
@@ -209,14 +243,17 @@ class ConversionForAgora(ConversionToBiGG):
         self.metabolite_annotation = "kegg.compound"
         self.reaction_annotation = "kegg.reaction"
 
+    def getCompartment(self, original_compartment: str) -> str:
+        standard_compartment = original_compartment
+        return standard_compartment
+
     def convertViaPattern(self, id_wo_compartment: str) -> [str]:
         converted = [id_wo_compartment[::-1].replace("_", "__", 1)[::-1]]
         return converted
 
-    def runConversion(self, do_compartments: Compartments,
-                      original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+    def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
         tmp_converted = {"annotation": []}
-        id_wo_compartment = do_compartments.getIDwoCompartment(original.id, self.compartment_pattern)
+        id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
         if type(original) == cobra.core.metabolite.Metabolite:
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.m_original_convert_table)
             met_from_annotation = super().convertViaAnnotation(original.annotation, self.metabolite_annotation)
@@ -224,7 +261,7 @@ class ConversionForAgora(ConversionToBiGG):
             for met in met_from_annotation:
                 tmp_converted["additionalDB"] = tmp_converted["additionalDB"] + super().convertViaTable(met,
                                                                                                         self.m_additional_convert_table)
-        if type(original) == cobra.core.reaction.Reaction:
+        elif type(original) == cobra.core.reaction.Reaction:
             tmp_converted["originalDB"] = super().convertViaTable(id_wo_compartment, self.r_original_convert_table)
             react_from_annotation = super().convertViaAnnotation(original.annotation, self.reaction_annotation)
             tmp_converted["additionalDB"] = []
@@ -235,10 +272,50 @@ class ConversionForAgora(ConversionToBiGG):
         tmp_converted["NOconversion"] = [id_wo_compartment]
         converted_bigg_ids = super().checkTMPinBigg(type(original), tmp_converted)
         prioritise_bigg_ids = super().prioritiseConverted(converted_bigg_ids)
-        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment]
-
+        compartments = super().runGetCompartment(original)
+        if type(original) == cobra.core.metabolite.Metabolite:
+            prioritise_bigg_ids = super().addCompartmentToConvertedM(compartments[0], prioritise_bigg_ids)
+        return [prioritise_bigg_ids, converted_bigg_ids, id_wo_compartment, compartments]
 
 # endregion
+
+class ConversionForCarveMe(ConversionToBiGG):
+    """Conversion IDs from original modelSEED ids in gapseq model"""
+
+    def __init__(self, m_original_convert_table: pd.core.frame.DataFrame,
+                 r_original_convert_table: pd.core.frame.DataFrame,
+                 met_bigg_to_check: list, react_bigg_to_check: list):
+        super(ConversionForCarveMe, self).__init__(met_bigg_to_check, react_bigg_to_check)
+        self.m_original_convert_table = m_original_convert_table
+        self.r_original_convert_table = r_original_convert_table
+        self.compartment_pattern = "_(c|e|p)$"
+
+    def getCompartment(self, original_compartment: str) -> str:
+        standard_compartment = original_compartment.split("_")[1]
+        return standard_compartment
+
+    def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
+        id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
+        compartments = super().runGetCompartment(original)
+        if type(original) == cobra.core.metabolite.Metabolite:
+            if id_wo_compartment not in self.met_bigg_to_check:
+                bigg_ids = super().convertViaTable(id_wo_compartment, self.m_original_convert_table)
+                if bigg_ids:
+                    bigg_ids = [b+"_"+compartments[0] for b in bigg_ids]
+                else:
+                    bigg_ids = [original.id]
+            else:
+                bigg_ids = [original.id]
+        elif type(original) == cobra.core.reaction.Reaction:
+            if id_wo_compartment not in self.react_bigg_to_check:
+                bigg_ids = super().convertViaTable(id_wo_compartment, self.r_original_convert_table)
+                if not bigg_ids:
+                    bigg_ids = [original.id]
+            else:
+                bigg_ids = [original.id]
+        return [compartments, bigg_ids]
+
+
 
 def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reactions", useroutname=None):
     levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
@@ -248,8 +325,6 @@ def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reaction
     else:
         outdata = pd.read_csv("../Output/" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
         summarydata = open("../Output/" + obj_type + "_conversion_summary.txt", "w")
-    outdata = outdata.drop('ID_c', axis=1)
-    outdata = outdata.drop_duplicates(keep="first")
     for typ in model_types:
         number_uniq = []
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index))
@@ -290,42 +365,42 @@ def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reaction
     summarydata.close()
 
 
-def findManyToOne(model_types: [str], obj_type: "metabolites" or "reactions", useroutname: str):
-    levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
-    if useroutname is not None:
-        outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", sep="\t")
-        file_name = "../Output/" + useroutname + "_" + obj_type + "_many_to_one_conversion_.tsv"
-    else:
-        outdata = pd.read_csv("../Output/" + obj_type + "_ids_conversion_output.tsv", sep="\t")
-        file_name = "../Output/" + obj_type + "_many_to_one_conversion_.tsv"
-    outdata = outdata.drop('ID_c', axis=1)
-    outdata = outdata.drop_duplicates(keep="first")
-    for l in levels:
-        outdata[l] = outdata[l].apply(literal_eval)
-    repeated_data = pd.DataFrame(
-        columns=['Model_type', 'ID', '1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv'])
-    for typ in model_types:
-        for lev in levels:
-            ids_list_in_list = outdata[(outdata["Model_type"] == typ)][lev].tolist()
-            ids_list = [item for sublist in ids_list_in_list for item in sublist]
-            ids_occurence = Counter(ids_list)
-            ids_repeated = general.findKeysByValue(ids_occurence, 1, operator.gt)
-            if ids_repeated != []:
-                for rep in ids_repeated:
-                    repeated_record = outdata[
-                        (outdata["Model_type"] == typ) & (outdata[lev].str.contains(rep, regex=False))]
-                    orig_id = repeated_record["ID"].values[0]
-                    if orig_id not in repeated_data[repeated_data["Model_type"] == typ]["ID"].tolist():
-                        repeated_data = pd.concat([repeated_data, repeated_record], ignore_index=True)
-    repeated_data.to_csv(file_name, sep='\t')
+# def findManyToOne(model_types: [str], obj_type: "metabolites" or "reactions", useroutname: str):
+#     levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
+#     if useroutname is not None:
+#         outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_ids_conversion_output.tsv", sep="\t")
+#         file_name = "../Output/" + useroutname + "_" + obj_type + "_many_to_one_conversion_.tsv"
+#     else:
+#         outdata = pd.read_csv("../Output/" + obj_type + "_ids_conversion_output.tsv", sep="\t")
+#         file_name = "../Output/" + obj_type + "_many_to_one_conversion_.tsv"
+#     outdata = outdata.drop('ID_c', axis=1)
+#     outdata = outdata.drop_duplicates(keep="first")
+#     for l in levels:
+#         outdata[l] = outdata[l].apply(literal_eval)
+#     repeated_data = pd.DataFrame(
+#         columns=['Model_type', 'ID', '1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv'])
+#     for typ in model_types:
+#         for lev in levels:
+#             ids_list_in_list = outdata[(outdata["Model_type"] == typ)][lev].tolist()
+#             ids_list = [item for sublist in ids_list_in_list for item in sublist]
+#             ids_occurence = Counter(ids_list)
+#             ids_repeated = general.findKeysByValue(ids_occurence, 1, operator.gt)
+#             if ids_repeated != []:
+#                 for rep in ids_repeated:
+#                     repeated_record = outdata[
+#                         (outdata["Model_type"] == typ) & (outdata[lev].str.contains(rep, regex=False))]
+#                     orig_id = repeated_record["ID"].values[0]
+#                     if orig_id not in repeated_data[repeated_data["Model_type"] == typ]["ID"].tolist():
+#                         repeated_data = pd.concat([repeated_data, repeated_record], ignore_index=True)
+#     repeated_data.to_csv(file_name, sep='\t')
+#
+# def addCompartmentToConvertedM(compartment: str, converted_m: dict):
+#     converted_m_c = {}
+#     for level, ids in converted_m.items():
+#         converted_m_c[level] = [i + "_" + compartment for i in ids]
+#     return converted_m_c
 
-def addCompartmentToConvertedM(compartment: str, converted_m: dict):
-    converted_m_c = {}
-    for level, ids in converted_m.items():
-        converted_m_c[level] = [i + "_" + compartment for i in ids]
-    return converted_m_c
-
-def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrategies: dict, ConvertStrategies: dict,
+def runConversionForALLmodels(model_types: [str], all_models: dict, ConvertStrategies: dict,
                               obj_type: "metabolites" or "reactions",
                               write_output=True, do_summary=True, do_many_to_one=True,
                               useroutname=None) -> dict:
@@ -342,23 +417,23 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
             objects = all_models.get(typ).reactions
 
         for obj in objects:
-            ids = ConvertStrategies.get(typ).runConversion(CompartStrategies.get(typ), obj)
+            ids = ConvertStrategies.get(typ).runConversion(obj)
             bigg_ids = ids[0]
             noprior_ids = ids[1]
             id_wo_compartment = ids[2]
-            compartments = CompartStrategies.get(typ).runGetCompartment(obj)
-            if obj_type == "metabolites":
-                bigg_ids = addCompartmentToConvertedM(compartments[0], bigg_ids)
+            compartments = ids[3]
+            # if obj_type == "metabolites":
+            #     bigg_ids = addCompartmentToConvertedM(compartments[0], bigg_ids)
             all_converted.get(typ).update({obj.id: [compartments, bigg_ids]})
             ids_strings.append(
-                f"{typ}\t{obj.id}\t{id_wo_compartment}\t{bigg_ids['1-anno&orig']}\t{bigg_ids['2-anno']}\t{bigg_ids['3-orig']}"
+                f"{typ}\t{obj.id}\t{bigg_ids['1-anno&orig']}\t{bigg_ids['2-anno']}\t{bigg_ids['3-orig']}"
                 f"\t{bigg_ids['4-addit']}\t{bigg_ids['5-patt']}\t{bigg_ids['6-NOconv']}\n")
             numbers_strings.append(
-                f"{typ}\t{obj.id}\t{id_wo_compartment}\t{len(bigg_ids['1-anno&orig'])}\t{len(bigg_ids['2-anno'])}\t"
+                f"{typ}\t{obj.id}\t{len(bigg_ids['1-anno&orig'])}\t{len(bigg_ids['2-anno'])}\t"
                 f"{len(bigg_ids['3-orig'])}\t{len(bigg_ids['4-addit'])}\t{len(bigg_ids['5-patt'])}"
                 f"\t{len(bigg_ids['6-NOconv'])}\n")
             noprior_ids_strings.append(
-                f"{typ}\t{obj.id}\t{id_wo_compartment}\t{noprior_ids['annotation']}\t{noprior_ids['originalDB']}"
+                f"{typ}\t{obj.id}\t{noprior_ids['annotation']}\t{noprior_ids['originalDB']}"
                 f"\t{noprior_ids['additionalDB']}\t{noprior_ids['pattern']}\t{noprior_ids['NOconversion']}\n")
     if write_output:
         if useroutname is not None:
@@ -369,9 +444,9 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
             output_ids = open("../Output/" + obj_type + "_ids_conversion_output.tsv", "w")
             output_number = open("../Output/" + obj_type + "_numbers_conversion_output.tsv", "w")
             output_NOprior = open("../Output/" + obj_type + "_Noprior_conversion_output.tsv", "w")
-        output_ids.write("Model_type\tID_c\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
-        output_number.write("Model_type\tID_c\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
-        output_NOprior.write("Model_type\tID_c\tID\tanno\torig\taddit\tpatt\tNOconv\n")
+        output_ids.write("Model_type\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
+        output_number.write("Model_type\tID\t1-anno&orig\t2-anno\t3-orig\t4-addit\t5-patt\t6-NOconv\n")
+        output_NOprior.write("Model_type\tID\tanno\torig\taddit\tpatt\tNOconv\n")
         output_ids.writelines(ids_strings)
         output_number.writelines(numbers_strings)
         output_NOprior.writelines(noprior_ids_strings)
@@ -380,6 +455,6 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, CompartStrat
         output_NOprior.close()
         if do_summary:
             summarizeConversion(model_types, obj_type, useroutname)
-        if do_many_to_one:
-            findManyToOne(model_types, obj_type, useroutname)
+        # if do_many_to_one:
+        #     findManyToOne(model_types, obj_type, useroutname)
     return all_converted

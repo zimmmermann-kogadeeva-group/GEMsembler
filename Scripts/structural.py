@@ -67,29 +67,28 @@ def Hydrogens(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r, addit_co
 
 
 def Periplasmic(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r, addit_comment=""):
-
     bigg_r = {}
     # bigg_r_H = {}
     bigg1_comb = []
-    for r1 in range(len(bigg_met1)+1):
+    for r1 in range(len(bigg_met1) + 1):
         bigg1_comb = bigg1_comb + list(combinations(bigg_met1, r1))
     bigg2_comb = []
-    for r2 in range(len(bigg_met2)+1):
+    for r2 in range(len(bigg_met2) + 1):
         bigg2_comb = bigg2_comb + list(combinations(bigg_met2, r2))
     for comb1 in bigg1_comb:
         for comb2 in bigg2_comb:
             bigg1 = list(set(bigg_met1) - set(comb1))
             if comb1:
-                bigg1_p = [m1[:-1]+"p" for m1 in comb1]
+                bigg1_p = [m1[:-1] + "p" for m1 in comb1]
             else:
                 bigg1_p = []
             bigg2 = list(set(bigg_met2) - set(comb2))
             if comb2:
-                bigg2_p = [m2[:-1]+"p" for m2 in comb2]
+                bigg2_p = [m2[:-1] + "p" for m2 in comb2]
             else:
                 bigg2_p = []
             tmp_bigg_r = getReaction(bigg1 + bigg1_p, bigg2 + bigg2_p, BiGG_network_r,
-                                                     f"Found_via_adding_periplasmic_compartment-{bigg1_p}-{bigg2_p}")
+                                     f"Found_via_adding_periplasmic_compartment-{bigg1_p}-{bigg2_p}")
             # tmp_bigg_r_H = Hydrogens(bigg1+bigg1_p, bigg2+bigg2_p, compart1+["p"], compart2+["p"], BiGG_network_r,
             #                          f"Found_via_adding_periplasmic_compartment-{bigg1_p}-{bigg2_p}")
             if tmp_bigg_r: bigg_r.update(tmp_bigg_r)
@@ -123,28 +122,28 @@ def SeveralMetabolites(bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart
                 bigg_met1_mod = bigg_met1 + list(variant1)
                 bigg_met2_mod = bigg_met2 + list(variant2)
                 tmp_bigg_r = getReaction(bigg_met1_mod, bigg_met2_mod, BiGG_network_r,
-                                                         f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
+                                         f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
                 tmp_bigg_r_H = Hydrogens(bigg_met1_mod, bigg_met2_mod, compart1, compart2, BiGG_network_r,
                                          f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
 
                 if tmp_bigg_r: bigg_r.update(tmp_bigg_r)
                 if tmp_bigg_r_H: bigg_r_H.update(tmp_bigg_r_H)
-    if bigg_to_many_variants1 and (not bigg_to_many_variants2):
+    elif bigg_to_many_variants1 and (not bigg_to_many_variants2):
         for variant1 in bigg_to_many_variants1:
             bigg_met1_mod = bigg_met1 + list(variant1)
             tmp_bigg_r = getReaction(bigg_met1_mod, bigg_met2, BiGG_network_r,
-                                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}")
+                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}")
             tmp_bigg_r_H = Hydrogens(bigg_met1_mod, bigg_met2, compart1, compart2, BiGG_network_r,
-                                   f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}")
+                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants1)}-{' '.join(variant1)}")
             if tmp_bigg_r: bigg_r.update(tmp_bigg_r)
             if tmp_bigg_r_H: bigg_r_H.update(tmp_bigg_r_H)
-    if bigg_to_many_variants2 and (not bigg_to_many_variants1):
+    elif bigg_to_many_variants2 and (not bigg_to_many_variants1):
         for variant2 in list(bigg_to_many_variants2):
             bigg_met2_mod = bigg_met2 + list(variant2)
             tmp_bigg_r = getReaction(bigg_met1, bigg_met2_mod, BiGG_network_r,
-                                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
+                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
             tmp_bigg_r_H = Hydrogens(bigg_met1, bigg_met2_mod, compart1, compart2, BiGG_network_r,
-                                   f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
+                                     f"Found_via_one_to_many_metabolites-{' '.join(orig_to_many_variants2)}-{' '.join(variant2)}")
             if tmp_bigg_r: bigg_r.update(tmp_bigg_r)
             if tmp_bigg_r_H: bigg_r_H.update(tmp_bigg_r_H)
     if bigg_r:
@@ -180,7 +179,7 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
                 met2_to_many.update({met2: one_to_many_conversion[met2]})
     if (len(bigg_met1) == len(orig_met1)) & (len(bigg_met2) == len(orig_met2)):
         bigg_r = getReaction(bigg_met1, bigg_met2, BiGG_network_r,
-                                                 "Found_via_pure_reaction_equation")
+                             "Found_via_pure_reaction_equation")
         if not bigg_r:
             bigg_r = Hydrogens(bigg_met1, bigg_met2, compart1, compart2, BiGG_network_r)
             if not bigg_r:
@@ -189,7 +188,8 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
                     bigg_r = {"NOT_found": "Not_found_in_BiGG_network"}
     elif (len(bigg_met1) + len(met1_to_many.keys()) == len(orig_met1)) & (
             len(bigg_met2) + len(met2_to_many.keys()) == len(orig_met2)):
-        bigg_r = SeveralMetabolites(bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2, BiGG_network_r)
+        bigg_r = SeveralMetabolites(bigg_met1, bigg_met2, met1_to_many, met2_to_many, compart1, compart2,
+                                    BiGG_network_r)
         if not bigg_r:
             bigg_r = {"NOT_found": "Not_found_via_one_to_many_metabolites"}
     else:
@@ -197,7 +197,8 @@ def convertReactionViaNetworkStructure(reaction_id: str, model: cobra.core.model
     return bigg_r
 
 
-def runStructuralConversion(model_types: [str], met_for_struct: dict, first_stage_selected_m: dict, first_stage_selected_r: dict,
+def runStructuralConversion(model_types: [str], met_for_struct: dict, first_stage_selected_m: dict,
+                            first_stage_selected_r: dict,
                             all_models: dict, bigg_network: dict, met_for_many_sug=None):
     structural_conversion = {}
     structural_conversion_to_one = {}
@@ -214,10 +215,13 @@ def runStructuralConversion(model_types: [str], met_for_struct: dict, first_stag
             if typ in additional.keys():
                 for orig_id, select_bigg_id in additional.get(typ).items():
                     structural_bigg_id = convertReactionViaNetworkStructure(orig_id, all_models.get(typ), one_one_m,
-                                                                highest_m, bigg_network.get("reactions"), one_to_many_m)
-                    structural_conversion.get(typ).update({orig_id: [select_bigg_id, structural_bigg_id, {"first_selection_type": key}]})
+                                                                            highest_m, bigg_network.get("reactions"),
+                                                                            one_to_many_m)
+                    structural_conversion.get(typ).update(
+                        {orig_id: [select_bigg_id, structural_bigg_id, {"first_selection_type": key}]})
                     if (len(structural_bigg_id.keys()) == 1) & (list(structural_bigg_id.keys())[0] != "NOT_found"):
-                        structural_conversion_to_one.get(typ).update({orig_id: [select_bigg_id[0], list(structural_bigg_id.keys())]})
+                        structural_conversion_to_one.get(typ).update(
+                            {orig_id: [select_bigg_id[0], list(structural_bigg_id.keys())]})
     return structural_conversion, structural_conversion_to_one
 
 
@@ -247,7 +251,7 @@ def getSuggestionForOneToManyMet(model_types: [str], structural_r_one_one: dict,
 
 
 def getSuggestionForManyToOneMet(model_types: dict, many_to_one: dict, first_structural_met: dict, models: dict,
-                                       BiGG_network_r: pd.core.frame.DataFrame):
+                                 BiGG_network_r: pd.core.frame.DataFrame):
     many_to_one_suggestions = {}
     by_value = operator.itemgetter(1)
     for typ in model_types:
@@ -279,7 +283,7 @@ def getSuggestionForManyToOneMet(model_types: dict, many_to_one: dict, first_str
                                 bigg_met2.append(first_structural_met.get(typ).get(met2)[1][0])
                         tmp_bigg_r = getReaction(bigg_met1, bigg_met2, BiGG_network_r, "found")
                         if tmp_bigg_r: found = found + 1
-                if n != 0: found_group.update({orig_id: found/n})
+                if n != 0: found_group.update({orig_id: found / n})
                 if n == 0: found_group.update({orig_id: "met_not_struct"})
             occur = Counter(list(found_group.values()))
             if (occur[1.0] == 1) & (set(occur.keys()) <= set([1.0, 0.0, "met_not_struct"])):
@@ -308,13 +312,15 @@ def completeSuggestions(model_types: dict, suggestions: dict, selected: dict, mo
 
 
 def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq: dict, allmet_selected: dict,
-                        models_same_db: dict, models: dict, BiGG_network_r: pd.core.frame.DataFrame):
+                      models_same_db: dict, models: dict, BiGG_network_r: pd.core.frame.DataFrame):
     suggestions_one_many_m, suggestions_one_many_m_sel = getSuggestionForOneToManyMet(model_types, struct_r_uniq,
-                                                                                                 structural_r_info)
+                                                                                      structural_r_info)
     compl_sugg_one_many = completeSuggestions(model_types, suggestions_one_many_m_sel, allmet_selected, models_same_db)
     m_one_many_sug_consist, tmp_m_om_sug_consist, m_om_sug_not_consist = selection.checkDBConsistency(models_same_db,
-                                                                                    compl_sugg_one_many, "metabolites",
-                                                                                    write_files=False, do_stat=False)
+                                                                                                      compl_sugg_one_many,
+                                                                                                      "metabolites",
+                                                                                                      write_files=False,
+                                                                                                      do_stat=False)
     tmp_first_structural_met = deepcopy(m_one_many_sug_consist)
     for typ in model_types:
         tmp_first_structural_met.get(typ).update(allmet_selected.get("one_to_one").get(typ))
@@ -323,13 +329,17 @@ def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq
         # tmp_first_structural_met.get(typ).update(
         #     {key: [val[0], val[1], {"selection_type": "selection_one_one"}] for key, val in
         #      allmet_selected.get("one_to_one").get(typ).items()})
-    first_structural_met, first_structural_met_many_one = selection.checkFromOneFromMany(model_types, tmp_first_structural_met)
+    first_structural_met, first_structural_met_many_one = selection.checkFromOneFromMany(model_types,
+                                                                                         tmp_first_structural_met)
     many_to_one_suggestions = getSuggestionForManyToOneMet(model_types, allmet_selected.get("many_to_one"),
-                                                first_structural_met, models, BiGG_network_r.get("reactions"))
+                                                           first_structural_met, models,
+                                                           BiGG_network_r.get("reactions"))
     compl_sugg_many_one = completeSuggestions(model_types, many_to_one_suggestions, allmet_selected, models_same_db)
     m_many_one_sug_consist, tmp_m_mo_sug_consist, m_mo_sug_not_consist = selection.checkDBConsistency(models_same_db,
-                                                                                    compl_sugg_many_one, "metabolites",
-                                                                                    write_files=False, do_stat=False)
+                                                                                                      compl_sugg_many_one,
+                                                                                                      "metabolites",
+                                                                                                      write_files=False,
+                                                                                                      do_stat=False)
     tmp_final_met = deepcopy(m_many_one_sug_consist)
     for typ in model_types:
         tmp_final_met.get(typ).update(first_structural_met.get(typ))
@@ -337,4 +347,7 @@ def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq
         #                         in m_many_one_sug_consist[typ].items()}})
         # tmp_final_met.get(typ).update(first_structural_met.get(typ))
     final_metabolites, final_metabolites_many_one = selection.checkFromOneFromMany(model_types, tmp_final_met)
-    return final_metabolites, final_metabolites_many_one, m_mo_sug_not_consist, first_structural_met_many_one, m_om_sug_not_consist
+    output = {"one_one_sugg_met": final_metabolites,
+              "checks": [final_metabolites_many_one, m_mo_sug_not_consist, first_structural_met_many_one,
+                         m_om_sug_not_consist], "suggestions": [suggestions_one_many_m_sel, many_to_one_suggestions]}
+    return output

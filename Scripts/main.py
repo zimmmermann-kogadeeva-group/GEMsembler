@@ -89,13 +89,14 @@ if __name__ == '__main__':
     ModelseedConv = conversion.ConversionForModelseed(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m,
                                                       bigg_r)
     AgoraConv = conversion.ConversionForAgora(old_new_bigg_m, old_new_bigg_r, kegg_bigg_m, kegg_bigg_r, bigg_m, bigg_r)
-    ConversionStrategies = {"gapseq": GapseqConv, "modelseed": ModelseedConv, "agora": AgoraConv}
-    CarvemeComp = conversion.CompartmentsForCarveme()
-    GapseqComp = conversion.CompartmentsForGapseq()
-    ModelseedComp = conversion.CompartmentsForModelseed()
-    AgoraComp = conversion.CompartmentsForAgora()
-    CompartmentsStrategies = {"carveme": CarvemeComp, "gapseq": GapseqComp, "modelseed": ModelseedComp,
-                              "agora": AgoraComp}
+    CarvemeConv = conversion.ConversionForCarveMe(old_new_bigg_m, old_new_bigg_r, bigg_m, bigg_r)
+    ConversionStrategies = {"gapseq": GapseqConv, "modelseed": ModelseedConv, "agora": AgoraConv, "carveme": CarvemeConv}
+    # CarvemeComp = conversion.CompartmentsForCarveme()
+    # GapseqComp = conversion.CompartmentsForGapseq()
+    # ModelseedComp = conversion.CompartmentsForModelseed()
+    # AgoraComp = conversion.CompartmentsForAgora()
+    # CompartmentsStrategies = {"carveme": CarvemeComp, "gapseq": GapseqComp, "modelseed": ModelseedComp,
+    #                           "agora": AgoraComp}
     models_to_convert = model_type_list[1:]
     allmet_converted_dill_file = join(fileDir, "../Scripts/allmet_converted.pkl")
     allreact_converted_dill_file = join(fileDir, "../Scripts/allreact_converted.pkl")
@@ -104,10 +105,8 @@ if __name__ == '__main__':
         allreact_converted = dill.load(open(allreact_converted_dill_file, "rb"))
     else:
         allmet_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
-                                                                CompartmentsStrategies,
                                                                 ConversionStrategies, "metabolites")
         allreact_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
-                                                                  CompartmentsStrategies,
                                                                   ConversionStrategies, "reactions")
         dill.dump(allmet_converted, open(allmet_converted_dill_file, "wb"))
         dill.dump(allreact_converted, open(allreact_converted_dill_file, "wb"))
@@ -122,9 +121,8 @@ if __name__ == '__main__':
                                                                         structural_r_sel, "reactions",
                                                                         write_files=False, do_stat=False)
     struct_r_uniq, struct_r_not_uniq = selection.checkFromOneFromMany(models_to_convert, struct_r_consistent)
-    met_struct, a, b, c, d = structural.runSuggestionsMet(models_to_convert,structural_r_info, struct_r_uniq, allmet_selected, models_same_db, curated_models, bigg_db_network)
-    test_r, test_r_one = structural.runStructuralConversion(models_to_convert, met_struct, allmet_selected, allreact_selected, curated_models, bigg_db_network)
-    test_r_consistent, test_r_consist, test_r_not_consist = selection.checkDBConsistency(models_same_db, test_r_one,
+    met_struct = structural.runSuggestionsMet(models_to_convert,structural_r_info, struct_r_uniq, allmet_selected, models_same_db, curated_models, bigg_db_network)
+    struct_final_r_info, struct_final_r_sel = structural.runStructuralConversion(models_to_convert, met_struct.get("one_one_sugg_met"), allmet_selected, allreact_selected, curated_models, bigg_db_network)
+    struct_final_r_consistent, struct_final_r_consist, struct_final_r_not_consist = selection.checkDBConsistency(models_same_db, struct_final_r_sel,
                                                                         "reactions", write_files=False, do_stat=False)
-    test_r_uniq, test_r_not_uniq = selection.checkFromOneFromMany(models_to_convert, test_r_consistent)
-
+    struct_final_r_uniq, struct_final_r_not_uniq = selection.checkFromOneFromMany(models_to_convert, struct_final_r_consistent)
