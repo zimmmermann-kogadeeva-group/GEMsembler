@@ -295,22 +295,23 @@ class ConversionForCarveMe(ConversionToBiGG):
         return standard_compartment
 
     def runConversion(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
-        id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
         compartments = super().runGetCompartment(original)
         if type(original) == cobra.core.metabolite.Metabolite:
+            id_wo_compartment = super().getIDwoCompartment(original.id, self.compartment_pattern)
             if id_wo_compartment not in self.met_bigg_to_check:
                 bigg_ids = super().convertViaTable(id_wo_compartment, self.m_original_convert_table)
                 if bigg_ids:
                     bigg_ids = [b+"_"+compartments[0] for b in bigg_ids]
                 else:
-                    bigg_ids = [original.id]
+                    bigg_ids = ["not_found_in_new_and_old_bigg"]
             else:
                 bigg_ids = [original.id]
         elif type(original) == cobra.core.reaction.Reaction:
+            id_wo_compartment = original.id
             if id_wo_compartment not in self.react_bigg_to_check:
                 bigg_ids = super().convertViaTable(id_wo_compartment, self.r_original_convert_table)
                 if not bigg_ids:
-                    bigg_ids = [original.id]
+                    bigg_ids = ["not_found_in_new_and_old_bigg"]
             else:
                 bigg_ids = [original.id]
         return [compartments, bigg_ids]
@@ -458,3 +459,25 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, ConvertStrat
         # if do_many_to_one:
         #     findManyToOne(model_types, obj_type, useroutname)
     return all_converted
+
+def runNoneConversionChecking(model_types: [str], all_models: dict, ConvertStrategies: dict,
+                              obj_type: "metabolites" or "reactions",
+                              write_output=True, do_summary=True, do_many_to_one=True,
+                              useroutname=None) -> dict:
+    all_checked = {}
+    all_not_in_bigg = {}
+    for typ in model_types:
+        all_checked.update({typ: {}})
+        all_not_in_bigg.update({typ: {}})
+        if obj_type == "metabolites":
+            objects = all_models.get(typ).metabolites
+        elif obj_type == "reactions":
+            objects = all_models.get(typ).reactions
+
+        for obj in objects:
+            ids = ConvertStrategies.get(typ).runConversion(obj)
+            if ids[1][0] != "not_found_in_new_and_old_bigg":
+                all_checked.get(typ).update({obj.id: ids})
+            else:
+                all_not_in_bigg.get(typ).update({obj.id: ids})
+    return all_checked, all_not_in_bigg

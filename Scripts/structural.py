@@ -351,3 +351,23 @@ def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq
               "checks": [final_metabolites_many_one, m_mo_sug_not_consist, first_structural_met_many_one,
                          m_om_sug_not_consist], "suggestions": [suggestions_one_many_m_sel, many_to_one_suggestions]}
     return output
+
+def runStructuralCheck(model_types: [str], allreact_checked: dict, allreact_not_pass: dict, all_models: dict, bigg_network: dict):
+    allreact_struct_checked = deepcopy(allreact_checked)
+    allreact_not_pass_struct = deepcopy(allreact_not_pass)
+    for typ in model_types:
+        for id_r in list(allreact_not_pass.get(typ).keys()):
+            bigg_met1 = [met1.id for met1 in all_models.get(typ).reactions.get_by_id(id_r).reactants]
+            bigg_met2 = [met2.id for met2 in all_models.get(typ).reactions.get_by_id(id_r).products]
+            bigg_r = getReaction(bigg_met1, bigg_met2, bigg_network.get("reactions"), "found_structural_for_none_converted")
+            if bigg_r:
+                allreact_struct_checked.get(typ).update({id_r: [allreact_not_pass.get(typ).get(id_r)[0], list(bigg_r.keys())]})
+                allreact_not_pass_struct.get(typ)[id_r] = [allreact_not_pass.get(typ).get(id_r)[0], list(bigg_r.values())]
+            else:
+                if ((len(bigg_met1) == 1) & (len(bigg_met2) == 0) | (len(bigg_met1) == 0) & (len(bigg_met2) == 1)) & (id_r.startswith("EX_")):
+                    allreact_struct_checked.get(typ).update(
+                        {id_r: [allreact_not_pass.get(typ).get(id_r)[0], [id_r]]})
+                    allreact_not_pass_struct.get(typ)[id_r] = [allreact_not_pass.get(typ).get(id_r)[0], "not_found_but_Exchange_reaction"]
+                elif (len(bigg_met1) > 20) | (len(bigg_met2) > 20):
+                    allreact_not_pass_struct.get(typ)[id_r] = [allreact_not_pass.get(typ).get(id_r)[0], "Growth_reaction"]
+    return allreact_struct_checked, allreact_not_pass_struct
