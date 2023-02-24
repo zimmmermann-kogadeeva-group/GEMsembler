@@ -1,4 +1,5 @@
 import copy
+from copy import deepcopy
 import pandas as pd
 
 
@@ -146,3 +147,31 @@ def runSelection(model_types: [str], converted_obj: dict, obj_type: "metabolites
     return {"one_to_one": one_to_one, "one_to_many": one_to_many, "many_to_one": many_to_one, "many_to_many": many_to_many,
                                           "not_converted": not_converted, "not_consistent": not_consistent,
             "intermediate_data": {"highest": highest, "consistent": consist, "to_one": to_one, "to_many": to_many}}
+
+
+def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
+    not_selected = {}
+    for typ in model_types:
+        not_selected.update({typ: {}})
+        for selected_type in selected.values():
+            if typ in selected_type.keys():
+                ids_notsel = list(set(selected_type.get(typ).keys())-set(final_obj.get("one_one_sugg_met").get(typ).keys()))
+                if ids_notsel:
+                    not_selected.get(typ).update({i: selected_type.get(typ).get(i) for i in ids_notsel})
+    return not_selected
+
+def runNotSelectedR(model_types: [str], final_obj: dict, not_consist: dict, not_uniq: dict, r_info: dict, models: dict):
+    not_selected = {}
+    for typ in model_types:
+        not_selected.update({typ: {}})
+        if typ in not_uniq: not_selected.get(typ).update(not_uniq.get(typ))
+        if typ in not_consist: not_selected.get(typ).update(not_consist.get(typ))
+        ids_notsel = list(set(r_info.get(typ).keys()) - set(final_obj.get(typ).keys()) - set(not_selected.get(typ).keys()))
+        if ids_notsel:
+            for i in ids_notsel:
+                if len(models.get(typ).reactions.get_by_id(i).metabolites) < 20:
+                    if list(r_info.get(typ).get(i)[1].keys())[0] != "NOT_found":
+                        not_selected.get(typ).update({i: [r_info.get(typ).get(i)[0][0], list(r_info.get(typ).get(i)[1].keys())]})
+                    else:
+                        not_selected.get(typ).update({i: r_info.get(typ).get(i)[0]})
+    return not_selected

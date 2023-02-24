@@ -1,4 +1,5 @@
 import copy
+import operator
 import os
 from os.path import join, exists
 import pandas as pd
@@ -6,8 +7,10 @@ from cobra.io import read_sbml_model, write_sbml_model
 import curation
 import BiGGnetwork
 import conversion
+import general
 import selection
 import structural
+import creation
 import dill
 from copy import deepcopy
 
@@ -82,6 +85,8 @@ if __name__ == '__main__':
     curated_models = copy.deepcopy(all_models)
     for cur in models_to_curate:
         curated_models[cur] = curation.removeBtypeExchange(curated_models[cur])
+
+    duplicated_reactions = curation.checkDuplicatedReactions(model_type_list, curated_models)
     # endregion
 
     # region Perform conversion
@@ -147,3 +152,34 @@ if __name__ == '__main__':
         "reactions", write_files=False, do_stat=False)
     struct_final_r_uniq, struct_final_r_not_uniq = selection.checkFromOneFromMany(models_to_convert,
                                                                                   struct_final_r_consistent)
+    final_r = deepcopy(struct_final_r_uniq)
+    final_r_not_uniq = {}
+    for typ in models_to_convert:
+        true_dupl = list(
+            set(struct_final_r_not_uniq.get(typ).keys()) & set(duplicated_reactions.get(typ)[0]["ID"].tolist()))
+        if true_dupl:
+            final_r.get(typ).update({td: struct_final_r_not_uniq.get(typ).get(td) for td in true_dupl})
+        false_dupl = list(
+            set(struct_final_r_not_uniq.get(typ).keys()) - set(duplicated_reactions.get(typ)[0]["ID"].tolist()))
+        if false_dupl:
+            final_r_not_uniq.update({typ: {fd: struct_final_r_not_uniq.get(typ).get(fd) for fd in false_dupl}})
+    final_m_not_sel = selection.runNotSelectedMet(models_to_convert, met_struct, allmet_selected)
+    final_r_not_sel = selection.runNotSelectedR(models_to_convert, final_r, struct_final_r_not_consist,
+                                                final_r_not_uniq, struct_final_r_info, curated_models)
+    final_m = deepcopy(met_struct.get("one_one_sugg_met"))
+    for typ in models_NOTto_convert:
+        final_m.update({typ: allmet_checked.get(typ)})
+        final_r.update({typ: allreact_checked_struct.get(typ)})
+        m_notsel = general.findKeysByValue(allmet_not_pass.get(typ), "not_found_in_new_and_old_bigg", operator.eq)
+        if m_notsel:
+            final_m_not_sel.update({typ: {m: [allmet_not_pass.get(typ).get(m)[0], m] for m in m_notsel}})
+        else:
+            final_m_not_sel.update({typ: {}})
+        r_notsel = general.findKeysByValue(allreact_not_pass_struct.get(typ), "not_found_in_new_and_old_bigg",
+                                           operator.eq)
+        if r_notsel:
+            final_r_not_sel.update({typ: {r: [allreact_not_pass_struct.get(typ).get(r)[0], r] for r in r_notsel}})
+        else:
+            final_r_not_sel.update({typ: {}})
+    supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
+                                                curated_models, bigg_all_m, bigg_all_r)

@@ -461,9 +461,7 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, ConvertStrat
     return all_converted
 
 def runNoneConversionChecking(model_types: [str], all_models: dict, ConvertStrategies: dict,
-                              obj_type: "metabolites" or "reactions",
-                              write_output=True, do_summary=True, do_many_to_one=True,
-                              useroutname=None) -> dict:
+                              obj_type: "metabolites" or "reactions") -> dict:
     all_checked = {}
     all_not_in_bigg = {}
     for typ in model_types:
