@@ -4,21 +4,28 @@ import pandas as pd
 class NewObject():
     def __init__(self, new_id: str, old_id: str, compartments: [str], source: str, possible_sources: [str], possible_conversion: dict):
         self.id = new_id
-        self.compartments = compartments
-        self.possible_conversion = possible_conversion
+        self.compartments = {}
+        self.possible_conversion = {}
         self.sources = {}
         self.annotation = {}
         for ps in possible_sources:
             if ps == source:
+                self.compartments.update({ps: compartments})
+                self.possible_conversion.update({ps: [possible_conversion]})
                 self.sources.update({ps: 1})
                 self.annotation.update({ps: [old_id]})
             else:
+                self.compartments.update({ps: []})
+                self.possible_conversion.update({ps: []})
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
 
-    def updateNewObject(self, id_to_update: str, source: str):
+
+    def updateNewObject(self, id_to_update: str, compart_to_update: [str], conv_to_updata: dict, source: str):
         self.sources.update({source: self.sources.get(source) + 1})
         self.annotation.get(source).append(id_to_update)
+        self.possible_conversion.get(source).append(conv_to_updata)
+        self.compartments.update({source: self.compartments.get(source) + compart_to_update})
 
 
 class SetofNewObjects():
@@ -32,20 +39,22 @@ class SetofNewObjects():
             objects = selected.get(source)
             for key in objects.keys():
                 for new_id in objects[key][1]:
-                    if new_id in where_to_add.keys():
-                        where_to_add.get(new_id).updateNewObject(key, source)
+                    comp = objects[key][0]
+                    if source in list(converted.keys()):
+                        conversion = converted.get(source).get(key)[1]
                     else:
-                        comp = objects[key][0]
-                        if source in list(converted.keys()):
-                            conversion = converted.get(source).get(key)[1]
-                        else:
-                            conversion = {}
+                        conversion = {}
+                    if new_id in where_to_add.keys():
+                        where_to_add.get(new_id).updateNewObject(key, comp, conversion, source)
+                    else:
                         new = NewObject(new_id, key, comp, source, sources, conversion)
                         where_to_add.update({new_id: new})
 
-    def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict):
+    def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict, additional=None):
         self.addNewObjs(selected, converted, self.converted)
         self.addNewObjs(not_selected, converted, self.notconverted)
+        if additional:
+            self.addNewObjs(additional, converted, self.converted)
 
     def makeForwardBackward(self, all_models: dict, selected: dict, obj_type: "metabolites" or "reactions"):
         goOldNew = {}
@@ -137,9 +146,9 @@ class SuperModel():
 
 
 
-def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m, bigg_all_r):
+def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m, bigg_all_r, additional_periplasmic_m):
     metabolites = SetofNewMetabolites()
-    metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m)
+    metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m, additional_periplasmic_m)
     metabolites.getName(bigg_all_m)
     reactions = SetofNewReactions()
     reactions.makeSetofNew(final_r, final_r_not_sel, bigg_all_r)
@@ -147,5 +156,5 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
     m_goOldNew, m_goNewOld = metabolites.makeForwardBackward(all_models, final_m, "metabolites")
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
     supermodel = SuperModel(metabolites, reactions, model_type)
-    supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type)
+    # supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type)
     return supermodel

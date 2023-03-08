@@ -61,6 +61,11 @@ if __name__ == '__main__':
     # region Open models
     model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
     models_same_db = {"modelseed": ["gapseq", "modelseed"]}
+    models_to_curate = ["modelseed"]
+    models_to_convert = model_type_list[1:]
+    models_NOTto_convert = model_type_list[:1]
+    models_wo_periplasmic = ["modelseed", "agora"]
+
     fileDir = os.path.dirname(os.path.realpath('__file__'))  # getting directory of the script for paths to files
     name_carv_hom = join(fileDir, "../Data/BU_carveme_hom.xml")
     name_gapseq = join(fileDir, "../Data/BU_gapseq.xml")
@@ -81,7 +86,6 @@ if __name__ == '__main__':
     # endregion
 
     # region Perform curation
-    models_to_curate = ["modelseed"]
     curated_models = copy.deepcopy(all_models)
     for cur in models_to_curate:
         curated_models[cur] = curation.removeBtypeExchange(curated_models[cur])
@@ -103,8 +107,6 @@ if __name__ == '__main__':
     # AgoraComp = conversion.CompartmentsForAgora()
     # CompartmentsStrategies = {"carveme": CarvemeComp, "gapseq": GapseqComp, "modelseed": ModelseedComp,
     #                           "agora": AgoraComp}
-    models_to_convert = model_type_list[1:]
-    models_NOTto_convert = model_type_list[:1]
     allmet_converted_dill_file = join(fileDir, "../Scripts/allmet_converted.pkl")
     allreact_converted_dill_file = join(fileDir, "../Scripts/allreact_converted.pkl")
     if exists(allmet_converted_dill_file) & exists(allreact_converted_dill_file):
@@ -133,7 +135,7 @@ if __name__ == '__main__':
                                                                              allmet_selected.get("one_to_one"),
                                                                              allmet_selected, allreact_selected,
                                                                              curated_models,
-                                                                             bigg_db_network,
+                                                                             bigg_db_network, models_wo_periplasmic,
                                                                              allmet_selected.get("one_to_many"))
     struct_r_consistent, struct_r_consist, struct_r_not_consist = selection.checkDBConsistency(models_same_db,
                                                                                                structural_r_sel,
@@ -146,12 +148,16 @@ if __name__ == '__main__':
     struct_final_r_info, struct_final_r_sel = structural.runStructuralConversion(models_to_convert,
                                                                                  met_struct.get("one_one_sugg_met"),
                                                                                  allmet_selected, allreact_selected,
-                                                                                 curated_models, bigg_db_network)
+                                                                                 curated_models, bigg_db_network,
+                                                                                 models_wo_periplasmic)
     struct_final_r_consistent, struct_final_r_consist, struct_final_r_not_consist = selection.checkDBConsistency(
         models_same_db, struct_final_r_sel,
         "reactions", write_files=False, do_stat=False)
     struct_final_r_uniq, struct_final_r_not_uniq = selection.checkFromOneFromMany(models_to_convert,
                                                                                   struct_final_r_consistent)
+    periplasmic_m, periplasmic_r = structural.getSuggestionPeriplasmic(models_wo_periplasmic, struct_final_r_uniq,
+                                                                       struct_final_r_info, bigg_db_network,
+                                                                       curated_models)
     final_r = deepcopy(struct_final_r_uniq)
     final_r_not_uniq = {}
     for typ in models_to_convert:
@@ -167,6 +173,15 @@ if __name__ == '__main__':
     final_r_not_sel = selection.runNotSelectedR(models_to_convert, final_r, struct_final_r_not_consist,
                                                 final_r_not_uniq, struct_final_r_info, curated_models)
     final_m = deepcopy(met_struct.get("one_one_sugg_met"))
+    additional_p_m = {}
+    for typ in models_wo_periplasmic:
+        additional_p_m.update({typ: {}})
+        for orig_id in periplasmic_m.get(typ).keys():
+            if periplasmic_m.get(typ).get(orig_id)[4] == "replace":
+                final_m.get(typ)[orig_id] = [final_m.get(typ).get(orig_id)[0], [periplasmic_m.get(typ).get(orig_id)[1]]]
+            else:
+                additional_p_m.get(typ).update({orig_id: [final_m.get(typ).get(orig_id)[0], [periplasmic_m.get(typ).get(orig_id)[1]]]})
+
     for typ in models_NOTto_convert:
         final_m.update({typ: allmet_checked.get(typ)})
         final_r.update({typ: allreact_checked_struct.get(typ)})
@@ -182,4 +197,4 @@ if __name__ == '__main__':
         else:
             final_r_not_sel.update({typ: {}})
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
-                                                curated_models, bigg_all_m, bigg_all_r)
+                                                curated_models, bigg_all_m, bigg_all_r, additional_p_m)

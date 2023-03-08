@@ -171,7 +171,15 @@ def runNotSelectedR(model_types: [str], final_obj: dict, not_consist: dict, not_
             for i in ids_notsel:
                 if len(models.get(typ).reactions.get_by_id(i).metabolites) < 20:
                     if list(r_info.get(typ).get(i)[1].keys())[0] != "NOT_found":
-                        not_selected.get(typ).update({i: [r_info.get(typ).get(i)[0][0], list(r_info.get(typ).get(i)[1].keys())]})
+                        p = []
+                        for value in list(r_info.get(typ).get(i)[1].values()):
+                            if value.startswith("Found_via_adding_periplasmic_compartment"):
+                                p.append("p")
+                        if p:
+                            not_selected.get(typ).update(
+                                {i: [r_info.get(typ).get(i)[0][0]+list(set(p)), list(r_info.get(typ).get(i)[1].keys())]})
+                        else:
+                            not_selected.get(typ).update({i: [r_info.get(typ).get(i)[0][0], list(r_info.get(typ).get(i)[1].keys())]})
                     else:
                         not_selected.get(typ).update({i: r_info.get(typ).get(i)[0]})
     return not_selected
