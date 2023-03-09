@@ -197,4 +197,4 @@ if __name__ == '__main__':
         else:
             final_r_not_sel.update({typ: {}})
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
-                                                curated_models, bigg_all_m, bigg_all_r, additional_p_m)
+                                                curated_models, bigg_all_m, bigg_all_r, additional_p_m, periplasmic_r)
