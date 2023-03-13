@@ -9,4 +9,7 @@ dependencies:
   - cobra
   - numpy=1.23
   - dill
+  - networkx
+  - pyvis
+  - pyautogui
 prefix: /home/mek/anaconda3/envs/supermodel_tool

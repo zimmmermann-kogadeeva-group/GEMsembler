@@ -265,12 +265,24 @@ def getSuggestionForOneToManyMet(model_types: [str], structural_r_one_one: dict,
     return suggestions_m, suggestions_m_sel
 
 
-def getSuggestionForManyToOneMet(model_types: dict, many_to_one: dict, first_structural_met: dict, models: dict,
-                                 BiGG_network_r: pd.core.frame.DataFrame):
+def getSuggestionForManyToOneMet(model_types: [str], many_to_one: dict, first_structural_met: dict, models: dict,
+                                 BiGG_network_r: pd.core.frame.DataFrame, models_same_db: dict):
     many_to_one_suggestions = {}
+    for models_db in models_same_db.values():
+        for model in models_db:
+            many_to_one_suggestions.update({model: {}})
+            others_models = list(set(models_db) - set(model))
+            for other in others_models:
+                sug_orig = list(set(many_to_one.get(model).keys()) & set(first_structural_met.get(other).keys()))
+                for i in sug_orig:
+                    if many_to_one.get(model).get(i) == first_structural_met.get(other).get(i):
+                        many_to_one_suggestions.get(model).update({i: many_to_one.get(model).get(i)[1]})
+
+
     by_value = operator.itemgetter(1)
     for typ in model_types:
-        many_to_one_suggestions.update({typ: {}})
+        if typ not in many_to_one_suggestions.keys():
+            many_to_one_suggestions.update({typ: {}})
         grouped_many_one = [dict(g) for k, g in groupby(sorted(many_to_one.get(typ).items(), key=by_value), by_value)]
         for group in grouped_many_one:
             found_group = {}
@@ -303,7 +315,8 @@ def getSuggestionForManyToOneMet(model_types: dict, many_to_one: dict, first_str
             occur = Counter(list(found_group.values()))
             if (occur[1.0] == 1) & (set(occur.keys()) <= set([1.0, 0.0, "met_not_struct"])):
                 recommend = general.findKeysByValue(found_group, 1, operator.eq)[0]
-                many_to_one_suggestions.get(typ).update({recommend: group.get(recommend)[1]})
+                if recommend not in many_to_one_suggestions.get(typ).keys():
+                    many_to_one_suggestions.get(typ).update({recommend: group.get(recommend)[1]})
     return many_to_one_suggestions
 
 
@@ -410,7 +423,7 @@ def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq
                                                                                          tmp_first_structural_met)
     many_to_one_suggestions = getSuggestionForManyToOneMet(model_types, allmet_selected.get("many_to_one"),
                                                            first_structural_met, models,
-                                                           BiGG_network_r.get("reactions"))
+                                                           BiGG_network_r.get("reactions"), models_same_db)
     compl_sugg_many_one = completeSuggestions(model_types, many_to_one_suggestions, allmet_selected, models_same_db)
     m_many_one_sug_consist, tmp_m_mo_sug_consist, m_mo_sug_not_consist = selection.checkDBConsistency(models_same_db,
                                                                                                       compl_sugg_many_one,

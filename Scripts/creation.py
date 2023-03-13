@@ -122,14 +122,33 @@ class SuperModel():
             old_mets = m_goNewOld.get(metabolite.id).get(typ)
             if old_mets:
                 for old_met in old_mets:
+                    # if metabolite.id == "h_p":
+                        # print(old_met.id)
                     if typ in list(periplasmic_m.keys()):
                         if old_met.id in list(periplasmic_m.get(typ).keys()):
                             new_r = []
+                            # if metabolite.id == "h_p":
+                            #     print(old_met.id)
                             for reaction in old_met.reactions:
+                                # if metabolite.id == "h_p":
+                                #     if reaction.id in ['rxn09163_c0', 'rxn08815_c0', 'rxn09149_c0', 'rxn12549_c0']:
+                                #         print(reaction.id)
+                                #         print(r_goOldNew.get(typ).get(reaction.id)[0].id)
                                 if r_goOldNew.get(typ).get(reaction.id):
                                     if (metabolite.id.endswith("_p")) & (
                                             reaction.id in list(periplasmic_r.get(typ).keys())):
+                                        # if metabolite.id == "h_p":
+                                        #     if reaction.id in ['rxn09163_c0', 'rxn08815_c0', 'rxn09149_c0',
+                                        #                        'rxn12549_c0']:
+                                        #         print(reaction.id)
+                                        #         print("enter_p")
                                         new_r.append(r_goOldNew.get(typ).get(reaction.id)[0])
+                                        # if metabolite.id == "h_p":
+                                        #     print("enter")
+                                        #     print(reaction.id)
+                                        #     print(r_goOldNew.get(typ).get(reaction.id)[0].id)
+                                        #     print(len(new_r))
+                                        #     print(new_r)
                                     elif (not metabolite.id.endswith("_p")) & (
                                             reaction.id not in list(periplasmic_r.get(typ).keys())):
                                         new_r.append(r_goOldNew.get(typ).get(reaction.id)[0])
@@ -143,6 +162,9 @@ class SuperModel():
                         for r in old_met.reactions:
                             if r_goOldNew.get(typ).get(r.id):
                                 new_r.append(r_goOldNew.get(typ).get(r.id)[0])
+                    # if metabolite.id == "h_p":
+                    #     print(new_r)
+                    #     print(len(new_r))
                     if new_r: metabolite.reactions[typ] = new_r
 
     def findMetabolites(self, reaction: NewObject, r_goNewOld: dict, m_goOldNew: dict, types: [str],
