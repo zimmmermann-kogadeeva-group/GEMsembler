@@ -52,7 +52,7 @@ class SetofNewObjects():
 
     def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict, sources, additional=None):
         self.addNewObjs(selected, converted, self.converted, sources)
-        self.addNewObjs(not_selected, converted, self.notconverted, sources)
+        self.addNewObjs(not_selected, converted, self.notconverted, sources) #FIXME create not_converted for realy not converted only with old id
         if additional:
             self.addNewObjs(additional, converted, self.converted, sources)
 
@@ -115,7 +115,7 @@ class SuperModel():
         self.sources = types
 
     def findReactions(self, metabolite: NewObject, m_goNewOld: dict, r_goOldNew: dict, types: [str],
-                      periplasmic_r: dict, periplasmic_m: dict):
+                      periplasmic_r: dict, periplasmic_m: dict): #FIXME h2_p (that comes from e and c) doesn't have all its' reactions as connections
         metabolite.reactions = {}
         for typ in types:
             metabolite.reactions.update({typ: []})

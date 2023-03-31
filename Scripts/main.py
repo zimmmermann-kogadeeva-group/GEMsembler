@@ -216,7 +216,7 @@ if __name__ == '__main__':
     glycolisys = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c"],
         "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK"]}
-    glycol = supermodelF.drawPathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis1", aminoacids, surrounding=True)
+    glycol = supermodelF.drawPathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids, directed=False, surrounding=True)
     cys_syn1 = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c",
                         "oaa_c", "asp__L_c",
@@ -230,7 +230,15 @@ if __name__ == '__main__':
                       "HSDxi", "HSDy", "HSERTA", "AHSERL2",  # 2 first R - alternatives in NAD / NADP
                       "CYSTS", "CYSTGL",
                       ]}
-    cys = supermodelF.drawPathway(supermodel, cys_syn1, met_not_int, colorBrewer, "cys")
+    cys_syn = {"metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c",
+                               "3php_c", "pser__L_c", "ser__L_c",
+                               "acser_c", "cys__L_c"],
+               "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK",
+                             "PGCD", "PSERT", "PSP_L",
+                             "SERAT", "CYSS"]
+               }
+    cys0 = supermodelF.drawPathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
+    cys_alt = supermodelF.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
     TCA = {"PYK": [("pep_c", "pyr_c")],
            "PPC": [("pep_c", "oaa_c")], "PPCK": [("pep_c", "oaa_c")], "PEPCK_re": [("pep_c", "oaa_c")],
            "PC": [("pyr_c", "oaa_c")],
@@ -248,3 +256,5 @@ if __name__ == '__main__':
            "FUM": [("fum_c", "mal__L_c")], "MALS": [("glx_c", "mal__L_c")],
            "MDH": [("mal__L_c", "oaa_c")], "MDH2": [("mal__L_c", "oaa_c")], "MDH3": [("mal__L_c", "oaa_c")]}
     tca_g = supermodelF.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
+    core = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
+    print(f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
