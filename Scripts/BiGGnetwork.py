@@ -4,6 +4,8 @@ import pandas as pd
 
 
 def getBiGGnetwork(bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_directions=True):
+    """ Getting tables with reaction ids unique reaction equations with metabolites sorted for the whole BiGG database.
+     If reaction equations are duplicated one used in most amount of models selected. """
     r_connections = pd.DataFrame(columns=["reaction", "1metabolites", "2metabolites", "models_number"])
     r_connections["reaction"] = bigg_database_r["bigg_id"]
     r_connections["models_number"] = bigg_database_r['model_list'].str.split().apply(len)

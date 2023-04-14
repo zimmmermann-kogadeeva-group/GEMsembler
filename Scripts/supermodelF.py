@@ -9,6 +9,8 @@ import pyautogui
 
 
 def getCoreConnections(connections: dict, core_size: int, sources: [str]) -> [str]:
+    """ Getting connections (reactants/products/ for reaction or reactions for metabolites) that are present in more
+     then core_size sources = original models. """
     all_connections = []
     for s in sources:
         connection = connections.get(s)
@@ -22,7 +24,37 @@ def getCoreConnections(connections: dict, core_size: int, sources: [str]) -> [st
     return selected_connection
 
 
+def getCore(supermodel: SuperModel, core_size=None, union_size=1):
+    """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
+     sources). Getting supermodel union of all sources. """
+    if not core_size:
+        core_size = len(supermodel.sources)
+    coreN = "core" + str(core_size)
+    unionN = "union" + str(union_size)
+    setattr(supermodel.metabolites, coreN, {})
+    setattr(supermodel.reactions, coreN, {})
+    for met in supermodel.metabolites.converted.values():
+        tmp_models = findKeysByValue(met.sources, 1, operator.ge)
+        core_r = getCoreConnections(met.reactions, core_size, supermodel.sources)
+        union_r = getCoreConnections(met.reactions, union_size, supermodel.sources)
+        met.reactions.update({coreN: core_r, unionN: union_r})
+        if len(tmp_models) >= core_size:
+            getattr(supermodel.metabolites, coreN).update({met.id: met})
+    for react in supermodel.reactions.converted.values():
+        tmp_models = findKeysByValue(react.sources, 1, operator.ge)
+        core_reactants = getCoreConnections(react.reactants, core_size, supermodel.sources)
+        core_products = getCoreConnections(react.products, core_size, supermodel.sources)
+        u_reactants = getCoreConnections(react.reactants, union_size, supermodel.sources)
+        u_products = getCoreConnections(react.products, union_size, supermodel.sources)
+        react.reactants.update({coreN: core_reactants, unionN: u_reactants})
+        react.products.update({coreN: core_products, unionN: u_products})
+        if len(tmp_models) >= core_size:
+            getattr(supermodel.reactions, coreN).update({react.id: react})
+
+
 def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]) -> [NewObject]:
+    """ Getting connections (reactants/products/ for reaction or reactions for metabolites) that are present in 
+     "sourceIn" list of sources = original models and not present in "sourceNotIn" list of sources = original models. """
     connectionIn = set(connections.get(sourceIn[0]))
     for sIn in sourceIn:
         connectionIn = connectionIn & set(connections.get(sIn))
@@ -34,6 +66,8 @@ def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]) ->
 
 
 def getDifference(supermodel: SuperModel, sourceIn: [str], sourceNotIn: [str], Nletter=1):
+    """ Getting metabolites and reactions that are present in "sourceIn" list of sources = original models
+    and not present in "sourceNotIn" list of sources = original models. """
     name = "Yes_"
     for sI in sourceIn:
         name = name + sI[:Nletter]
@@ -60,6 +94,17 @@ def getDifference(supermodel: SuperModel, sourceIn: [str], sourceNotIn: [str], N
             getattr(supermodel.reactions, name).update({react.id: react})
 
 
+def getVennSegments(supermodel: SuperModel, Nletter=1):
+    """ Getting metabolites and reactions networks for each Venn segment in Venn diagram. """
+    combinations = []
+    for i in range(1, len(supermodel.sources)):
+        combinations.extend(itertools.combinations(supermodel.sources, i))
+    for combo in combinations:
+        sYes = list(combo)
+        sNo = list(set(supermodel.sources) - set(combo))
+        getDifference(supermodel, sYes, sNo, Nletter)
+
+
 def defineNodeColor(colordata: dict, pallitra: str, id_mr: str, objects: SetofNewReactions or SetofNewMetabolites,
                     Nletter=1) -> [str, str]:
     for y in dir(objects):
@@ -83,42 +128,6 @@ def defineEdgeColor(colordata: dict, pallitra: str, mr: NewObject, connections: 
                 else:
                     col = colordata.get(pallitra)[int(len(name) / Nletter) - 1]
                 return ([col, name])
-
-
-def getCore(supermodel: SuperModel, core_size=None, union_size=1):
-    if not core_size:
-        core_size = len(supermodel.sources)
-    coreN = "core" + str(core_size)
-    unionN = "union" + str(union_size)
-    setattr(supermodel.metabolites, coreN, {})
-    setattr(supermodel.reactions, coreN, {})
-    for met in supermodel.metabolites.converted.values():
-        tmp_models = findKeysByValue(met.sources, 1, operator.ge)
-        core_r = getCoreConnections(met.reactions, core_size, supermodel.sources)
-        union_r = getCoreConnections(met.reactions, union_size, supermodel.sources)
-        met.reactions.update({coreN: core_r, unionN: union_r})
-        if len(tmp_models) >= core_size:
-            getattr(supermodel.metabolites, coreN).update({met.id: met})
-    for react in supermodel.reactions.converted.values():
-        tmp_models = findKeysByValue(react.sources, 1, operator.ge)
-        core_reactants = getCoreConnections(react.reactants, core_size, supermodel.sources)
-        core_products = getCoreConnections(react.products, core_size, supermodel.sources)
-        u_reactants = getCoreConnections(react.reactants, union_size, supermodel.sources)
-        u_products = getCoreConnections(react.products, union_size, supermodel.sources)
-        react.reactants.update({coreN: core_reactants, unionN: u_reactants})
-        react.products.update({coreN: core_products, unionN: u_products})
-        if len(tmp_models) >= core_size:
-            getattr(supermodel.reactions, coreN).update({react.id: react})
-
-
-def getVennSegments(supermodel: SuperModel, Nletter=1):
-    combinations = []
-    for i in range(1, len(supermodel.sources)):
-        combinations.extend(itertools.combinations(supermodel.sources, i))
-    for combo in combinations:
-        sYes = list(combo)
-        sNo = list(set(supermodel.sources) - set(combo))
-        getDifference(supermodel, sYes, sNo, Nletter)
 
 
 def drawPathway(supermodel, pathway, met_not_int, colorBrewer, name, aminoacids=None, directed=False, surrounding=False, Nletter=1):

@@ -2,6 +2,7 @@ import pandas as pd
 
 
 class NewObject():
+    """ New object class - one metabolite or reaction for supermodel. """
     def __init__(self, new_id: str, old_id: str, compartments: [str], source: str, possible_sources: [str],
                  possible_conversion: dict):
         self.id = new_id
@@ -29,6 +30,8 @@ class NewObject():
 
 
 class SetofNewObjects():
+    """ Setting dictionaries for all metabolites or reactions:
+    selected for supermodel - self.converted and not selected - self.notconverted. """
     def __init__(self):
         self.converted = {}
         self.notconverted = {}
@@ -58,6 +61,8 @@ class SetofNewObjects():
 
     def makeForwardBackward(self, all_models: dict, selected: dict, obj_type: "metabolites" or "reactions",
                             additional=None):
+        """ Creating dictionaries linking metabolites/reactions:
+        NewObject in supermodel with old original ID and OldObject in original models with new ID in supermodel """
         goOldNew = {}
         goNewOld = {}
         types = list(selected.keys())
@@ -84,7 +89,7 @@ class SetofNewObjects():
 
 
 class SetofNewMetabolites(SetofNewObjects):
-
+    """ Metabolites class that add name to metabolite """
     def getName(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
@@ -93,6 +98,7 @@ class SetofNewMetabolites(SetofNewObjects):
 
 
 class SetofNewReactions(SetofNewObjects):
+    """ Reactions class that add name and reaction equation to reaction """
     def getNameANDEquation(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.replace("sink_", "DM_")
@@ -109,6 +115,9 @@ class SetofNewReactions(SetofNewObjects):
 
 
 class SuperModel():
+    """ Supermodel class with metabolites and reactions. Sources - names of original models used to create supermodel.
+    Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
+    reactants/products/reactions as values.  """
     def __init__(self, metabolites, reactions, types: [str]):
         self.metabolites = metabolites
         self.reactions = reactions
@@ -240,6 +249,7 @@ class SuperModel():
 
 def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m,
                           bigg_all_r, additional_periplasmic_m, periplasmic_r):
+    """ Creating supermodel with metabolites and reactions. """
     metabolites = SetofNewMetabolites()
     metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m, model_type, additional_periplasmic_m)
     metabolites.getName(bigg_all_m)

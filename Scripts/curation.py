@@ -5,6 +5,7 @@ import pandas as pd
 
 
 def checkDuplicatedReactions(model_types: [str], all_models: dict,):
+    """ Getting tables with reactions with the same equation/same equation + same GPR for each model. """
     duplicated = {}
     for typ in model_types:
         data = pd.DataFrame(columns=["ID", "Reactants", "Products", "GPR"])
@@ -39,6 +40,8 @@ def checkDuplicatedReactions(model_types: [str], all_models: dict,):
 
 
 def removeBtypeExchange(curated_model: cobra.core.model.Model):
+    """ Removing boundary metabolites / exchange reactions with _b at the end if another (_e) compartment exist.
+     Replacing _b with normal compartment if id with normal compartment doesn't exist separately. """
     all_met_ids = [m.id for m in curated_model.metabolites]
     b_met_ids = [m.id for m in curated_model.metabolites if m.id.endswith("_b")]
     all_r_ids = [r.id for r in curated_model.reactions]
