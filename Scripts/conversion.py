@@ -319,6 +319,7 @@ class ConversionForCarveMe(ConversionToBiGG):
 
 
 def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reactions", useroutname=None):
+    """ Summary for conversion. Number of converted for different levels. """
     levels = ['1-anno&orig', '2-anno', '3-orig', '4-addit', '5-patt', '6-NOconv']
     if useroutname is not None:
         outdata = pd.read_csv("../Output/" + useroutname + "_" + obj_type + "_numbers_conversion_output.tsv", sep="\t")
@@ -405,6 +406,7 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, ConvertStrat
                               obj_type: "metabolites" or "reactions",
                               write_output=True, do_summary=True, do_many_to_one=True,
                               useroutname=None) -> dict:
+    """ Running conversion for all models with conversion needed. """
     all_converted = {}
     ids_strings = []
     numbers_strings = []
@@ -462,6 +464,8 @@ def runConversionForALLmodels(model_types: [str], all_models: dict, ConvertStrat
 
 def runNoneConversionChecking(model_types: [str], all_models: dict, ConvertStrategies: dict,
                               obj_type: "metabolites" or "reactions") -> dict:
+    """ Checking IDs for all models with no need for conversion that supposed to have BiGG IDs originally,
+    but maybe old or incorrect. """
     all_checked = {}
     all_not_in_bigg = {}
     for typ in model_types:

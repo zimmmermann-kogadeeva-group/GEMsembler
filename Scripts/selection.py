@@ -4,6 +4,7 @@ import pandas as pd
 
 
 def getHighestConversion(model_types: [str], all_converted: dict):
+    """ Getting list of converted ID with highest level of conversion (1 - the heighest). """
     highest_conversion_level = {}
     for typ in model_types:
         highest_conversion_level.update({typ: {}})
@@ -19,6 +20,9 @@ def getHighestConversion(model_types: [str], all_converted: dict):
 
 def checkDBConsistency(models_same_db: dict, highest_converted: dict, obj_type: "metabolites" or "reactions",
                        write_files=True, do_stat=True, useroutname=None):
+    """ Checking ID for different models with IDs from the same database. If one original ID from one database
+    is converted separately for different models, looking for intersection of those lists. If no intersection found,
+     conversion is inconsistent. If intersection is less that whole converted list, remove ids outside intersection. """
     if useroutname is not None:
         filename_changed = "../Output/" + useroutname + "_" + obj_type + "_changed_for_consistency.tsv"
         filename_notconsistent = "../Output/" + useroutname + "_" + obj_type + "_not_consistent.tsv"
@@ -101,6 +105,7 @@ def checkDBConsistency(models_same_db: dict, highest_converted: dict, obj_type: 
 
 
 def checkToOneToMany(model_types: [str], consistent_highest: dict):
+    """ Selecting converted uniquely: with one ID in converted list to_one/to_many. """
     to_one = {}
     to_many = {}
     to_none = {}
@@ -119,6 +124,7 @@ def checkToOneToMany(model_types: [str], consistent_highest: dict):
 
 
 def checkFromOneFromMany(model_types: [str], to_smth: dict):
+    """ Selecting converted with one or several original IDs giving the same converted results: from_one/from_many. """
     from_one = {}
     from_many = {}
     for typ in model_types:
@@ -139,6 +145,8 @@ def checkFromOneFromMany(model_types: [str], to_smth: dict):
 
 def runSelection(model_types: [str], converted_obj: dict, obj_type: "metabolites" or "reactions",
                  models_same_db: dict):
+    """ Running selection for converted original_to_bigg by uniqueness:
+     one_to_one, one_to_many, many_to_one, many_to_many. """
     highest = getHighestConversion(model_types, converted_obj)
     consistent, consist, not_consistent = checkDBConsistency(models_same_db, highest, obj_type)
     to_one, to_many, not_converted = checkToOneToMany(model_types, consistent)
@@ -150,6 +158,7 @@ def runSelection(model_types: [str], converted_obj: dict, obj_type: "metabolites
 
 
 def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
+    """ Getting finally not selected metabolites"""
     not_selected = {}
     for typ in model_types:
         not_selected.update({typ: {}})
@@ -160,7 +169,10 @@ def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
                     not_selected.get(typ).update({i: selected_type.get(typ).get(i) for i in ids_notsel})
     return not_selected
 
+
 def runNotSelectedR(model_types: [str], final_obj: dict, not_consist: dict, not_uniq: dict, r_info: dict, models: dict):
+    """ Getting finally not selected reactions
+    and adding periplasmic compartment to them if applicable after structural conversion. """
     not_selected = {}
     for typ in model_types:
         not_selected.update({typ: {}})

@@ -338,6 +338,10 @@ def getSuggestionForManyToOneMet(model_types: [str], many_to_one: dict, first_st
 
 def getSuggestionPeriplasmic(model_types: [str], structural_r_one_one: dict, structural_r_all: dict, bigg_network: dict,
                              models: dict):
+    """ Getting dictionary of metabolites that gave reaction equation if their compartment is changed to periplasmic and
+     dictionary with corresponding reactions. Also, getting ids for transport reactions for metabolite from original
+     compartment to periplasmic. Checking which metabolites are changed to periplasmic in all their reactions (replace)
+     and wich in part of their reactions (not_replace - split). """
     met_periplasmic = {}
     react_periplasmic = {}
     for typ in model_types:
@@ -406,6 +410,7 @@ def getSuggestionPeriplasmic(model_types: [str], structural_r_one_one: dict, str
 
 
 def completeSuggestions(model_types: dict, suggestions: dict, selected: dict, models_same_db: dict):
+    """ Adding  metabolites from the same database but different models for further consistency test. """
     met_same_db = set()
     for same_models in models_same_db.values():
         for model in same_models:
@@ -426,6 +431,8 @@ def completeSuggestions(model_types: dict, suggestions: dict, selected: dict, mo
 
 def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq: dict, allmet_selected: dict,
                       models_same_db: dict, models: dict, BiGG_network_r: dict):
+    """ Getting suggestion for metabolite from 1st round of structural conversion for one_to_many and many_to_many
+    metabolites. """
     suggestions_one_many_m, suggestions_one_many_m_sel = getSuggestionForOneToManyMet(model_types, struct_r_uniq,
                                                                                       structural_r_info)
     compl_sugg_one_many = completeSuggestions(model_types, suggestions_one_many_m_sel, allmet_selected, models_same_db)
@@ -468,6 +475,8 @@ def runSuggestionsMet(model_types: [str], structural_r_info: dict, struct_r_uniq
 
 def runStructuralCheck(model_types: [str], allreact_checked: dict, allreact_not_pass: dict, all_models: dict,
                        bigg_network: dict):
+    """ Checking reactions equations for models with no conversion need (with BiGG ids originally). Should be in BiGG
+    database if not exchange or biomass reaction. """
     allreact_struct_checked = deepcopy(allreact_checked)
     allreact_not_pass_struct = deepcopy(allreact_not_pass)
     for typ in model_types:
