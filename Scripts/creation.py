@@ -41,7 +41,8 @@ class SetofNewObjects():
             if source in list(selected.keys()):
                 objects = selected.get(source)
                 for key in objects.keys():
-                    for new_id in objects[key][1]:
+                    if not objects[key][1]:
+                        new_id = key
                         comp = objects[key][0]
                         if source in list(converted.keys()):
                             conversion = converted.get(source).get(key)[1]
@@ -52,6 +53,18 @@ class SetofNewObjects():
                         else:
                             new = NewObject(new_id, key, comp, source, sources, conversion)
                             where_to_add.update({new_id: new})
+                    elif objects[key][1] != ["Biomass"]:
+                        for new_id in objects[key][1]:
+                            comp = objects[key][0]
+                            if source in list(converted.keys()):
+                                conversion = converted.get(source).get(key)[1]
+                            else:
+                                conversion = {}
+                            if new_id in where_to_add.keys():
+                                where_to_add.get(new_id).updateNewObject(key, comp, conversion, source)
+                            else:
+                                new = NewObject(new_id, key, comp, source, sources, conversion)
+                                where_to_add.update({new_id: new})
 
     def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict, sources, additional=None):
         self.addNewObjs(selected, converted, self.converted, sources)
@@ -89,16 +102,21 @@ class SetofNewObjects():
 
 
 class SetofNewMetabolites(SetofNewObjects):
-    """ Metabolites class that add name to metabolite """
+    """ Metabolites class that add name and blank reaction attribute to metabolite """
     def getName(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
             name = database_info[database_info["universal_bigg_id"] == id_noc]["name"].values[0]
             obj.name = name
+            obj.reactions = {k: [] for k in obj.sources.keys()}
+        for ncobj in self.notconverted.values():
+            name = "Not converted"
+            ncobj.name = name
+            ncobj.reactions = {k: [] for k in ncobj.sources.keys()}
 
 
 class SetofNewReactions(SetofNewObjects):
-    """ Reactions class that add name and reaction equation to reaction """
+    """ Reactions class that add name, reaction equation and blank reactants/products attributes to reaction """
     def getNameANDEquation(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.replace("sink_", "DM_")
@@ -112,6 +130,15 @@ class SetofNewReactions(SetofNewObjects):
                 equation = None
             obj.name = name
             obj.reaction = equation
+            obj.reactants = {k: [] for k in obj.sources.keys()}
+            obj.products = {k: [] for k in obj.sources.keys()}
+        for ncobj in self.notconverted.values():
+            name = "Not converted"
+            equation = None
+            ncobj.name = name
+            ncobj.reaction = equation
+            ncobj.reactants = {k: [] for k in ncobj.sources.keys()}
+            ncobj.products = {k: [] for k in ncobj.sources.keys()}
 
 
 class SuperModel():
@@ -125,9 +152,7 @@ class SuperModel():
 
     def findReactions(self, metabolite: NewObject, m_goNewOld: dict, r_goOldNew: dict, types: [str],
                       periplasmic_r: dict, periplasmic_m: dict): #FIXME h2_p (that comes from e and c) doesn't have all its' reactions as connections
-        metabolite.reactions = {}
         for typ in types:
-            metabolite.reactions.update({typ: []})
             old_mets = m_goNewOld.get(metabolite.id).get(typ)
             if old_mets:
                 for old_met in old_mets:
@@ -178,11 +203,7 @@ class SuperModel():
 
     def findMetabolites(self, reaction: NewObject, r_goNewOld: dict, m_goOldNew: dict, types: [str],
                         periplasmic_r: dict):
-        reaction.reactants = {}
-        reaction.products = {}
         for typ in types:
-            reaction.reactants.update({typ: []})
-            reaction.products.update({typ: []})
             old_react = r_goNewOld.get(reaction.id).get(typ)
             if old_react:
                 old_react_reactants = old_react[0].reactants
@@ -247,6 +268,58 @@ class SuperModel():
             self.findMetabolites(r, r_goNewOld, m_goOldNew, types, periplasmic_r)
 
 
+    def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict, final_m_not_sel: dict):
+        new_biomass = None
+        for typ in types:
+            for r in all_models.get(typ).reactions:
+                if len(r.reactants) > 24:
+                    if not new_biomass:
+                        new_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
+                        new_biomass.reactants = {typ: []}
+                        new_biomass.products = {typ: []}
+                        nc_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
+                        nc_biomass.reactants = {typ: []}
+                        nc_biomass.products = {typ: []}
+
+                    else:
+                        new_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
+                        new_biomass.reactants.update({typ: []})
+                        new_biomass.products.update({typ: []})
+                        nc_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
+                        nc_biomass.reactants.update({typ: []})
+                        nc_biomass.products.update({typ: []})
+                    biomass_react = [mr.id for mr in r.reactants]
+                    for reactant in biomass_react:
+                        new_reactants = m_goOldNew.get(typ).get(reactant)
+                        if new_reactants:
+                            new_biomass.reactants.get(typ).append(new_reactants[0])
+                            new_reactants[0].reactions.get(typ).append(new_biomass)
+                        else:
+                            if not final_m_not_sel.get(typ).get(reactant)[1]:
+                                nc_biomass.reactants.get(typ).append(self.metabolites.notconverted.get(reactant))
+                                self.metabolites.notconverted.get(reactant).reactions.get(typ).append(nc_biomass)
+                            else:
+                                for bigg_reactant in final_m_not_sel.get(typ).get(reactant)[1]:
+                                    nc_biomass.reactants.get(typ).append(self.metabolites.notconverted.get(bigg_reactant))
+                                    self.metabolites.notconverted.get(bigg_reactant).reactions.get(typ).append(nc_biomass)
+                    biomass_pro = [mp.id for mp in r.products]
+                    for product in biomass_pro:
+                        new_products = m_goOldNew.get(typ).get(product)
+                        if new_products:
+                            new_biomass.products.get(typ).append(new_products[0])
+                            new_products[0].reactions.get(typ).append(new_biomass)
+                        else:
+                            if not final_m_not_sel.get(typ).get(product)[1]:
+                                nc_biomass.products.get(typ).append(self.metabolites.notconverted.get(product))
+                                self.metabolites.notconverted.get(product).reactions.get(typ).append(nc_biomass)
+                            else:
+                                for bigg_product in final_m_not_sel.get(typ).get(product)[1]:
+                                    nc_biomass.products.get(typ).append(self.metabolites.notconverted.get(bigg_product))
+                                    self.metabolites.notconverted.get(bigg_product).reactions.get(typ).append(nc_biomass)
+        self.reactions.converted.update({"Biomass": new_biomass})
+        self.reactions.notconverted.update({"Biomass": nc_biomass})
+
+
 def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m,
                           bigg_all_r, additional_periplasmic_m, periplasmic_r):
     """ Creating supermodel with metabolites and reactions. """
@@ -261,4 +334,5 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
     supermodel = SuperModel(metabolites, reactions, model_type)
     supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, periplasmic_r, additional_periplasmic_m)
+    supermodel.addBiomass(model_type, m_goOldNew, all_models, final_r_not_sel, final_m_not_sel)
     return supermodel

@@ -181,7 +181,9 @@ def runNotSelectedR(model_types: [str], final_obj: dict, not_consist: dict, not_
         ids_notsel = list(set(r_info.get(typ).keys()) - set(final_obj.get(typ).keys()) - set(not_selected.get(typ).keys()))
         if ids_notsel:
             for i in ids_notsel:
-                if len(models.get(typ).reactions.get_by_id(i).metabolites) < 20:
+                if len(models.get(typ).reactions.get_by_id(i).metabolites) > 24:
+                    not_selected.get(typ).update({i: [r_info.get(typ).get(i)[0][0], ["Biomass"]]})
+                else:
                     if list(r_info.get(typ).get(i)[1].keys())[0] != "NOT_found":
                         p = []
                         for value in list(r_info.get(typ).get(i)[1].values()):

@@ -94,7 +94,6 @@ if __name__ == '__main__':
     duplicated_reactions = curation.checkDuplicatedReactions(model_type_list, curated_models)
     # endregion
 
-
     # Conversion strategies
     GapseqConv = conversion.ConversionForGapseq(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m, bigg_r)
     ModelseedConv = conversion.ConversionForModelseed(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m,
@@ -175,7 +174,7 @@ if __name__ == '__main__':
     # getting in standart format final metabolites and reactions for supermodel creation (converted)
     final_r = deepcopy(struct_final_r_uniq)
     final_r_not_uniq = {}
-    for typ in models_to_convert: # adding n-1 (duplicated) reactions structural reactions if they are indeed originaly duplicated in models
+    for typ in models_to_convert:  # adding n-1 (duplicated) reactions structural reactions if they are indeed originaly duplicated in models
         true_dupl = list(
             set(struct_final_r_not_uniq.get(typ).keys()) & set(duplicated_reactions.get(typ)[0]["ID"].tolist()))
         if true_dupl:
@@ -197,7 +196,8 @@ if __name__ == '__main__':
             if periplasmic_m.get(typ).get(orig_id)[4] == "replace":
                 final_m.get(typ)[orig_id] = [final_m.get(typ).get(orig_id)[0], [periplasmic_m.get(typ).get(orig_id)[1]]]
             else:
-                additional_p_m.get(typ).update({orig_id: [final_m.get(typ).get(orig_id)[0], [periplasmic_m.get(typ).get(orig_id)[1]]]})
+                additional_p_m.get(typ).update(
+                    {orig_id: [final_m.get(typ).get(orig_id)[0], [periplasmic_m.get(typ).get(orig_id)[1]]]})
     # combining final metabolites and reactions with ones coming from BiGG models (wo conversion)
     for typ in models_NOTto_convert:
         final_m.update({typ: allmet_checked.get(typ)})
@@ -207,12 +207,14 @@ if __name__ == '__main__':
             final_m_not_sel.update({typ: {m: [allmet_not_pass.get(typ).get(m)[0], m] for m in m_notsel}})
         else:
             final_m_not_sel.update({typ: {}})
-        r_notsel = general.findKeysByValue(allreact_not_pass_struct.get(typ), "not_found_in_new_and_old_bigg",
-                                           operator.eq)
+        r_notsel = [k for k, v in allreact_not_pass_struct.get(typ).items() if v[1] == "not_found_in_new_and_old_bigg"]
         if r_notsel:
-            final_r_not_sel.update({typ: {r: [allreact_not_pass_struct.get(typ).get(r)[0], r] for r in r_notsel}})
+            final_r_not_sel.update({typ: {r: [allreact_not_pass_struct.get(typ).get(r)[0], [r]] for r in r_notsel}})
         else:
             final_r_not_sel.update({typ: {}})
+        for kg, vg in allreact_not_pass_struct.get(typ).items():
+            if vg[1] == "Growth_reaction":
+                final_r_not_sel.get(typ).update({kg: [allreact_not_pass_struct.get(typ).get(kg)[0], ["Biomass"]]})
     # creating supermodel
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
                                                 curated_models, bigg_all_m, bigg_all_r, additional_p_m, periplasmic_r)
@@ -235,7 +237,8 @@ if __name__ == '__main__':
     glycolisys = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c"],
         "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK"]}
-    glycol = supermodelF.drawPathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids, directed=False, surrounding=True)
+    glycol = supermodelF.drawOnePathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids,
+                                        directed=False, surrounding=True)
     cys_syn1 = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c",
                         "oaa_c", "asp__L_c",
@@ -256,7 +259,7 @@ if __name__ == '__main__':
                              "PGCD", "PSERT", "PSP_L",
                              "SERAT", "CYSS"]
                }
-    cys0 = supermodelF.drawPathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
+    cys0 = supermodelF.drawOnePathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
     cys_alt = supermodelF.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
     TCA = {"PYK": [("pep_c", "pyr_c")],
            "PPC": [("pep_c", "oaa_c")], "PPCK": [("pep_c", "oaa_c")], "PEPCK_re": [("pep_c", "oaa_c")],
@@ -276,4 +279,11 @@ if __name__ == '__main__':
            "MDH": [("mal__L_c", "oaa_c")], "MDH2": [("mal__L_c", "oaa_c")], "MDH3": [("mal__L_c", "oaa_c")]}
     tca_g = supermodelF.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
     core = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
-    print(f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
+    print(
+        f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
+    union = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_union", union=True)
+    print(
+        f"BU supermodel consist of {len(supermodel.reactions.converted)} reactions and {len(supermodel.metabolites.converted)} metabolites")
+    biomass = supermodelF.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
+    biomass_diff = supermodelF.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
+    biomass_notconv = supermodelF.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)
