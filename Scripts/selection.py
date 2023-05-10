@@ -95,7 +95,7 @@ def checkDBConsistency(models_same_db: dict, highest_converted: dict, obj_type: 
             print(f"For {key} model in total {value['total_change']} {obj_type} were changed")
             print(f"For {key} model {value['n_to_one']} {obj_type} were changed from several ids to one")
             print(f"For {key} model {value['zero_to_one']} {obj_type} were changed from no found ids to one")
-            print(f"For {key} model {value['n_to_n']} {obj_type} were changed from several ids to smaller amount of ids")
+            print(f"For {key} model {value['n_to_n']} {obj_type} were changed from several ids to smaller amount of ids") #TODO check why numbers heir are inconcistent from run to run
             print(f"For {key} model {value['zero_to_n']} {obj_type} were changed from no found ids to several")
     consistent = copy.deepcopy(highest_converted)
     for same_models in models_same_db.values():

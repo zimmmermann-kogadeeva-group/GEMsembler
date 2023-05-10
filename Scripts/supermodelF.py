@@ -275,6 +275,7 @@ def drawPathways(supermodel, pathway, plot_type, met_not_int, colorBrewer, name,
                     tmp_pro = pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
 
 
+
 def drawTCA(supermodel, pathway, met_not_int, colorBrewer, name, aminoacids=None, surrounding=False, Nletter=1):
     path_met = []
     for value in pathway.values():
