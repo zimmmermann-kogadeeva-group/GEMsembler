@@ -283,6 +283,29 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
             self.findMetabolites(r, r_goNewOld, m_goOldNew, types, periplasmic_r)
 
 
+    def getAdditionalAttributes(self, types: [str], m_goNewOld: dict, r_goNewOld: dict):
+        for met in self.metabolites.converted.values():
+            for typ in types:
+                old_mets = m_goNewOld.get(met.id).get(typ)
+                if old_mets: met.formula.get(typ).append(old_mets[0].formula)
+        for r in self.reactions.converted.values():
+            for typ in types:
+                old_rs = r_goNewOld.get(r.id).get(typ)
+                if old_rs:
+                    low_b = 0
+                    upp_b = 0
+                    subsys = []
+                    for old_r in old_rs:
+                        if old_r.lower_bound < low_b:
+                            low_b = old_r.lower_bound
+                        if old_r.upper_bound > upp_b:
+                            upp_b = old_r.upper_bound
+                        subsys.append(old_r.subsystem)
+                    r.lower_bound.get(typ).append(low_b)
+                    r.upper_bound.get(typ).append(upp_b)
+                    r.subsystem.get(typ).append("#or#".join(subsys))
+
+
     def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict, final_m_not_sel: dict):
         new_biomass = None
         for typ in types:
@@ -337,7 +360,10 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
 
 def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m,
                           bigg_all_r, additional_periplasmic_m, periplasmic_r):
-    """ Creating supermodel with metabolites and reactions. """
+    """ Creating supermodel with metabolites and reactions.
+    Some decisions are made with assumptions that metabolites are transferred not uniquely only if changed from
+    extracellular/cellular to periplasmic and reactions are transferred not uniquely only if they have
+    the same reaction equation in original model. """
     metabolites = SetofNewMetabolites()
     metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m, model_type, additional_periplasmic_m)
     metabolites.setMetaboliteAttributes(bigg_all_m)
@@ -349,5 +375,6 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
     supermodel = SuperModel(metabolites, reactions, model_type)
     supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, periplasmic_r, additional_periplasmic_m)
+    supermodel.getAdditionalAttributes(model_type, m_goNewOld, r_goNewOld)
     supermodel.addBiomass(model_type, m_goOldNew, all_models, final_r_not_sel, final_m_not_sel)
     return supermodel
