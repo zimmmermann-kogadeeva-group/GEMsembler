@@ -109,10 +109,12 @@ class SetofNewMetabolites(SetofNewObjects):
             name = database_info[database_info["universal_bigg_id"] == id_noc]["name"].values[0]
             obj.name = name
             obj.reactions = {k: [] for k in obj.sources.keys()}
+            obj.formula = {k: [] for k in obj.sources.keys()}
         for ncobj in self.notconverted.values():
             name = "Not converted"
             ncobj.name = name
             ncobj.reactions = {k: [] for k in ncobj.sources.keys()}
+            ncobj.formula = {k: [] for k in ncobj.sources.keys()}
 
 
 class SetofNewReactions(SetofNewObjects):
@@ -132,6 +134,11 @@ class SetofNewReactions(SetofNewObjects):
             obj.reaction = equation
             obj.reactants = {k: [] for k in obj.sources.keys()}
             obj.products = {k: [] for k in obj.sources.keys()}
+            obj.metabolites = {k: [] for k in obj.sources.keys()}
+            obj.lower_bound = {k: [] for k in obj.sources.keys()}
+            obj.upper_bound = {k: [] for k in obj.sources.keys()}
+            obj.subsystem = {k: [] for k in obj.sources.keys()}
+
         for ncobj in self.notconverted.values():
             name = "Not converted"
             equation = None
@@ -139,9 +146,14 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.reaction = equation
             ncobj.reactants = {k: [] for k in ncobj.sources.keys()}
             ncobj.products = {k: [] for k in ncobj.sources.keys()}
+            ncobj.metabolites = {k: [] for k in ncobj.sources.keys()}
+            ncobj.lower_bound = {k: [] for k in ncobj.sources.keys()}
+            ncobj.upper_bound = {k: [] for k in ncobj.sources.keys()}
+            ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
 
 
-class SuperModel():
+
+class SuperModel(): #TODO add transport reactions for periplasmic metabolites for models without periplasmic compartments
     """ Supermodel class with metabolites and reactions. Sources - names of original models used to create supermodel.
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
@@ -151,43 +163,23 @@ class SuperModel():
         self.sources = types
 
     def findReactions(self, metabolite: NewObject, m_goNewOld: dict, r_goOldNew: dict, types: [str],
-                      periplasmic_r: dict, periplasmic_m: dict): #FIXME h2_p (that comes from e and c) doesn't have all its' reactions as connections
+                      periplasmic_r: dict, periplasmic_m: dict):
         for typ in types:
             old_mets = m_goNewOld.get(metabolite.id).get(typ)
             if old_mets:
+                new_r = []
                 for old_met in old_mets:
-                    # if metabolite.id == "h_p":
-                        # print(old_met.id)
                     if typ in list(periplasmic_m.keys()):
                         if old_met.id in list(periplasmic_m.get(typ).keys()):
-                            new_r = []
-                            # if metabolite.id == "h_p":
-                            #     print(old_met.id)
                             for reaction in old_met.reactions:
-                                # if metabolite.id == "h_p":
-                                #     if reaction.id in ['rxn09163_c0', 'rxn08815_c0', 'rxn09149_c0', 'rxn12549_c0']:
-                                #         print(reaction.id)
-                                #         print(r_goOldNew.get(typ).get(reaction.id)[0].id)
                                 if r_goOldNew.get(typ).get(reaction.id):
                                     if (metabolite.id.endswith("_p")) & (
                                             reaction.id in list(periplasmic_r.get(typ).keys())):
-                                        # if metabolite.id == "h_p":
-                                        #     if reaction.id in ['rxn09163_c0', 'rxn08815_c0', 'rxn09149_c0',
-                                        #                        'rxn12549_c0']:
-                                        #         print(reaction.id)
-                                        #         print("enter_p")
                                         new_r.append(r_goOldNew.get(typ).get(reaction.id)[0])
-                                        # if metabolite.id == "h_p":
-                                        #     print("enter")
-                                        #     print(reaction.id)
-                                        #     print(r_goOldNew.get(typ).get(reaction.id)[0].id)
-                                        #     print(len(new_r))
-                                        #     print(new_r)
                                     elif (not metabolite.id.endswith("_p")) & (
                                             reaction.id not in list(periplasmic_r.get(typ).keys())):
                                         new_r.append(r_goOldNew.get(typ).get(reaction.id)[0])
                         else:
-                            new_r = []
                             for r in old_met.reactions:
                                 if r_goOldNew.get(typ).get(r.id):
                                     new_r.append(r_goOldNew.get(typ).get(r.id)[0])
@@ -196,10 +188,7 @@ class SuperModel():
                         for r in old_met.reactions:
                             if r_goOldNew.get(typ).get(r.id):
                                 new_r.append(r_goOldNew.get(typ).get(r.id)[0])
-                    # if metabolite.id == "h_p":
-                    #     print(new_r)
-                    #     print(len(new_r))
-                    if new_r: metabolite.reactions[typ] = new_r
+                if new_r: metabolite.reactions[typ] = list(set(new_r))
 
     def findMetabolites(self, reaction: NewObject, r_goNewOld: dict, m_goOldNew: dict, types: [str],
                         periplasmic_r: dict):
