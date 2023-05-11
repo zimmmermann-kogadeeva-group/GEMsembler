@@ -103,7 +103,7 @@ class SetofNewObjects():
 
 class SetofNewMetabolites(SetofNewObjects):
     """ Metabolites class that add name and blank reaction attribute to metabolite """
-    def getName(self, database_info: pd.core.frame.DataFrame):
+    def setMetaboliteAttributes(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
             name = database_info[database_info["universal_bigg_id"] == id_noc]["name"].values[0]
@@ -119,7 +119,7 @@ class SetofNewMetabolites(SetofNewObjects):
 
 class SetofNewReactions(SetofNewObjects):
     """ Reactions class that add name, reaction equation and blank reactants/products attributes to reaction """
-    def getNameANDEquation(self, database_info: pd.core.frame.DataFrame):
+    def setReactionAttributes(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.replace("sink_", "DM_")
             name = database_info[database_info["bigg_id"] == id_noc]["name"]
@@ -134,7 +134,7 @@ class SetofNewReactions(SetofNewObjects):
             obj.reaction = equation
             obj.reactants = {k: [] for k in obj.sources.keys()}
             obj.products = {k: [] for k in obj.sources.keys()}
-            obj.metabolites = {k: [] for k in obj.sources.keys()}
+            obj.metabolites = {k: {} for k in obj.sources.keys()}
             obj.lower_bound = {k: [] for k in obj.sources.keys()}
             obj.upper_bound = {k: [] for k in obj.sources.keys()}
             obj.subsystem = {k: [] for k in obj.sources.keys()}
@@ -146,7 +146,7 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.reaction = equation
             ncobj.reactants = {k: [] for k in ncobj.sources.keys()}
             ncobj.products = {k: [] for k in ncobj.sources.keys()}
-            ncobj.metabolites = {k: [] for k in ncobj.sources.keys()}
+            ncobj.metabolites = {k: {} for k in ncobj.sources.keys()}
             ncobj.lower_bound = {k: [] for k in ncobj.sources.keys()}
             ncobj.upper_bound = {k: [] for k in ncobj.sources.keys()}
             ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
@@ -197,6 +197,7 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
             if old_react:
                 old_react_reactants = old_react[0].reactants
                 old_react_products = old_react[0].products
+                old_react_metabolites = old_react[0].metabolites
                 if typ in periplasmic_r.keys():
                     if old_react[0].id in periplasmic_r.get(typ).keys():
                         for reactant in old_react_reactants:
@@ -223,6 +224,18 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                                             reaction.products.get(typ).append(new_product)
                                         if (not new_product.id.endswith("_p")) & (product.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.products.get(typ).append(new_product)
+                        for met, koef in old_react_metabolites.items():
+                            new_mets = m_goOldNew.get(typ).get(met.id)
+                            if new_mets:
+                                if len(new_mets) == 1:
+                                    reaction.metabolites.get(typ).update({new_mets[0]: koef})
+                                elif len(new_mets) > 1:
+                                    for new_met in new_mets:
+                                        if (new_met.id.endswith("_p")) & (
+                                                met.id in periplasmic_r.get(typ).get(old_react[0].id).keys()):
+                                            reaction.metabolites.get(typ).update({new_met: koef})
+                                        if (not new_met.id.endswith("_p")) & (met.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
+                                            reaction.metabolites.get(typ).update({new_met: koef})
                     else:
                         for reactant in old_react_reactants:
                             new_reactants = m_goOldNew.get(typ).get(reactant.id)
@@ -242,6 +255,15 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                                     for new_product in new_products:
                                         if not new_product.id.endswith("_p"):
                                             reaction.products.get(typ).append(new_product)
+                        for met, koef in old_react_metabolites.items():
+                            new_mets = m_goOldNew.get(typ).get(met.id)
+                            if new_mets:
+                                if len(new_mets) == 1:
+                                    reaction.metabolites.get(typ).update({new_mets[0]: koef})
+                                elif len(new_mets) > 1:
+                                    for new_met in new_mets:
+                                        if not new_met.id.endswith("_p"):
+                                            reaction.metabolites.get(typ).update({new_met: koef})
                 else:
                     for reactant in old_react_reactants:
                         new_reactants = m_goOldNew.get(typ).get(reactant.id)
@@ -249,6 +271,10 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                     for product in old_react_products:
                         new_products = m_goOldNew.get(typ).get(product.id)
                         if new_products: reaction.products.get(typ).append(new_products[0])
+                    for met, koef in old_react_metabolites.items():
+                        new_mets = m_goOldNew.get(typ).get(met.id)
+                        if new_mets: reaction.metabolites.get(typ).update({new_mets[0]: koef})
+
 
     def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str], periplasmic_r: dict, periplasmic_m: dict):
         for met in self.metabolites.converted.values():
@@ -314,10 +340,10 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
     """ Creating supermodel with metabolites and reactions. """
     metabolites = SetofNewMetabolites()
     metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m, model_type, additional_periplasmic_m)
-    metabolites.getName(bigg_all_m)
+    metabolites.setMetaboliteAttributes(bigg_all_m)
     reactions = SetofNewReactions()
     reactions.makeSetofNew(final_r, final_r_not_sel, bigg_all_r, model_type)
-    reactions.getNameANDEquation(bigg_all_r)
+    reactions.setReactionAttributes(bigg_all_r)
     m_goOldNew, m_goNewOld = metabolites.makeForwardBackward(all_models, final_m, "metabolites",
                                                              additional_periplasmic_m)
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
