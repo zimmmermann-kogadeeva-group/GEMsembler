@@ -8,60 +8,6 @@ from collections import Counter
 import general
 
 
-# region Working with Compartments for different models
-# class Compartments(ABC):
-#
-#     def getIDwoCompartment(self, original_id: str, pattern_to_remove: [str]) -> str:
-#         id_wo_compartment = original_id
-#         for pattern in pattern_to_remove:
-#             id_wo_compartment = id_wo_compartment.removesuffix(pattern)
-#         return id_wo_compartment
-#
-#     @abstractmethod
-#     def getCompartment(self, original_compartment: str) -> str:
-#         """get compartments in standardised form"""
-#
-#     def runGetCompartment(self, original: cobra.core.metabolite.Metabolite or cobra.core.reaction.Reaction) -> [str]:
-#         if type(original) == cobra.core.metabolite.Metabolite:
-#             standard_compartments = [self.getCompartment(original.compartment)]
-#         if type(original) == cobra.core.reaction.Reaction:
-#             standard_compartments = []
-#             for comp in original.compartments:
-#                 standard_compartments.append(self.getCompartment(comp))
-#         return standard_compartments
-#
-#
-# class CompartmentsForCarveme(Compartments):
-#
-#     def getCompartment(self, original_compartment: str) -> str:
-#         standard_compartment = original_compartment.split("_")[1]
-#         return standard_compartment
-#
-#
-# class CompartmentsForGapseq(Compartments):
-#
-#     def getCompartment(self, original_compartment: str) -> str:
-#         standard_compartment = original_compartment[:-1]
-#         return standard_compartment
-#
-#
-# class CompartmentsForModelseed(Compartments):
-#
-#     def getCompartment(self, original_compartment: str) -> str:
-#         standard_compartment = original_compartment[:-1]
-#         return standard_compartment
-#
-#
-# class CompartmentsForAgora(Compartments):
-#
-#     def getCompartment(self, original_compartment: str) -> str:
-#         standard_compartment = original_compartment
-#         return standard_compartment
-#
-#
-# # endregion
-
-# region Working on converting ids for different models from different sources
 class ConversionToBiGG(ABC):
     """Conversion IDs for metabolites and reactions to BiGG"""
 
