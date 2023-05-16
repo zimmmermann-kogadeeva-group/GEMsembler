@@ -315,17 +315,24 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                         new_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         new_biomass.reactants = {typ: []}
                         new_biomass.products = {typ: []}
+                        new_biomass.lower_bound = {typ: [r.lower_bound]}
+                        new_biomass.upper_bound = {typ: [r.upper_bound]}
                         nc_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         nc_biomass.reactants = {typ: []}
                         nc_biomass.products = {typ: []}
-
+                        nc_biomass.lower_bound = {typ: [r.lower_bound]}
+                        nc_biomass.upper_bound = {typ: [r.upper_bound]}
                     else:
                         new_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         new_biomass.reactants.update({typ: []})
                         new_biomass.products.update({typ: []})
+                        new_biomass.lower_bound.update({typ: [r.lower_bound]})
+                        new_biomass.upper_bound.update({typ: [r.upper_bound]})
                         nc_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         nc_biomass.reactants.update({typ: []})
                         nc_biomass.products.update({typ: []})
+                        nc_biomass.lower_bound.update({typ: [r.lower_bound]})
+                        nc_biomass.upper_bound.update({typ: [r.upper_bound]})
                     biomass_react = [mr.id for mr in r.reactants]
                     for reactant in biomass_react:
                         new_reactants = m_goOldNew.get(typ).get(reactant)

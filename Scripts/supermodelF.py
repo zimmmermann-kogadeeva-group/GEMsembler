@@ -24,6 +24,34 @@ def getCoreConnections(connections: dict, core_size: int, sources: [str]) -> [st
     return selected_connection
 
 
+def getCoreUpperBounds(bounds: dict, core_size: int, sources: [str]) -> [str]:
+    """ Getting upper bounds via uniting all possible intersections of core_size number sources """
+    combinations = list(itertools.combinations(sources, core_size))
+    union_bound = 0
+    for combination in combinations:
+        intersection_bound = 1000
+        for c in combination:
+            if intersection_bound > bounds.get(c)[0]:
+                intersection_bound = bounds.get(c)[0]
+        if union_bound < intersection_bound:
+            union_bound = intersection_bound
+    return [union_bound]
+
+
+def getCoreLowerBounds(bounds: dict, core_size: int, sources: [str]) -> [str]:
+    """ Getting lower bounds via uniting all possible intersections of core_size number sources """
+    combinations = list(itertools.combinations(sources, core_size))
+    union_bound = 0
+    for combination in combinations:
+        intersection_bound = -1000
+        for c in combination:
+            if intersection_bound < bounds.get(c)[0]:
+                intersection_bound = bounds.get(c)[0]
+        if union_bound > intersection_bound:
+            union_bound = intersection_bound
+    return [union_bound]
+
+
 def getCore(supermodel: SuperModel, core_size=None, union_size=1):
     """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
      sources). Getting supermodel union of all sources. """
@@ -44,10 +72,16 @@ def getCore(supermodel: SuperModel, core_size=None, union_size=1):
         tmp_models = findKeysByValue(react.sources, 1, operator.ge)
         core_reactants = getCoreConnections(react.reactants, core_size, supermodel.sources)
         core_products = getCoreConnections(react.products, core_size, supermodel.sources)
+        core_lower_bound = getCoreLowerBounds(react.lower_bound, core_size, tmp_models)
+        core_upper_bound = getCoreUpperBounds(react.upper_bound, core_size, tmp_models)
         u_reactants = getCoreConnections(react.reactants, union_size, supermodel.sources)
         u_products = getCoreConnections(react.products, union_size, supermodel.sources)
+        u_lower_bound = getCoreLowerBounds(react.lower_bound, union_size, tmp_models)
+        u_upper_bound = getCoreUpperBounds(react.upper_bound, union_size, tmp_models)
         react.reactants.update({coreN: core_reactants, unionN: u_reactants})
         react.products.update({coreN: core_products, unionN: u_products})
+        react.lower_bound.update({coreN: core_lower_bound, unionN: u_lower_bound})
+        react.upper_bound.update({coreN: core_upper_bound, unionN: u_upper_bound})
         if len(tmp_models) >= core_size:
             getattr(supermodel.reactions, coreN).update({react.id: react})
 
@@ -63,6 +97,25 @@ def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]) ->
         connectionNotIn = connectionNotIn + connections.get(sNotIn)
     difConnection = set(connectionIn) - set(connectionNotIn)
     return list(difConnection)
+
+
+def getSomeBound(bounds: dict, bounds_type: str, sourceIn: [str]):
+    """ Getting intersection of lower/upper bounds from sourceIn """
+    if bounds_type == "lower":
+        bound = -1000
+    if bounds_type == "upper":
+        bound = 1000
+    for sI in sourceIn:
+        if not bounds.get(sI):
+            return []
+        else:
+            if bounds_type == "lower":
+                if bound < bounds.get(sI)[0]:
+                    bound = bounds.get(sI)[0]
+            if bounds_type == "upper":
+                if bound > bounds.get(sI)[0]:
+                    bound = bounds.get(sI)[0]
+    return [bound]
 
 
 def getDifference(supermodel: SuperModel, sourceIn: [str], sourceNotIn: [str], Nletter=1):
@@ -86,8 +139,12 @@ def getDifference(supermodel: SuperModel, sourceIn: [str], sourceNotIn: [str], N
     for react in supermodel.reactions.converted.values():
         dif_reactants = getDifConnections(react.reactants, sourceIn, sourceNotIn)
         dif_products = getDifConnections(react.products, sourceIn, sourceNotIn)
+        sI_lower_bound = getSomeBound(react.lower_bound, "lower", sourceIn)
+        sI_upper_bound = getSomeBound(react.upper_bound, "upper", sourceIn)
         react.reactants.update({name: dif_reactants})
         react.products.update({name: dif_products})
+        react.lower_bound.update({name: sI_lower_bound})
+        react.upper_bound.update({name: sI_upper_bound})
         sr_present = findKeysByValue(react.sources, 1, operator.ge)
         sr_absent = findKeysByValue(react.sources, 0, operator.eq)
         if ((set(sourceIn) <= set(sr_present)) & (set(sourceNotIn) <= set(sr_absent))):
