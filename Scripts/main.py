@@ -221,69 +221,72 @@ if __name__ == '__main__':
     # getting core and different types of intersections in supermodel
     supermodelF.getCore(supermodel)
     supermodelF.getVennSegments(supermodel)
+    supermodelF.getSwitchedMetabolites(supermodel)
+    supermodelF.getCore(supermodel)
+    supermodelF.getVennSegments(supermodel)
     # plotting some test pathways and core (intersection)
-    colorBrewer = {"reds": ["#feedde", "#fdbe85", "#fd8d3c", "#d94701"],
-                   "blues": ["#eff3ff", "#bdd7e7", "#6baed6", "#2171b5"],
-                   "purples": ["#f2f0f7", "#cbc9e2", "#9e9ac8", "#6a51a3"],
-                   "greens": ["#edf8e9", "#bae4b3", "#74c476", "#238b45"]}
-    aminoacids = ["ala__L", "arg__L", "asn__L", "asp__L", "cys__L", "gln__L", "glu__L", "gly", "his__L", "ile__L",
-                  "leu__L",
-                  "lys__L", "met__L", "phe__L", "pro__L", "ser__L", "thr__L", "trp__L", "tyr__L", "val__L"]
-    met_not_int = ["h", "h2o", "h2", "oh1", "o2", "co2", "coa", "ppi", "pi", "amp", "adp", "atp", "cmp", "cdp", "ctp",
-                   "gmp", "gdp", "gtp", "ump", "udp", "utp",
-                   "nad", "nadh", "nadp", "nadph", "dadp", "damp", "nh3", "nh4", "fadh2", "fad",
-                   "ac", "accoa", "h2s", "HC00250"]
-
-    glycolisys = {
-        "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c"],
-        "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK"]}
-    glycol = supermodelF.drawOnePathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids,
-                                        directed=False, surrounding=True)
-    cys_syn1 = {
-        "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c",
-                        "oaa_c", "asp__L_c",
-                        "4pasp_c", "aspsa_c",
-                        "hom__L_c", "achms_c", "hcys__L_c",
-                        "cyst__L_c", "cys__L_c"
-                        ],
-        "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK",
-                      "PC", "ASPTA",
-                      "ASPK", "ASAD",
-                      "HSDxi", "HSDy", "HSERTA", "AHSERL2",  # 2 first R - alternatives in NAD / NADP
-                      "CYSTS", "CYSTGL",
-                      ]}
-    cys_syn = {"metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c",
-                               "3php_c", "pser__L_c", "ser__L_c",
-                               "acser_c", "cys__L_c"],
-               "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK",
-                             "PGCD", "PSERT", "PSP_L",
-                             "SERAT", "CYSS"]
-               }
-    cys0 = supermodelF.drawOnePathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
-    cys_alt = supermodelF.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
-    TCA = {"PYK": [("pep_c", "pyr_c")],
-           "PPC": [("pep_c", "oaa_c")], "PPCK": [("pep_c", "oaa_c")], "PEPCK_re": [("pep_c", "oaa_c")],
-           "PC": [("pyr_c", "oaa_c")],
-           "PDH": [("pyr_c", "accoa_c")], "PFL": [("pyr_c", "accoa_c")],
-           "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")], "ACONT": [("cit_c", "icit_c")],
-           "ACONTa": [("cit_c", "acon_C_c")], "ACONTb": [("acon_C_c", "icit_c")],
-           "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
-           "ICDHyr": [("icit_c", "akg_c")], "ICDHx": [("icit_c", "akg_c")], "ICITRED": [("icit_c", "osuc_c")],
-           "OSUCCL": [("osuc_c", "akg_c")],
-           "AKGDH": [("akg_c", "succoa_c")], "OOR2r": [("akg_c", "succoa_c"), ("fdxo_42_c", "fdxr_42_c")],
-           "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
-           "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")], "PDHcr": [("dhlam_c", "lpam_c")],
-           "SUCOAS": [("succoa_c", "succ_c")],
-           "SUCDi": [("succ_c", "fum_c")], "FRD7": [("fum_c", "succ_c")],
-           "FUM": [("fum_c", "mal__L_c")], "MALS": [("glx_c", "mal__L_c")],
-           "MDH": [("mal__L_c", "oaa_c")], "MDH2": [("mal__L_c", "oaa_c")], "MDH3": [("mal__L_c", "oaa_c")]}
-    tca_g = supermodelF.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
-    core = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
-    print(
-        f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
-    union = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_union", union=True)
-    print(
-        f"BU supermodel consist of {len(supermodel.reactions.converted)} reactions and {len(supermodel.metabolites.converted)} metabolites")
-    biomass = supermodelF.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
-    biomass_diff = supermodelF.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
-    biomass_notconv = supermodelF.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)
+    # colorBrewer = {"reds": ["#feedde", "#fdbe85", "#fd8d3c", "#d94701"],
+    #                "blues": ["#eff3ff", "#bdd7e7", "#6baed6", "#2171b5"],
+    #                "purples": ["#f2f0f7", "#cbc9e2", "#9e9ac8", "#6a51a3"],
+    #                "greens": ["#edf8e9", "#bae4b3", "#74c476", "#238b45"]}
+    # aminoacids = ["ala__L", "arg__L", "asn__L", "asp__L", "cys__L", "gln__L", "glu__L", "gly", "his__L", "ile__L",
+    #               "leu__L",
+    #               "lys__L", "met__L", "phe__L", "pro__L", "ser__L", "thr__L", "trp__L", "tyr__L", "val__L"]
+    # met_not_int = ["h", "h2o", "h2", "oh1", "o2", "co2", "coa", "ppi", "pi", "amp", "adp", "atp", "cmp", "cdp", "ctp",
+    #                "gmp", "gdp", "gtp", "ump", "udp", "utp",
+    #                "nad", "nadh", "nadp", "nadph", "dadp", "damp", "nh3", "nh4", "fadh2", "fad",
+    #                "ac", "accoa", "h2s", "HC00250"]
+    #
+    # glycolisys = {
+    #     "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c"],
+    #     "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK"]}
+    # glycol = supermodelF.drawOnePathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids,
+    #                                     directed=False, surrounding=True)
+    # cys_syn1 = {
+    #     "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c",
+    #                     "oaa_c", "asp__L_c",
+    #                     "4pasp_c", "aspsa_c",
+    #                     "hom__L_c", "achms_c", "hcys__L_c",
+    #                     "cyst__L_c", "cys__L_c"
+    #                     ],
+    #     "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK",
+    #                   "PC", "ASPTA",
+    #                   "ASPK", "ASAD",
+    #                   "HSDxi", "HSDy", "HSERTA", "AHSERL2",  # 2 first R - alternatives in NAD / NADP
+    #                   "CYSTS", "CYSTGL",
+    #                   ]}
+    # cys_syn = {"metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c",
+    #                            "3php_c", "pser__L_c", "ser__L_c",
+    #                            "acser_c", "cys__L_c"],
+    #            "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK",
+    #                          "PGCD", "PSERT", "PSP_L",
+    #                          "SERAT", "CYSS"]
+    #            }
+    # cys0 = supermodelF.drawOnePathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
+    # cys_alt = supermodelF.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
+    # TCA = {"PYK": [("pep_c", "pyr_c")],
+    #        "PPC": [("pep_c", "oaa_c")], "PPCK": [("pep_c", "oaa_c")], "PEPCK_re": [("pep_c", "oaa_c")],
+    #        "PC": [("pyr_c", "oaa_c")],
+    #        "PDH": [("pyr_c", "accoa_c")], "PFL": [("pyr_c", "accoa_c")],
+    #        "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")], "ACONT": [("cit_c", "icit_c")],
+    #        "ACONTa": [("cit_c", "acon_C_c")], "ACONTb": [("acon_C_c", "icit_c")],
+    #        "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
+    #        "ICDHyr": [("icit_c", "akg_c")], "ICDHx": [("icit_c", "akg_c")], "ICITRED": [("icit_c", "osuc_c")],
+    #        "OSUCCL": [("osuc_c", "akg_c")],
+    #        "AKGDH": [("akg_c", "succoa_c")], "OOR2r": [("akg_c", "succoa_c"), ("fdxo_42_c", "fdxr_42_c")],
+    #        "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
+    #        "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")], "PDHcr": [("dhlam_c", "lpam_c")],
+    #        "SUCOAS": [("succoa_c", "succ_c")],
+    #        "SUCDi": [("succ_c", "fum_c")], "FRD7": [("fum_c", "succ_c")],
+    #        "FUM": [("fum_c", "mal__L_c")], "MALS": [("glx_c", "mal__L_c")],
+    #        "MDH": [("mal__L_c", "oaa_c")], "MDH2": [("mal__L_c", "oaa_c")], "MDH3": [("mal__L_c", "oaa_c")]}
+    # tca_g = supermodelF.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
+    # core = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
+    # print(
+    #     f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
+    # union = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_union", union=True)
+    # print(
+    #     f"BU supermodel consist of {len(supermodel.reactions.converted)} reactions and {len(supermodel.metabolites.converted)} metabolites")
+    # biomass = supermodelF.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
+    # biomass_diff = supermodelF.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
+    # biomass_notconv = supermodelF.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)

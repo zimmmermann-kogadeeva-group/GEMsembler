@@ -12,4 +12,5 @@ dependencies:
   - networkx
   - pyvis
   - pyautogui
+  - scipy
 prefix: /home/mek/anaconda3/envs/supermodel_tool

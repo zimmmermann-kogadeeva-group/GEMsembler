@@ -105,6 +105,85 @@ def getVennSegments(supermodel: SuperModel, Nletter=1):
         getDifference(supermodel, sYes, sNo, Nletter)
 
 
+def swapReactantsAndProducts(r: NewObject, sources_present: list, sources_to_swap: list, Nletter):
+    for tmp in sources_present:
+        if tmp[:Nletter] in sources_to_swap:
+            a = r.reactants.get(tmp)
+            b = r.products.get(tmp)
+            r.reactants[tmp] = b
+            r.products[tmp] = a
+            aa = r.lower_bound.get(tmp)[0] * -1
+            bb = r.upper_bound.get(tmp)[0] * -1
+            r.lower_bound[tmp] = [bb]
+            r.upper_bound[tmp] = [aa]
+
+
+def getSwitchedMetabolites(supermodel: SuperModel, Nletter=1):
+    for d in dir(supermodel.reactions):
+        if (d.startswith("Yes")) | (d.startswith("core")):
+            for r in getattr(supermodel.reactions, d).values():
+                tmp_models = findKeysByValue(r.sources, 1, operator.ge)
+                ex = False
+                for tmp in tmp_models:
+                    if (not r.reactants.get(tmp)) | (not r.products.get(tmp)):
+                        ex = True
+                if not ex:
+                    if (not r.reactants.get(d)) | (not r.products.get(d)):
+                        max_consist = 0
+                        consist = []
+                        all_consist = []
+                        for key, value in r.reactants.items():
+                            if (value != []) & (key.startswith("Yes_")):
+                                tmp_consist = key.removeprefix("Yes_").split("_No_")[0]
+                                all_consist.append(tmp_consist)
+                                if max_consist < len(tmp_consist) / Nletter:
+                                    max_consist = len(tmp_consist) / Nletter
+                                    consist = [tmp_consist]
+                                elif max_consist == len(tmp_consist) / Nletter:
+                                    consist.append(tmp_consist)
+                        if len(consist) == 1:
+                            # "Case 1: majority"
+                            start_yes_models = [consist[0][i:i + Nletter] for i in range(0, len(consist[0]), Nletter)]
+                            start_no_models = [tmp[:Nletter] for tmp in tmp_models if
+                                               tmp[:Nletter] not in start_yes_models]
+                            swapReactantsAndProducts(r, tmp_models, start_no_models, Nletter)
+                        elif len(consist) == 2:
+                            lb1 = 0
+                            lb2 = 0
+                            for tmp in tmp_models:
+                                if tmp[:Nletter] in consist[0]:
+                                    if r.lower_bound.get(tmp)[0] < lb1:
+                                        lb1 = r.lower_bound.get(tmp)[0]
+                                if tmp[:Nletter] in consist[1]:
+                                    if r.lower_bound.get(tmp)[0] < lb2:
+                                        lb2 = r.lower_bound.get(tmp)[0]
+                            swap = None
+                            if (lb1 >= 0) & (lb2 < 0):
+                                swap = consist[1]
+                            if (lb1 < 0) & (lb2 >= 0):
+                                swap = consist[0]
+                            if swap:
+                                # "Case 2: boundary"
+                                swap = [swap[i:i + Nletter] for i in range(0, len(swap), Nletter)]
+                                swapReactantsAndProducts(r, tmp_models, swap, Nletter)
+                            else:
+                                # "Case 3: Nothing sort"
+                                sel = sorted(tmp_models)[0]
+                                not_sel = []
+                                for tmp in sorted(tmp_models)[1:]:
+                                    if not (set(r.reactants.get(tmp)) & set(r.reactants.get(sel))):
+                                        not_sel.append(tmp[:Nletter])
+                                swapReactantsAndProducts(r, tmp_models, not_sel, Nletter)
+                        else:
+                            # "Case 3: Nothing sort"
+                            sel = sorted(tmp_models)[0]
+                            not_sel = []
+                            for tmp in sorted(tmp_models)[1:]:
+                                if not (set(r.reactants.get(tmp)) & set(r.reactants.get(sel))):
+                                    not_sel.append(tmp[:Nletter])
+                            swapReactantsAndProducts(r, tmp_models, not_sel, Nletter)
+
+
 def defineNodeColor(colordata: dict, pallitra: str, id_mr: str, objects: SetofNewReactions or SetofNewMetabolites,
                     Nletter=1) -> [str, str]:
     for y in dir(objects):
@@ -275,7 +354,6 @@ def drawPathways(supermodel, pathway, plot_type, met_not_int, colorBrewer, name,
                     tmp_pro = pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
 
 
-
 def drawTCA(supermodel, pathway, met_not_int, colorBrewer, name, aminoacids=None, surrounding=False, Nletter=1):
     path_met = []
     for value in pathway.values():
@@ -373,7 +451,7 @@ def drawCore(supermodel, met_not_int, colorBrewer, name, union=False, directed=F
     return g
 
 
-def drawBiomass(supermodel, name, only_difference=False, not_converted=False, colorBrewer = None, directed=True, wid=2000,
+def drawBiomass(supermodel, name, only_difference=False, not_converted=False, colorBrewer=None, directed=True, wid=2000,
                 hei=1000, Nletter=1, union_size=1, core_size=None):
     if core_size:
         core = "core" + str(core_size)
