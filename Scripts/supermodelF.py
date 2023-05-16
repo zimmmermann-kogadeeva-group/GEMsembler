@@ -173,6 +173,8 @@ def swapReactantsAndProducts(r: NewObject, sources_present: list, sources_to_swa
             bb = r.upper_bound.get(tmp)[0] * -1
             r.lower_bound[tmp] = [bb]
             r.upper_bound[tmp] = [aa]
+            for met, koef in r.metabolites.get(tmp).items():
+                r.metabolites.get(tmp)[met] = koef * -1
 
 
 def getSwitchedMetabolites(supermodel: SuperModel, Nletter=1):
