@@ -7,11 +7,12 @@ from cobra.io import read_sbml_model, write_sbml_model
 import curation
 import BiGGnetwork
 import conversion
+import drawing
 import general
 import selection
 import structural
 import creation
-import supermodelF
+import comparison
 import dill
 from copy import deepcopy
 
@@ -213,11 +214,11 @@ if __name__ == '__main__':
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
                                                 curated_models, bigg_all_m, bigg_all_r, additional_p_m, periplasmic_r)
     # getting core and different types of intersections in supermodel
-    supermodelF.getCore(supermodel)
-    supermodelF.getVennSegments(supermodel)
-    supermodelF.getSwitchedMetabolites(supermodel)
-    supermodelF.getCore(supermodel)
-    supermodelF.getVennSegments(supermodel)
+    comparison.getCore(supermodel)
+    comparison.getVennSegments(supermodel)
+    comparison.getSwitchedMetabolites(supermodel)
+    comparison.getCore(supermodel)
+    comparison.getVennSegments(supermodel)
     # plotting some test pathways and core (intersection)
     colorBrewer = {"reds": ["#feedde", "#fdbe85", "#fd8d3c", "#d94701"],
                    "blues": ["#eff3ff", "#bdd7e7", "#6baed6", "#2171b5"],
@@ -234,7 +235,7 @@ if __name__ == '__main__':
     glycolisys = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c"],
         "reactions": ["HEX1", "PGI", "PFK", "FBA", "GAPD", "PGK", "PGM", "ENO", "PYK"]}
-    glycol = supermodelF.drawOnePathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids,
+    glycol = drawing.drawOnePathway(supermodel, glycolisys, met_not_int, colorBrewer, "glycolysis", aminoacids,
                                         directed=False, surrounding=True)
     cys_syn1 = {
         "metabolites": ["glc__D_c", "g6p_c", "f6p_c", "fdp_c", "g3p_c", "13dpg_c", "3pg_c", "2pg_c", "pep_c", "pyr_c",
@@ -256,8 +257,8 @@ if __name__ == '__main__':
                              "PGCD", "PSERT", "PSP_L",
                              "SERAT", "CYSS"]
                }
-    cys0 = supermodelF.drawOnePathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
-    cys_alt = supermodelF.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
+    cys0 = drawing.drawOnePathway(supermodel, cys_syn, met_not_int, colorBrewer, "cys_main")
+    cys_alt = drawing.drawTwoPathways(supermodel, cys_syn, cys_syn1, met_not_int, colorBrewer, "cys_altern_paths")
     TCA = {"PYK": [("pep_c", "pyr_c")],
            "PPC": [("pep_c", "oaa_c")], "PPCK": [("pep_c", "oaa_c")], "PEPCK_re": [("pep_c", "oaa_c")],
            "PC": [("pyr_c", "oaa_c")],
@@ -274,13 +275,13 @@ if __name__ == '__main__':
            "SUCDi": [("succ_c", "fum_c")], "FRD7": [("fum_c", "succ_c")],
            "FUM": [("fum_c", "mal__L_c")], "MALS": [("glx_c", "mal__L_c")],
            "MDH": [("mal__L_c", "oaa_c")], "MDH2": [("mal__L_c", "oaa_c")], "MDH3": [("mal__L_c", "oaa_c")]}
-    tca_g = supermodelF.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
-    core = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
+    tca_g = drawing.drawTCA(supermodel, TCA, met_not_int, colorBrewer, "TCA")
+    core = drawing.drawCore(supermodel, met_not_int, colorBrewer, "new_core")
     print(
         f"BU core consist of {len(supermodel.reactions.core4)} reactions and {len(supermodel.metabolites.core4)} metabolites")
-    union = supermodelF.drawCore(supermodel, met_not_int, colorBrewer, "new_union", union=True)
+    union = drawing.drawCore(supermodel, met_not_int, colorBrewer, "new_union", union=True)
     print(
         f"BU supermodel consist of {len(supermodel.reactions.converted)} reactions and {len(supermodel.metabolites.converted)} metabolites")
-    biomass = supermodelF.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
-    biomass_diff = supermodelF.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
-    biomass_notconv = supermodelF.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)
+    biomass = drawing.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
+    biomass_diff = drawing.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
+    biomass_notconv = drawing.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)

@@ -3,6 +3,7 @@ import pandas as pd
 
 class NewObject():
     """ New object class - one metabolite or reaction for supermodel. """
+
     def __init__(self, new_id: str, old_id: str, compartments: [str], source: str, possible_sources: [str],
                  possible_conversion: dict):
         self.id = new_id
@@ -32,6 +33,7 @@ class NewObject():
 class SetofNewObjects():
     """ Setting dictionaries for all metabolites or reactions:
     selected for supermodel - self.converted and not selected - self.notconverted. """
+
     def __init__(self):
         self.converted = {}
         self.notconverted = {}
@@ -68,7 +70,8 @@ class SetofNewObjects():
 
     def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict, sources, additional=None):
         self.addNewObjs(selected, converted, self.converted, sources)
-        self.addNewObjs(not_selected, converted, self.notconverted, sources) #TODO connect not_converted for realy not converted only with old id
+        self.addNewObjs(not_selected, converted, self.notconverted,
+                        sources)  # TODO connect not_converted for realy not converted only with old id
         if additional:
             self.addNewObjs(additional, converted, self.converted, sources)
 
@@ -103,6 +106,7 @@ class SetofNewObjects():
 
 class SetofNewMetabolites(SetofNewObjects):
     """ Metabolites class that add name and blank reaction attribute to metabolite """
+
     def setMetaboliteAttributes(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
@@ -119,6 +123,7 @@ class SetofNewMetabolites(SetofNewObjects):
 
 class SetofNewReactions(SetofNewObjects):
     """ Reactions class that add name, reaction equation and blank reactants/products attributes to reaction """
+
     def setReactionAttributes(self, database_info: pd.core.frame.DataFrame):
         for obj in self.converted.values():
             id_noc = obj.id.replace("sink_", "DM_")
@@ -152,11 +157,11 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
 
 
-
-class SuperModel(): #TODO add transport reactions for periplasmic metabolites for models without periplasmic compartments
+class SuperModel():  # TODO add transport reactions for periplasmic metabolites for models without periplasmic compartments
     """ Supermodel class with metabolites and reactions. Sources - names of original models used to create supermodel.
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
+
     def __init__(self, metabolites, reactions, types: [str]):
         self.metabolites = metabolites
         self.reactions = reactions
@@ -210,7 +215,8 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                                         if (new_reactant.id.endswith("_p")) & (
                                                 reactant.id in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.reactants.get(typ).append(new_reactant)
-                                        if (not new_reactant.id.endswith("_p")) & (reactant.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
+                                        if (not new_reactant.id.endswith("_p")) & (
+                                                reactant.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.reactants.get(typ).append(new_reactant)
                         for product in old_react_products:
                             new_products = m_goOldNew.get(typ).get(product.id)
@@ -222,7 +228,8 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                                         if (new_product.id.endswith("_p")) & (
                                                 product.id in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.products.get(typ).append(new_product)
-                                        if (not new_product.id.endswith("_p")) & (product.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
+                                        if (not new_product.id.endswith("_p")) & (
+                                                product.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.products.get(typ).append(new_product)
                         for met, koef in old_react_metabolites.items():
                             new_mets = m_goOldNew.get(typ).get(met.id)
@@ -234,7 +241,8 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                                         if (new_met.id.endswith("_p")) & (
                                                 met.id in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.metabolites.get(typ).update({new_met: koef})
-                                        if (not new_met.id.endswith("_p")) & (met.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
+                                        if (not new_met.id.endswith("_p")) & (
+                                                met.id not in periplasmic_r.get(typ).get(old_react[0].id).keys()):
                                             reaction.metabolites.get(typ).update({new_met: koef})
                     else:
                         for reactant in old_react_reactants:
@@ -275,13 +283,12 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                         new_mets = m_goOldNew.get(typ).get(met.id)
                         if new_mets: reaction.metabolites.get(typ).update({new_mets[0]: koef})
 
-
-    def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str], periplasmic_r: dict, periplasmic_m: dict):
+    def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str],
+                        periplasmic_r: dict, periplasmic_m: dict):
         for met in self.metabolites.converted.values():
             self.findReactions(met, m_goNewOld, r_goOldNew, types, periplasmic_r, periplasmic_m)
         for r in self.reactions.converted.values():
             self.findMetabolites(r, r_goNewOld, m_goOldNew, types, periplasmic_r)
-
 
     def getAdditionalAttributes(self, types: [str], m_goNewOld: dict, r_goNewOld: dict):
         for met in self.metabolites.converted.values():
@@ -305,8 +312,8 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                     r.upper_bound.get(typ).append(upp_b)
                     r.subsystem.get(typ).append("#or#".join(subsys))
 
-
-    def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict, final_m_not_sel: dict):
+    def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict,
+                   final_m_not_sel: dict):
         new_biomass = None
         for typ in types:
             for r in all_models.get(typ).reactions:
@@ -315,22 +322,26 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                         new_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         new_biomass.reactants = {typ: []}
                         new_biomass.products = {typ: []}
+                        new_biomass.metabolites = {typ: {}}
                         new_biomass.lower_bound = {typ: [r.lower_bound]}
                         new_biomass.upper_bound = {typ: [r.upper_bound]}
                         nc_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         nc_biomass.reactants = {typ: []}
                         nc_biomass.products = {typ: []}
+                        nc_biomass.metabolites = {typ: {}}
                         nc_biomass.lower_bound = {typ: [r.lower_bound]}
                         nc_biomass.upper_bound = {typ: [r.upper_bound]}
                     else:
                         new_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         new_biomass.reactants.update({typ: []})
                         new_biomass.products.update({typ: []})
+                        new_biomass.metabolites.update({typ: {}})
                         new_biomass.lower_bound.update({typ: [r.lower_bound]})
                         new_biomass.upper_bound.update({typ: [r.upper_bound]})
                         nc_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         nc_biomass.reactants.update({typ: []})
                         nc_biomass.products.update({typ: []})
+                        nc_biomass.metabolites.update({typ: {}})
                         nc_biomass.lower_bound.update({typ: [r.lower_bound]})
                         nc_biomass.upper_bound.update({typ: [r.upper_bound]})
                     biomass_react = [mr.id for mr in r.reactants]
@@ -338,29 +349,48 @@ class SuperModel(): #TODO add transport reactions for periplasmic metabolites fo
                         new_reactants = m_goOldNew.get(typ).get(reactant)
                         if new_reactants:
                             new_biomass.reactants.get(typ).append(new_reactants[0])
+                            new_biomass.metabolites.get(typ).update(
+                                {new_reactants[0]: r.metabolites.get(all_models.get(typ).metabolites.get_by_id(reactant))})
                             new_reactants[0].reactions.get(typ).append(new_biomass)
                         else:
                             if not final_m_not_sel.get(typ).get(reactant)[1]:
                                 nc_biomass.reactants.get(typ).append(self.metabolites.notconverted.get(reactant))
+                                nc_biomass.metabolites.get(typ).update(
+                                    {self.metabolites.notconverted.get(reactant): r.metabolites.get(
+                                        all_models.get(typ).metabolites.get_by_id(reactant))})
                                 self.metabolites.notconverted.get(reactant).reactions.get(typ).append(nc_biomass)
                             else:
                                 for bigg_reactant in final_m_not_sel.get(typ).get(reactant)[1]:
-                                    nc_biomass.reactants.get(typ).append(self.metabolites.notconverted.get(bigg_reactant))
-                                    self.metabolites.notconverted.get(bigg_reactant).reactions.get(typ).append(nc_biomass)
+                                    nc_biomass.reactants.get(typ).append(
+                                        self.metabolites.notconverted.get(bigg_reactant))
+                                    nc_biomass.metabolites.get(typ).update(
+                                        {self.metabolites.notconverted.get(bigg_reactant): r.metabolites.get(
+                                            all_models.get(typ).metabolites.get_by_id(reactant))})
+                                    self.metabolites.notconverted.get(bigg_reactant).reactions.get(typ).append(
+                                        nc_biomass)
                     biomass_pro = [mp.id for mp in r.products]
                     for product in biomass_pro:
                         new_products = m_goOldNew.get(typ).get(product)
                         if new_products:
                             new_biomass.products.get(typ).append(new_products[0])
+                            new_biomass.metabolites.get(typ).update(
+                                {new_products[0]: r.metabolites.get(all_models.get(typ).metabolites.get_by_id(product))})
                             new_products[0].reactions.get(typ).append(new_biomass)
                         else:
                             if not final_m_not_sel.get(typ).get(product)[1]:
                                 nc_biomass.products.get(typ).append(self.metabolites.notconverted.get(product))
+                                nc_biomass.metabolites.get(typ).update(
+                                    {self.metabolites.notconverted.get(product): r.metabolites.get(
+                                        all_models.get(typ).metabolites.get_by_id(product))})
                                 self.metabolites.notconverted.get(product).reactions.get(typ).append(nc_biomass)
                             else:
                                 for bigg_product in final_m_not_sel.get(typ).get(product)[1]:
                                     nc_biomass.products.get(typ).append(self.metabolites.notconverted.get(bigg_product))
-                                    self.metabolites.notconverted.get(bigg_product).reactions.get(typ).append(nc_biomass)
+                                    nc_biomass.metabolites.get(typ).update(
+                                        {self.metabolites.notconverted.get(bigg_product): r.metabolites.get(
+                                            all_models.get(typ).metabolites.get_by_id(product))})
+                                    self.metabolites.notconverted.get(bigg_product).reactions.get(typ).append(
+                                        nc_biomass)
         self.reactions.converted.update({"Biomass": new_biomass})
         self.reactions.notconverted.update({"Biomass": nc_biomass})
 
@@ -381,7 +411,8 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
                                                              additional_periplasmic_m)
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
     supermodel = SuperModel(metabolites, reactions, model_type)
-    supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, periplasmic_r, additional_periplasmic_m)
+    supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, periplasmic_r,
+                               additional_periplasmic_m)
     supermodel.getAdditionalAttributes(model_type, m_goNewOld, r_goNewOld)
     supermodel.addBiomass(model_type, m_goOldNew, all_models, final_r_not_sel, final_m_not_sel)
     return supermodel
