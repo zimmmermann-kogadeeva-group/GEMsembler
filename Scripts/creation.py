@@ -128,8 +128,10 @@ class SetofNewReactions(SetofNewObjects):
         for obj in self.converted.values():
             id_noc = obj.id.replace("sink_", "DM_")
             name = database_info[database_info["bigg_id"] == id_noc]["name"]
-            if not name.empty:
+            if (not name.empty) and (not name.isnull().values.any()):
                 name = name.values[0]
+            else:
+                name = ""
             equation = database_info[database_info["bigg_id"] == id_noc]["reaction_string"]
             if not equation.empty:
                 equation = equation.values[0]
@@ -320,17 +322,21 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                 if len(r.reactants) > 24:
                     if not new_biomass:
                         new_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
+                        new_biomass.name = "Biomass"
                         new_biomass.reactants = {typ: []}
                         new_biomass.products = {typ: []}
                         new_biomass.metabolites = {typ: {}}
                         new_biomass.lower_bound = {typ: [r.lower_bound]}
                         new_biomass.upper_bound = {typ: [r.upper_bound]}
+                        new_biomass.subsystem = {typ: [r.subsystem]}
                         nc_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
+                        nc_biomass.name = "Biomass"
                         nc_biomass.reactants = {typ: []}
                         nc_biomass.products = {typ: []}
                         nc_biomass.metabolites = {typ: {}}
                         nc_biomass.lower_bound = {typ: [r.lower_bound]}
                         nc_biomass.upper_bound = {typ: [r.upper_bound]}
+                        nc_biomass.subsystem = {typ: [r.subsystem]}
                     else:
                         new_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         new_biomass.reactants.update({typ: []})
@@ -338,12 +344,14 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.metabolites.update({typ: {}})
                         new_biomass.lower_bound.update({typ: [r.lower_bound]})
                         new_biomass.upper_bound.update({typ: [r.upper_bound]})
+                        new_biomass.subsystem.update({typ: [r.subsystem]})
                         nc_biomass.updateNewObject(r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ)
                         nc_biomass.reactants.update({typ: []})
                         nc_biomass.products.update({typ: []})
                         nc_biomass.metabolites.update({typ: {}})
                         nc_biomass.lower_bound.update({typ: [r.lower_bound]})
                         nc_biomass.upper_bound.update({typ: [r.upper_bound]})
+                        nc_biomass.subsystem.update({typ: [r.subsystem]})
                     biomass_react = [mr.id for mr in r.reactants]
                     for reactant in biomass_react:
                         new_reactants = m_goOldNew.get(typ).get(reactant)

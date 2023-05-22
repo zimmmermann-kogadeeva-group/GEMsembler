@@ -5,9 +5,6 @@ import numpy
 from scipy.stats import mode
 from creation import SuperModel, NewObject, SetofNewReactions, SetofNewMetabolites
 from general import findKeysByValue
-import networkx as nx
-from pyvis.network import Network
-import pyautogui
 
 
 def getCoreConnections(connections: dict, core_size: int, sources: [str]) -> [str]:
