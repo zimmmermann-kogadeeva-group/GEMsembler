@@ -43,6 +43,15 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, write_sbml=T
             out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
             out_reaction.add_metabolites({out_met: k})
         outmodel.add_reactions([out_reaction])
+    if supermodel.reactions.converted.get("Biomass") not in in_reactions:
+        bio_r = Reaction("Biomass")
+        bio_r.subsystem = "Growth"
+        bio_r.lower_bound = supermodel.reactions.converted.get("Biomass").lower_bound.get(interest_level)[0]
+        bio_r.upper_bound = supermodel.reactions.converted.get("Biomass").upper_bound.get(interest_level)[0]
+        for met, k in supermodel.reactions.converted.get("Biomass").metabolites.get(interest_level).items():
+            out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
+            bio_r.add_metabolites({out_met: k})
+        outmodel.add_reactions([bio_r])
     outmodel.objective = "Biomass"
     if write_sbml:
         write_sbml_model(outmodel, "../Output/" + name)

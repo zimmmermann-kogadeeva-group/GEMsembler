@@ -160,7 +160,7 @@ def getSomeBound(bounds: dict, bounds_type: str, sourceIn: [str]):
 def getSomeCoefficients(metabolites: dict, reactants: dict, products: dict, name: str, sourceIn: [str]):
     """ Getting coefficients mode of metabolites from sourceIn """
     coefficients = {}
-    if (reactants.get(name)) and (products.get(name)):
+    if (reactants.get(name)) or (products.get(name)):
         for rea in reactants.get(name):
             k_mod = []
             for sI in sourceIn:
@@ -217,8 +217,8 @@ def getVennSegments(supermodel: SuperModel, Nletter=1):
     for i in range(1, len(supermodel.sources)):
         combinations.extend(itertools.combinations(supermodel.sources, i))
     for combo in combinations:
-        sYes = list(combo)
-        sNo = list(set(supermodel.sources) - set(combo))
+        sYes = sorted(list(combo))
+        sNo = sorted((list(set(supermodel.sources) - set(combo))))
         getDifference(supermodel, sYes, sNo, Nletter)
 
 

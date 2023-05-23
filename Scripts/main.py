@@ -223,6 +223,7 @@ if __name__ == '__main__':
     comparison.getVennSegments(supermodel)
     core_model = anticreation.getModelOfInterest(supermodel, "core4", name="BU_core_model.xml")
     union_model = anticreation.getModelOfInterest(supermodel, "union1", name="BU_union_model.xml")
+    Yes_a_No_cmg_model = anticreation.getModelOfInterest(supermodel, "Yes_a_No_cgm", name="BU_Yes_a_No_cmg_model.xml")
     # plotting some test pathways and core (intersection)
     # colorBrewer = {"reds": ["#feedde", "#fdbe85", "#fd8d3c", "#d94701"],
     #                "blues": ["#eff3ff", "#bdd7e7", "#6baed6", "#2171b5"],
