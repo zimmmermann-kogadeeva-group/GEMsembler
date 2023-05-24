@@ -5,7 +5,48 @@ from cobra.io import write_sbml_model, validate_sbml_model
 from creation import SuperModel, NewObject
 
 
-def getModelOfInterest(supermodel: SuperModel, interest_level: str, write_sbml=True, name=None,
+def gapfillTransportR(cobra_model: Model, supermodel: SuperModel):
+    for exchange in cobra_model.exchanges:
+        met_e = list(exchange.reactants)[0].id
+        met_c = list(exchange.reactants)[0].id[:-1]+"c"
+        cobra_transport = False
+        for r in cobra_model.metabolites.get_by_id(met_e).reactions:
+            r_react = [m.id for m in r.reactants]
+            r_pro = [m.id for m in r.products]
+            if ((met_e in r_react) & (met_c in r_pro)) | ((met_e in r_pro) & (met_c in r_react)):
+                cobra_transport = True
+        if not cobra_transport:
+            if met_c in supermodel.metabolites.converted.keys():
+                transport_r = []
+                for r_super in supermodel.metabolites.converted.get(met_e).reactions.get("union1"):
+                    rs_react = [m.id for m in r_super.reactants.get("union1")]
+                    rs_pro = [m.id for m in r_super.products.get("union1")]
+                    if ((met_e in rs_react) & (met_c in rs_pro)) | ((met_e in rs_pro) & (met_c in rs_react)):
+                        transport_r.append(r_super)
+                for tr in transport_r:
+                    tr_r = Reaction(tr.id)
+                    if tr.name:
+                        tr_r.name = tr.name
+                    else:
+                        tr_r.name = ""
+                    out_subsystem = ""
+                    for source in supermodel.sources:
+                        if tr.subsystem.get(source):
+                            tmp = tr.subsystem.get(source)[0]
+                        else:
+                            tmp = "NaN"
+                        out_subsystem = out_subsystem + "#" + source + "#" + tmp
+                    tr_r.subsystem = out_subsystem
+                    tr_r.lower_bound = tr.lower_bound.get("union1")[0]
+                    tr_r.upper_bound = tr.upper_bound.get("union1")[0]
+                    for met, k in tr.metabolites.get("union1").items():
+                        tr_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
+                        tr_r.add_metabolites({tr_met: k})
+                    cobra_model.add_reactions([tr_r])
+
+
+def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_bounds=True, gapfill_transport=True,
+                       write_sbml=True, name=None,
                        reactions_include: [NewObject] = None,
                        reactions_exclude: [NewObject] = None):
     """ Creating COBRA model from supermodel based on specific level of interest for example core or union.
@@ -37,8 +78,12 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, write_sbml=T
                 tmp = "NaN"
             out_subsystem = out_subsystem + "#" + source + "#" + tmp
         out_reaction.subsystem = out_subsystem
-        out_reaction.lower_bound = r.lower_bound.get(interest_level)[0]
-        out_reaction.upper_bound = r.upper_bound.get(interest_level)[0]
+        if extend_zero_bounds and (r.upper_bound.get(interest_level)[0] - r.lower_bound.get(interest_level)[0] == 0):
+            out_reaction.lower_bound = -1000.
+            out_reaction.upper_bound = 1000.
+        else:
+            out_reaction.lower_bound = r.lower_bound.get(interest_level)[0]
+            out_reaction.upper_bound = r.upper_bound.get(interest_level)[0]
         for met, k in r.metabolites.get(interest_level).items():
             out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
             out_reaction.add_metabolites({out_met: k})
@@ -53,6 +98,8 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, write_sbml=T
             bio_r.add_metabolites({out_met: k})
         outmodel.add_reactions([bio_r])
     outmodel.objective = "Biomass"
+    if gapfill_transport:
+        gapfillTransportR(outmodel, supermodel)
     if write_sbml:
         write_sbml_model(outmodel, "../Output/" + name)
     report = validate_sbml_model(filename="../Output/" + name)

@@ -301,3 +301,22 @@ def getSwitchedMetabolites(supermodel: SuperModel, Nletter=1):
                                 if not (set(r.reactants.get(tmp)) & set(r.reactants.get(sel))):
                                     not_sel.append(tmp[:Nletter])
                             swapReactantsAndProducts(r, tmp_models, not_sel, Nletter)
+
+
+def runComparioson(supermodel: SuperModel, core_size=None, union_size=1, Nletter=1):
+    for source in supermodel.sources:
+        setattr(supermodel.metabolites, source, {})
+        setattr(supermodel.reactions, source, {})
+    for met in supermodel.metabolites.converted.values():
+        tmp_models = findKeysByValue(met.sources, 1, operator.ge)
+        for tmp_source in tmp_models:
+            getattr(supermodel.metabolites, tmp_source).update({met.id: met})
+    for r in supermodel.reactions.converted.values():
+        tmp_models = findKeysByValue(r.sources, 1, operator.ge)
+        for tmp_source in tmp_models:
+            getattr(supermodel.reactions, tmp_source).update({r.id: r})
+    getCore(supermodel, core_size, union_size)
+    getVennSegments(supermodel, Nletter)
+    getSwitchedMetabolites(supermodel, Nletter)
+    getCore(supermodel, core_size, union_size)
+    getVennSegments(supermodel, Nletter)

@@ -216,14 +216,11 @@ if __name__ == '__main__':
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
                                                 curated_models, bigg_all_m, bigg_all_r, additional_p_m, periplasmic_r)
     # getting core and different types of intersections in supermodel
-    comparison.getCore(supermodel)
-    comparison.getVennSegments(supermodel)
-    comparison.getSwitchedMetabolites(supermodel)
-    comparison.getCore(supermodel)
-    comparison.getVennSegments(supermodel)
+    comparison.runComparioson(supermodel)
     core_model = anticreation.getModelOfInterest(supermodel, "core4", name="BU_core_model.xml")
     union_model = anticreation.getModelOfInterest(supermodel, "union1", name="BU_union_model.xml")
     Yes_a_No_cmg_model = anticreation.getModelOfInterest(supermodel, "Yes_a_No_cgm", name="BU_Yes_a_No_cmg_model.xml")
+    carveme_model = anticreation.getModelOfInterest(supermodel, "carveme", name="BU_carveme_out_model.xml")
     # plotting some test pathways and core (intersection)
     # colorBrewer = {"reds": ["#feedde", "#fdbe85", "#fd8d3c", "#d94701"],
     #                "blues": ["#eff3ff", "#bdd7e7", "#6baed6", "#2171b5"],
