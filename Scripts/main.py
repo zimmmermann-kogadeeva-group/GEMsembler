@@ -3,8 +3,7 @@ import operator
 import os
 from os.path import join, exists
 import pandas as pd
-from cobra.io import read_sbml_model, write_sbml_model
-
+from cobra.io import read_sbml_model
 import anticreation
 import curation
 import BiGGnetwork
@@ -287,3 +286,17 @@ if __name__ == '__main__':
     # biomass = drawing.drawBiomass(supermodel, "biomass", colorBrewer=colorBrewer)
     # biomass_diff = drawing.drawBiomass(supermodel, "biomass_diff", only_difference=True, colorBrewer=colorBrewer)
     # biomass_notconv = drawing.drawBiomass(supermodel, "biomass_notconverted", not_converted=True)
+
+    # met = ["glc__D", "pheme", "b12", "mndn", "h2s", "k", "pi", "na1", "cl", "nh4", "so4", "mg2", "fe3", "ca2", "h",
+    #        "h2o", "zn2", "mn2", "cu2", "cobalt2", "fe2"]
+    # met_e = [m + "_e" for m in met]
+    # medium = {}
+    # for e in carveme_model.exchanges:
+    #     for m in e.metabolites:
+    #         if m.id in met_e:
+    #             medium[e.id] = 1000
+    #         else:
+    #             medium[e.id] = 0
+    # met_ms = ["cpd00027", "cpd00028", "cpd03424", "cpd03185", "cpd00239", "cpd00205", "cpd00009", "cpd00971",
+    # "cpd00099", "cpd00013", "cpd00048", "cpd00254", "cpd10516", "cpd00063", "cpd00067", "cpd00001", "cpd00034",
+    # "cpd00030", "cpd00058", "cpd00149", "cpd10515"]

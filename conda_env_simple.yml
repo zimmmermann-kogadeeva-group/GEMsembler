@@ -13,4 +13,7 @@ dependencies:
   - pyvis
   - pyautogui
   - scipy
+  - seaborn
+  - pip:
+    - metquest==0.1.34
 prefix: /home/mek/anaconda3/envs/supermodel_tool

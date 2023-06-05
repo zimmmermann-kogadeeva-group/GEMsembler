@@ -71,7 +71,7 @@ class SetofNewObjects():
     def makeSetofNew(self, selected: dict, not_selected: dict, converted: dict, sources, additional=None):
         self.addNewObjs(selected, converted, self.converted, sources)
         self.addNewObjs(not_selected, converted, self.notconverted,
-                        sources)  # TODO connect not_converted for realy not converted only with old id
+                        sources)  # TODO connect not_converted for really not converted only with old id
         if additional:
             self.addNewObjs(additional, converted, self.converted, sources)
 

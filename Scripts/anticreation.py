@@ -20,7 +20,8 @@ def gapfillTransportR(cobra_model: Model, supermodel: SuperModel):
                 transport_r = []
                 for r_super in supermodel.metabolites.converted.get(met_e).reactions.get("union1"):
                     rs_react = [m.id for m in r_super.reactants.get("union1")]
-                    rs_pro = [m.id for m in r_super.products.get("union1")]
+                    rs_pro = [m.id for m in r_super.products.get("union1"
+                                                                 "")]
                     if ((met_e in rs_react) & (met_c in rs_pro)) | ((met_e in rs_pro) & (met_c in rs_react)):
                         transport_r.append(r_super)
                 for tr in transport_r:

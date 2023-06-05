@@ -1,7 +1,25 @@
 import networkx as nx
 import pyautogui
 from pyvis.network import Network
+import math
 from creation import SetofNewReactions, SetofNewMetabolites, NewObject
+import seaborn as sns
+
+
+def getColorPalette(sources_number: int) -> dict:
+    up = math.ceil(sources_number / 10)
+    colors = sns.color_palette("bright").as_hex()
+    out_colors = {
+        "metabolites": sns.light_palette(colors[4], sources_number + up).as_hex()[up:],
+        "intersection": sns.light_palette(colors[3], sources_number + up).as_hex()[up:],
+        "1stPath": sns.light_palette(colors[1], sources_number + up).as_hex()[up:],
+        "2dPath": sns.light_palette(colors[8], sources_number + up).as_hex()[up:],
+        "metConnect": sns.light_palette(colors[0], sources_number + up).as_hex()[up:],
+        "connect": sns.light_palette(colors[9], sources_number + up).as_hex()[up:],
+        "interest": sns.light_palette(colors[2], sources_number + up).as_hex()[up:],
+        "notFound": sns.light_palette(colors[7], sources_number + up).as_hex()[up:]
+    }
+    return out_colors
 
 
 def defineNodeColor(colordata: dict, pallitra: str, id_mr: str, objects: SetofNewReactions or SetofNewMetabolites,
@@ -11,7 +29,8 @@ def defineNodeColor(colordata: dict, pallitra: str, id_mr: str, objects: SetofNe
             if id_mr in getattr(objects, y).keys():
                 name = y.split("_No_")[0].replace("Yes_", "")
                 if y.startswith("core"):
-                    col = colordata.get(pallitra)[-1]
+                    n = int(y.replace("core", ""))
+                    col = colordata.get(pallitra)[n - 1]
                 else:
                     col = colordata.get(pallitra)[int(len(name) / Nletter) - 1]
                 return ([col, id_mr + "\n" + name])
@@ -23,7 +42,8 @@ def defineEdgeColor(colordata: dict, pallitra: str, mr: NewObject, connections: 
             if mr in connections.get(y):
                 name = y.split("_No_")[0].replace("Yes_", "")
                 if y.startswith("core"):
-                    col = colordata.get(pallitra)[-1]
+                    n = int(y.replace("core", ""))
+                    col = colordata.get(pallitra)[n - 1]
                 else:
                     col = colordata.get(pallitra)[int(len(name) / Nletter) - 1]
                 return ([col, name])
@@ -39,20 +59,24 @@ def drawOnePathway(supermodel, pathway, met_not_int, colorBrewer, name, aminoaci
             for pro in r.products.get("union1"):
                 tmp_pro = pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
                 if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
-                    colname_r = defineNodeColor(colorBrewer, "purples", r_id, supermodel.reactions, Nletter)
+                    colname_r = defineNodeColor(colorBrewer, "1stPath", r_id, supermodel.reactions, Nletter)
                     if rea.id in pathway["metabolites"]:
-                        colname_rea = defineNodeColor(colorBrewer, "reds", rea.id, supermodel.metabolites, Nletter)
-                        cn_rea = defineEdgeColor(colorBrewer, "reds", rea, r.reactants, Nletter)
+                        colname_rea = defineNodeColor(colorBrewer, "metabolies", rea.id, supermodel.metabolites,
+                                                      Nletter)
+                        cn_rea = defineEdgeColor(colorBrewer, "1stPath", rea, r.reactants, Nletter)
                     else:
-                        colname_rea = defineNodeColor(colorBrewer, "blues", rea.id, supermodel.metabolites, Nletter)
-                        cn_rea = defineEdgeColor(colorBrewer, "blues", rea, r.reactants, Nletter)
+                        colname_rea = defineNodeColor(colorBrewer, "metConnect", rea.id, supermodel.metabolites,
+                                                      Nletter)
+                        cn_rea = defineEdgeColor(colorBrewer, "connect", rea, r.reactants, Nletter)
 
                     if pro.id in pathway["metabolites"]:
-                        colname_pro = defineNodeColor(colorBrewer, "reds", pro.id, supermodel.metabolites, Nletter)
-                        cn_pro = defineEdgeColor(colorBrewer, "reds", pro, r.products, Nletter)
+                        colname_pro = defineNodeColor(colorBrewer, "metabolies", pro.id, supermodel.metabolites,
+                                                      Nletter)
+                        cn_pro = defineEdgeColor(colorBrewer, "1stPath", pro, r.products, Nletter)
                     else:
-                        colname_pro = defineNodeColor(colorBrewer, "blues", pro.id, supermodel.metabolites, Nletter)
-                        cn_pro = defineEdgeColor(colorBrewer, "blues", pro, r.products, Nletter)
+                        colname_pro = defineNodeColor(colorBrewer, "metConnect", pro.id, supermodel.metabolites,
+                                                      Nletter)
+                        cn_pro = defineEdgeColor(colorBrewer, "connect", pro, r.products, Nletter)
                     g.add_node(colname_r[1], shape="box", color=colname_r[0])
                     g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
                     g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
@@ -70,14 +94,14 @@ def drawOnePathway(supermodel, pathway, met_not_int, colorBrewer, name, aminoaci
                             tmp_pro1 = pro1.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
                             if (tmp_rea1 not in met_not_int) & (tmp_pro1 not in met_not_int):
                                 if (tmp_rea1 in aminoacids) or (tmp_pro1 in aminoacids):
-                                    colname_rn = defineNodeColor(colorBrewer, "greens", ra.id, supermodel.reactions,
+                                    colname_rn = defineNodeColor(colorBrewer, "connect", ra.id, supermodel.reactions,
                                                                  Nletter)
-                                    colname_rean = defineNodeColor(colorBrewer, "blues", rea1.id,
+                                    colname_rean = defineNodeColor(colorBrewer, "metConnect", rea1.id,
                                                                    supermodel.metabolites, Nletter)
-                                    colname_pron = defineNodeColor(colorBrewer, "blues", pro1.id,
+                                    colname_pron = defineNodeColor(colorBrewer, "metConnect", pro1.id,
                                                                    supermodel.metabolites, Nletter)
-                                    cn_rean = defineEdgeColor(colorBrewer, "blues", rea1, ra.reactants, Nletter)
-                                    cn_pron = defineEdgeColor(colorBrewer, "blues", pro1, ra.products, Nletter)
+                                    cn_rean = defineEdgeColor(colorBrewer, "connect", rea1, ra.reactants, Nletter)
+                                    cn_pron = defineEdgeColor(colorBrewer, "connect", pro1, ra.products, Nletter)
                                     g.add_node(colname_rn[1], shape="box", color=colname_rn[0])
                                     if rea1.id not in pathway["metabolites"]:
                                         g.add_node(colname_rean[1], shape="o", color=colname_rean[0])
@@ -351,4 +375,47 @@ def drawBiomass(supermodel, name, only_difference=False, not_converted=False, co
     pyvis_graph = Network(width='{}px'.format(wid), height='{}px'.format(hei), directed=directed, notebook=False)
     pyvis_graph.from_nx(g)
     pyvis_graph.show("../Output/" + name + ".html")
+    return g
+
+
+def drawMetSynthesis(supermodel, met_not_int: list, colorBrewer: dict, met_of_int: str, paths, sources: list,
+                     name_dir: str, directed=True, wid=2000, hei=1000, Nletter=1):
+    g = nx.DiGraph()
+    r_done = []
+    if type(paths) == list:
+        for path in paths:
+            for r_id in path:
+                if r_id not in r_done:
+                    r = supermodel.reactions.converted.get(r_id)
+                    for rea in r.reactants.get("union1"):
+                        tmp_rea = rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+                        for pro in r.products.get("union1"):
+                            tmp_pro = pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+                            if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
+                                colname_r = defineNodeColor(colorBrewer, "1stPath", r_id, supermodel.reactions, Nletter)
+                                cn_rea = defineEdgeColor(colorBrewer, "1stPath", rea, r.reactants, Nletter)
+                                cn_pro = defineEdgeColor(colorBrewer, "1stPath", pro, r.products, Nletter)
+                                if (rea.id == met_of_int) or (rea.id in sources):
+                                    colname_rea = defineNodeColor(colorBrewer, "interest", rea.id, supermodel.metabolites,
+                                                                  Nletter)
+                                else:
+                                    colname_rea = defineNodeColor(colorBrewer, "metabolites", rea.id, supermodel.metabolites,
+                                                                  Nletter)
+                                if (pro.id == met_of_int) or (pro.id in sources):
+                                    colname_pro = defineNodeColor(colorBrewer, "interest", pro.id, supermodel.metabolites,
+                                                                  Nletter)
+                                else:
+                                    colname_pro = defineNodeColor(colorBrewer, "metabolites", pro.id, supermodel.metabolites,
+                                                                  Nletter)
+                                g.add_node(colname_r[1], shape="box", color=colname_r[0])
+                                g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
+                                g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
+                                g.add_edge(colname_rea[1], colname_r[1], color=cn_rea[0], font_color="black")
+                                g.add_edge(colname_r[1], colname_pro[1], color=cn_pro[0], font_color="black")
+                    r_done.append(r_id)
+        pyvis_graph = Network(width='{}px'.format(wid), height='{}px'.format(hei), directed=directed, notebook=False)
+        pyvis_graph.from_nx(g)
+        pyvis_graph.show("../Output/" + name_dir + "/" + met_of_int + ".html")
+    else:
+        print(f"No paths for {met_of_int}, because {paths}")
     return g
