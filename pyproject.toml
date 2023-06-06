@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supermodel"
+version = "0.0.1"
+requires-python = ">=3.9"
+description = "Supermodel tool for dealing with several types of Genome-Scale Metabolic Models"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [{ name = "Elena Matveishina", email = "elena.matveishina@embl.de" }]
+dependencies = [
+    "cobra",
+    "numpy>=1.23",
+    "dill",
+    "networkx",
+    "pyvis",
+    "pyautogui"
+]
+
+[project.scripts]
+supermodel = "supermodel.__main__:main"
+
+[project.urls]
+"Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets"
+"Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets/issues"
