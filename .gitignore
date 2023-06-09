@@ -13,4 +13,8 @@ __pycache__/
 env_simple.yml
 TAGS
 tags
+<<<<<<< HEAD
+=======
+*.swp
+>>>>>>> b4a0759 (Refactored BiGGnetwork.py)
 
