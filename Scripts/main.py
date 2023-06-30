@@ -12,6 +12,7 @@ import drawing
 import general
 import selection
 import structural
+import genes
 import creation
 import comparison
 import dill
@@ -211,13 +212,26 @@ if __name__ == '__main__':
         for kg, vg in allreact_not_pass_struct.get(typ).items():
             if vg[1] == "Growth_reaction":
                 final_r_not_sel.get(typ).update({kg: [allreact_not_pass_struct.get(typ).get(kg)[0], ["Biomass"]]})
+    # Genes convertions
+    input_genomes_names = {"agora": "Bacteroides_uniformis_ATCC_8492.fasta",
+                           "carveme": "GCF_000154205.1_ASM15420v1_protein.faa",
+                           "gapseq": "GCF_000154205.1_ASM15420v1_genomic.fna",
+                           "modelseed": "GCF_000154205.1_ASM15420v1_protein.faa"}
+    gapseq_genes_names = {"gapseq": "Gapseq_model_genes.fasta"}
+    ncbi_cds_name = "GCF_000154205.1_ASM15420v1_cds_from_genomic.fna"
+    ncbi_protein_name = "GCF_000154205.1_ASM15420v1_protein.faa"
+    feature_table_name = "GCF_000154205.1_ASM15420v1_feature_table.txt"
+    out_nt_fasta = "../Data/NCBI_cds_old_locus_tag.fasta"
+    out_aa_fasta = "NCBI_proteins_old_locus_tag.fasta"
+    # genes.runGenesConversion(model_type_list, all_models, input_genomes_names, gapseq_genes_names, ncbi_cds_name,
+    #                          ncbi_protein_name, feature_table_name, out_nt_fasta,out_aa_fasta, do_old_locus_tag=True)
     # creating supermodel
     supermodel = creation.runSupermodelCreation(model_type_list, final_m, final_m_not_sel, final_r, final_r_not_sel,
                                                 curated_models, bigg_all_m, bigg_all_r, additional_p_m, periplasmic_r)
     # getting core and different types of intersections in supermodel
-    comparison.runComparioson(supermodel)
+    comparison.runComparison(supermodel)
     core_model = anticreation.getModelOfInterest(supermodel, "core4", name="BU_core_model.xml")
-    union_model = anticreation.getModelOfInterest(supermodel, "union1", name="BU_union_model.xml")
+    union_model = anticreation.getModelOfInterest(supermodel, "core1", name="BU_union_model.xml")
     Yes_a_No_cmg_model = anticreation.getModelOfInterest(supermodel, "Yes_a_No_cgm", name="BU_Yes_a_No_cmg_model.xml")
     carveme_model = anticreation.getModelOfInterest(supermodel, "carveme", name="BU_carveme_out_model.xml")
     # plotting some test pathways and core (intersection)
@@ -300,3 +314,14 @@ if __name__ == '__main__':
     # met_ms = ["cpd00027", "cpd00028", "cpd03424", "cpd03185", "cpd00239", "cpd00205", "cpd00009", "cpd00971",
     # "cpd00099", "cpd00013", "cpd00048", "cpd00254", "cpd10516", "cpd00063", "cpd00067", "cpd00001", "cpd00034",
     # "cpd00030", "cpd00058", "cpd00149", "cpd10515"]
+
+    # colors = drawing.getColorPalette(4)
+    # sources = ["glc__D_c"]
+    # bp_core3 = dill.load(
+    #     open("../Output/BU_core3/MetQuest_BU_core3_model/BU_core3_model_biomass_precursors_paths.pkl", "rb"))
+    # for k, v in bp_core3.items():
+    #     if type(v) != str:
+    #         tmp_path = drawing.drawMetSynthesis(supermodel, met_not_int, colors, k, v, sources, "core3",
+    #                                     "BU_core3/MetQuest_BU_core3_model/Biomass_precursors/")
+    #     else:
+    #         print(f"No paths for {k}, because {v}")

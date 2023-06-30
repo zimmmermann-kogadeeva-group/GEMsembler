@@ -89,7 +89,7 @@ def pathsForMetabolites(metabolites: [str], metquest_output: dict, tag: str, max
                 if 0 in tmp_paths.keys():
                     met_paths.update({met: "No need to synthesize"})
                 else:
-                    for i in range(min(tmp_paths.keys()), min(max(tmp_paths.keys()), min(tmp_paths.keys()) + len_diversity)):
+                    for i in list(tmp_paths.keys())[:min(len(tmp_paths.keys()), len_diversity)]:
                         for path in tmp_paths.get(i):
                             met_paths.get(met).append([metquest_output.get("name_map").get(p) for p in path])
             elif met_tag in metquest_output.get(str(max_paths_length) + "_circular_paths").keys():
@@ -97,12 +97,19 @@ def pathsForMetabolites(metabolites: [str], metquest_output: dict, tag: str, max
                 if 0 in tmp_paths.keys():
                     met_paths.update({met: "No need to synthesize"})
                 else:
-                    for i in range(min(tmp_paths.keys()), min(max(tmp_paths.keys()), min(tmp_paths.keys()) + len_diversity)):
+                    for i in list(tmp_paths.keys())[:min(len(tmp_paths.keys()), len_diversity)]:
                         for path in tmp_paths.get(i):
                             met_paths.get(met).append([metquest_output.get("name_map").get(p) for p in path])
             else:
-                met_paths.update({met: "Problematic: can be synthesized but does not have paths"})
+                if not (set(list(metquest_output.get("all_synthesized"))) - set(
+                        list(metquest_output.get(str(max_paths_length) + "_synthesized")))):
+                    met_paths.update({
+                        met: f"Maybe can not be synthesized with max {max_paths_length} length path, because "
+                             f"all_synthesized not bigger {str(max_paths_length)}_synthesized"})
+                else:
+                    met_paths.update({met: "Problematic: can be synthesized but does not have paths"})
     return met_paths
+
 
 def runPaths(data_dir: str, model_name: str, nutritional_sources: [str], other_medium: [str], cofactors=None,
              write_metquest=True, metabolites: [str] = None, met_name: str = None, max_paths_length=40,
@@ -125,19 +132,20 @@ def runPaths(data_dir: str, model_name: str, nutritional_sources: [str], other_m
 if __name__ == '__main__':
     """user change here """
     model_name = "BU_union_model"
-    dir_path = "test_MetQuest_" + model_name
+    dir_path = "test_MetQuest_BU_diff_models"
     nutritional_sources = ["glc__D"]
     other_medium = ["pheme", "b12", "mndn", "h2s", "k", "pi", "na1", "cl", "nh4", "so4", "mg2", "fe2", "fe3", "ca2",
                     "zn2", "mn2", "cu2", "cobalt2", "h2o", "h"]
     model = read_sbml_model(model_name + ".xml")
+    union_model = read_sbml_model("BU_union_model.xml")
     met_name = "biomass_precursors"
-    metabolites = [m.id for m in model.reactions.get_by_id("Biomass").reactants]
-    find_paths = False
-    get_met_from_path = True
+    metabolites = [m.id for m in union_model.reactions.get_by_id("Biomass").reactants]
+    find_paths = True
+    get_met_from_path = False
     # end of user parameters
 
     if find_paths:
-        runPaths(dir_path, model_name, nutritional_sources, other_medium, metabolites=metabolites, met_name=met_name)
+        runPaths(dir_path, model_name, nutritional_sources, other_medium, metabolites=metabolites, met_name=met_name, len_diversity=1)
     if get_met_from_path:
         metquest_out = dill.load(open("./" + dir_path + "/" + model_name + "_wo_cofactors_metquest_results.pkl", "rb"))
         met_paths = pathsForMetabolites(metabolites, metquest_out, model.id)

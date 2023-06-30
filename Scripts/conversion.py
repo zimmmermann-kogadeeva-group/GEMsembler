@@ -275,21 +275,37 @@ def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reaction
         summarydata = open("../Output/" + obj_type + "_conversion_summary.txt", "w")
     for typ in model_types:
         number_uniq = []
+        number_not_uniq = []
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] >= 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                      (outdata["2-anno"] >= 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 0) & (outdata["3-orig"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] >= 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
                                        (outdata["4-addit"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] >= 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
                                        (outdata["4-addit"] == 0) & (outdata["5-patt"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] == 0) & (outdata["5-patt"] >= 1)].index))
         number_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
                                        (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
                                        (outdata["4-addit"] == 0) & (outdata["5-patt"] == 0) & (
                                                outdata["6-NOconv"] == 1)].index))
+        number_not_uniq.append(len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
+                                       (outdata["2-anno"] == 0) & (outdata["3-orig"] == 0) &
+                                       (outdata["4-addit"] == 0) & (outdata["5-patt"] == 0) & (
+                                               outdata["6-NOconv"] >= 1)].index))
         high = len(outdata[(outdata["Model_type"] == typ) & (outdata[["1-anno&orig", "2-anno", "3-orig"]] >= 1).any(
             axis=1)].index)
         middle = len(outdata[(outdata["Model_type"] == typ) & (outdata["1-anno&orig"] == 0) &
@@ -304,6 +320,9 @@ def summarizeConversion(model_types: [str], obj_type: "metabolites" or "reaction
             print(f"For {typ} models {number_uniq[i]}  {obj_type} were converted uniquely with {levels[i]} level")
             summarydata.write(
                 f"For {typ} models {number_uniq[i]}  {obj_type} were converted uniquely with {levels[i]} level\n")
+            print(f"For {typ} models {number_not_uniq[i]}  {obj_type} were converted with {levels[i]} level")
+            summarydata.write(
+                f"For {typ} models {number_not_uniq[i]}  {obj_type} were converted with {levels[i]} level\n")
         print(f"For {typ} models {high}  {obj_type} were converted with 1st, 2d or 3d level")
         print(f"For {typ} models {middle}  {obj_type} were converted with 4th, 5th or 6th level")
         print(f"For {typ} models {low_no}  {obj_type} were not converted at all")

@@ -1,4 +1,9 @@
+import operator
+import os
+
 import pandas as pd
+
+from general import findKeysByValue
 
 
 class NewObject():
@@ -145,7 +150,7 @@ class SetofNewReactions(SetofNewObjects):
             obj.lower_bound = {k: [] for k in obj.sources.keys()}
             obj.upper_bound = {k: [] for k in obj.sources.keys()}
             obj.subsystem = {k: [] for k in obj.sources.keys()}
-
+            obj.genes = {k: [] for k in obj.sources.keys()}
         for ncobj in self.notconverted.values():
             name = "Not converted"
             equation = None
@@ -157,6 +162,68 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.lower_bound = {k: [] for k in ncobj.sources.keys()}
             ncobj.upper_bound = {k: [] for k in ncobj.sources.keys()}
             ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
+            ncobj.genes = {k: [] for k in ncobj.sources.keys()}
+
+
+class NewGene(object):
+    """Class for one gene with new or old locus tag as ID and IDs from original models in annotation"""
+    def __init__(self, new_id: str, old_id: str, source: str, possible_sources: [str]):
+        self.id = new_id
+        self.sources = {}
+        self.annotation = {}
+        self.reactions = {}
+        for ps in possible_sources:
+            self.reactions.update({ps: []})
+            if ps == source:
+                self.sources.update({ps: 1})
+                self.annotation.update({ps: [old_id]})
+            else:
+                self.sources.update({ps: 0})
+                self.annotation.update({ps: []})
+
+    def updateNewGene(self, id_to_update: str, source: str):
+        self.sources.update({source: self.sources.get(source) + 1})
+        self.annotation.get(source).append(id_to_update)
+
+
+class SetofNewGenes(object):
+    """ Setting dictionaries for all genes selected for supermodel - self.converted and not selected - self.notconverted. """
+
+    def __init__(self):
+        self.converted = {}
+        self.notconverted = {}
+
+    def addNewGenes(self, sources: [str], all_models: dict):
+        os.chdir("../Data/")
+        for source in sources:
+            conversion_table = pd.read_csv(f"{source}_blast.tsv", sep="\t", header = None)
+            conversion_table.columns = ["old_id", "new_id", "identity", "length", "4", "5", "6", "7", "8", "9", "10", "11"]
+            for gene in all_models.get(source).genes:
+                old_gene_id = gene.id
+                if source == "carveme":
+                    old_gene_id = ".".join(old_gene_id.rsplit("_", 1))
+                if source == "agora":
+                    old_gene_id = "fig|" + old_gene_id
+                attr = conversion_table[conversion_table["old_id"] == old_gene_id]["new_id"]
+                if attr.empty:
+                    if gene.id in self.notconverted.keys():
+                        self.notconverted.get(gene.id).updateNewGene(gene.id, source)
+                    else:
+                        new_gene = NewGene(gene.id, gene.id, source, sources)
+                        self.notconverted.update({gene.id: new_gene})
+                elif type(attr.values[0]) != str:
+                    if gene.id in self.notconverted.keys():
+                        self.notconverted.get(gene.id).updateNewGene(gene.id, source)
+                    else:
+                        new_gene = NewGene(gene.id, gene.id, source, sources)
+                        self.notconverted.update({gene.id: new_gene})
+                else:
+                    new_id = attr.values[0]
+                    if new_id in self.converted.keys():
+                        self.converted.get(new_id).updateNewGene(gene.id, source)
+                    else:
+                        new_gene = NewGene(new_id, gene.id, source, sources)
+                        self.converted.update({new_id: new_gene})
 
 
 class SuperModel():  # TODO add transport reactions for periplasmic metabolites for models without periplasmic compartments
@@ -164,10 +231,12 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
 
-    def __init__(self, metabolites, reactions, types: [str]):
+    def __init__(self, metabolites, reactions, genes, types: [str]):
         self.metabolites = metabolites
         self.reactions = reactions
+        self.genes = genes
         self.sources = types
+
 
     def findReactions(self, metabolite: NewObject, m_goNewOld: dict, r_goOldNew: dict, types: [str],
                       periplasmic_r: dict, periplasmic_m: dict):
@@ -285,12 +354,48 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_mets = m_goOldNew.get(typ).get(met.id)
                         if new_mets: reaction.metabolites.get(typ).update({new_mets[0]: koef})
 
+    def findGenes(self, all_models: dict, r_goOldNew: dict, r_goNewOld: dict, types: [str]):
+        os.chdir("../Data/")
+        for typ in types:
+            conversion_table = pd.read_csv(f"{typ}_blast.tsv", sep="\t", header=None)
+            conversion_table.columns = ["old_id", "new_id", "identity", "length", "4", "5", "6", "7", "8", "9",
+                                            "10", "11"]
+            for gene in self.genes.converted.values():
+                tmpg_models = findKeysByValue(gene.sources, 1, operator.ge)
+                if typ in tmpg_models:
+                    old_g_ids = gene.annotation.get(typ)
+                    for old_g_id in old_g_ids:
+                        oldg_r_ids = [gr.id for gr in all_models.get(typ).genes.get_by_id(old_g_id).reactions]
+                        for r_id in oldg_r_ids:
+                            if r_goOldNew.get(typ).get(r_id):
+                                for new_r in r_goOldNew.get(typ).get(r_id):
+                                    if not new_r not in gene.reactions.get(typ):
+                                        gene.reactions.get(typ).append(new_r)
+            for reaction in self.reactions.converted.values():
+                old_rs = r_goNewOld.get(reaction.id).get(typ)
+                if old_rs:
+                    for oldr in old_rs:
+                        if oldr.genes:
+                            for oldrg in oldr.genes:
+                                if typ == "carveme":
+                                    oldrg_id =".".join(oldrg.id.rsplit("_", 1))
+                                elif typ == "agora":
+                                    oldrg_id = "fig|" + oldrg.id
+                                else:
+                                    oldrg_id = oldrg.id
+                                attr_new = conversion_table[conversion_table["old_id"] == oldrg_id]["new_id"]
+                                if not attr_new.empty:
+                                    new_g_id = attr_new.values[0]
+                                    if self.genes.converted.get(new_g_id) not in reaction.genes.get(typ):
+                                        reaction.genes.get(typ).append(self.genes.converted.get(new_g_id))
+
     def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str],
-                        periplasmic_r: dict, periplasmic_m: dict):
+                        all_models: dict, periplasmic_r: dict, periplasmic_m: dict):
         for met in self.metabolites.converted.values():
             self.findReactions(met, m_goNewOld, r_goOldNew, types, periplasmic_r, periplasmic_m)
         for r in self.reactions.converted.values():
             self.findMetabolites(r, r_goNewOld, m_goOldNew, types, periplasmic_r)
+        self.findGenes(all_models, r_goOldNew, r_goNewOld, types)
 
     def getAdditionalAttributes(self, types: [str], m_goNewOld: dict, r_goNewOld: dict):
         for met in self.metabolites.converted.values():
@@ -314,8 +419,9 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                     r.upper_bound.get(typ).append(upp_b)
                     r.subsystem.get(typ).append("#or#".join(subsys))
 
+
     def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict,
-                   final_m_not_sel: dict):
+                   final_m_not_sel: dict): #TODO add reaction attribute to Biomass
         new_biomass = None
         for typ in types:
             for r in all_models.get(typ).reactions:
@@ -415,11 +521,13 @@ def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r
     reactions = SetofNewReactions()
     reactions.makeSetofNew(final_r, final_r_not_sel, bigg_all_r, model_type)
     reactions.setReactionAttributes(bigg_all_r)
+    genes = SetofNewGenes()
+    genes.addNewGenes(model_type, all_models)
     m_goOldNew, m_goNewOld = metabolites.makeForwardBackward(all_models, final_m, "metabolites",
                                                              additional_periplasmic_m)
     r_goOldNew, r_goNewOld = reactions.makeForwardBackward(all_models, final_r, "reactions")
-    supermodel = SuperModel(metabolites, reactions, model_type)
-    supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, periplasmic_r,
+    supermodel = SuperModel(metabolites, reactions, genes, model_type)
+    supermodel.findConnections(m_goNewOld, m_goOldNew, r_goNewOld, r_goOldNew, model_type, all_models, periplasmic_r,
                                additional_periplasmic_m)
     supermodel.getAdditionalAttributes(model_type, m_goNewOld, r_goNewOld)
     supermodel.addBiomass(model_type, m_goOldNew, all_models, final_r_not_sel, final_m_not_sel)

@@ -86,43 +86,37 @@ def getCoreCoefficients(metabolites: dict, reactants: dict, products: dict, core
     return core_metabolites
 
 
-def getCore(supermodel: SuperModel, core_size=None, union_size=1):
+def getCore(supermodel: SuperModel, core_size):
     """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
      sources). Getting supermodel union of all sources. """
-    if not core_size:
-        core_size = len(supermodel.sources)
     coreN = "core" + str(core_size)
-    unionN = "union" + str(union_size)
-    setattr(supermodel.metabolites, coreN, {})
-    setattr(supermodel.reactions, coreN, {})
     for met in supermodel.metabolites.converted.values():
         tmp_models = findKeysByValue(met.sources, 1, operator.ge)
         core_r = getCoreConnections(met.reactions, core_size, supermodel.sources)
-        union_r = getCoreConnections(met.reactions, union_size, supermodel.sources)
-        met.reactions.update({coreN: core_r, unionN: union_r})
+        met.reactions.update({coreN: core_r})
         if len(tmp_models) >= core_size:
-            getattr(supermodel.metabolites, coreN).update({met.id: met})
+            if core_size == 1:
+                supermodel.metabolites.converted.update({met.id: met})
+            else:
+                getattr(supermodel.metabolites, coreN).update({met.id: met})
     for react in supermodel.reactions.converted.values():
         tmp_models = findKeysByValue(react.sources, 1, operator.ge)
         core_reactants = getCoreConnections(react.reactants, core_size, supermodel.sources)
         core_products = getCoreConnections(react.products, core_size, supermodel.sources)
         core_lower_bound = getCoreLowerBounds(react.lower_bound, core_size, tmp_models)
         core_upper_bound = getCoreUpperBounds(react.upper_bound, core_size, tmp_models)
-        u_reactants = getCoreConnections(react.reactants, union_size, supermodel.sources)
-        u_products = getCoreConnections(react.products, union_size, supermodel.sources)
-        u_lower_bound = getCoreLowerBounds(react.lower_bound, union_size, tmp_models)
-        u_upper_bound = getCoreUpperBounds(react.upper_bound, union_size, tmp_models)
-        react.reactants.update({coreN: core_reactants, unionN: u_reactants})
-        react.products.update({coreN: core_products, unionN: u_products})
-        react.lower_bound.update({coreN: core_lower_bound, unionN: u_lower_bound})
-        react.upper_bound.update({coreN: core_upper_bound, unionN: u_upper_bound})
+        react.reactants.update({coreN: core_reactants})
+        react.products.update({coreN: core_products})
+        react.lower_bound.update({coreN: core_lower_bound})
+        react.upper_bound.update({coreN: core_upper_bound})
         core_metabolites = getCoreCoefficients(react.metabolites, react.reactants, react.products, coreN, core_size,
                                                tmp_models)
-        u_metabolites = getCoreCoefficients(react.metabolites, react.reactants, react.products, unionN, union_size,
-                                            tmp_models)
-        react.metabolites.update({coreN: core_metabolites, unionN: u_metabolites})
+        react.metabolites.update({coreN: core_metabolites})
         if len(tmp_models) >= core_size:
-            getattr(supermodel.reactions, coreN).update({react.id: react})
+            if core_size == 1:
+                supermodel.reactions.converted.update({react.id: react})
+            else:
+                getattr(supermodel.reactions, coreN).update({react.id: react})
 
 
 def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]) -> [NewObject]:
@@ -303,20 +297,36 @@ def getSwitchedMetabolites(supermodel: SuperModel, Nletter=1):
                             swapReactantsAndProducts(r, tmp_models, not_sel, Nletter)
 
 
-def runComparioson(supermodel: SuperModel, core_size=None, union_size=1, Nletter=1):
-    for source in supermodel.sources:
-        setattr(supermodel.metabolites, source, {})
-        setattr(supermodel.reactions, source, {})
-    for met in supermodel.metabolites.converted.values():
-        tmp_models = findKeysByValue(met.sources, 1, operator.ge)
-        for tmp_source in tmp_models:
-            getattr(supermodel.metabolites, tmp_source).update({met.id: met})
-    for r in supermodel.reactions.converted.values():
-        tmp_models = findKeysByValue(r.sources, 1, operator.ge)
-        for tmp_source in tmp_models:
-            getattr(supermodel.reactions, tmp_source).update({r.id: r})
-    getCore(supermodel, core_size, union_size)
-    getVennSegments(supermodel, Nletter)
-    getSwitchedMetabolites(supermodel, Nletter)
-    getCore(supermodel, core_size, union_size)
-    getVennSegments(supermodel, Nletter)
+def runComparison(supermodel: SuperModel, run_all=True, core_size=None, sYes=None, sNo=None, union_size=1, Nletter=1):
+    if run_all:
+        for source in supermodel.sources:
+            setattr(supermodel.metabolites, source, {})
+            setattr(supermodel.reactions, source, {})
+        for met in supermodel.metabolites.converted.values():
+            tmp_models = findKeysByValue(met.sources, 1, operator.ge)
+            for tmp_source in tmp_models:
+                getattr(supermodel.metabolites, tmp_source).update({met.id: met})
+        for r in supermodel.reactions.converted.values():
+            tmp_models = findKeysByValue(r.sources, 1, operator.ge)
+            for tmp_source in tmp_models:
+                getattr(supermodel.reactions, tmp_source).update({r.id: r})
+        if not core_size:
+            core_size = len(supermodel.sources)
+        coreN = "core" + str(core_size)
+        setattr(supermodel.metabolites, coreN, {})
+        setattr(supermodel.reactions, coreN, {})
+        getCore(supermodel, core_size)
+        getCore(supermodel, union_size)
+        getVennSegments(supermodel, Nletter)
+        getSwitchedMetabolites(supermodel, Nletter)
+        getCore(supermodel, core_size)
+        getCore(supermodel, union_size)
+        getVennSegments(supermodel, Nletter)
+    else:
+        if core_size:
+            coreN = "core" + str(core_size)
+            setattr(supermodel.metabolites, coreN, {})
+            setattr(supermodel.reactions, coreN, {})
+            getCore(supermodel, core_size)
+        if sYes and sNo:
+            getDifference(supermodel, sYes, sNo, Nletter)

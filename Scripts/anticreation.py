@@ -18,9 +18,9 @@ def gapfillTransportR(cobra_model: Model, supermodel: SuperModel):
         if not cobra_transport:
             if met_c in supermodel.metabolites.converted.keys():
                 transport_r = []
-                for r_super in supermodel.metabolites.converted.get(met_e).reactions.get("union1"):
-                    rs_react = [m.id for m in r_super.reactants.get("union1")]
-                    rs_pro = [m.id for m in r_super.products.get("union1"
+                for r_super in supermodel.metabolites.converted.get(met_e).reactions.get("core1"):
+                    rs_react = [m.id for m in r_super.reactants.get("core1")]
+                    rs_pro = [m.id for m in r_super.products.get("core1"
                                                                  "")]
                     if ((met_e in rs_react) & (met_c in rs_pro)) | ((met_e in rs_pro) & (met_c in rs_react)):
                         transport_r.append(r_super)
@@ -38,9 +38,9 @@ def gapfillTransportR(cobra_model: Model, supermodel: SuperModel):
                             tmp = "NaN"
                         out_subsystem = out_subsystem + "#" + source + "#" + tmp
                     tr_r.subsystem = out_subsystem
-                    tr_r.lower_bound = tr.lower_bound.get("union1")[0]
-                    tr_r.upper_bound = tr.upper_bound.get("union1")[0]
-                    for met, k in tr.metabolites.get("union1").items():
+                    tr_r.lower_bound = tr.lower_bound.get("core1")[0]
+                    tr_r.upper_bound = tr.upper_bound.get("core1")[0]
+                    for met, k in tr.metabolites.get("core1").items():
                         tr_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
                         tr_r.add_metabolites({tr_met: k})
                     cobra_model.add_reactions([tr_r])
@@ -53,7 +53,7 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_
     """ Creating COBRA model from supermodel based on specific level of interest for example core or union.
     Additionaly, some reactions"""
     outmodel = Model(interest_level)
-    if interest_level == "union1":
+    if interest_level == "core1":
         in_reactions = getattr(supermodel.reactions, "converted").values()
     else:
         in_reactions = getattr(supermodel.reactions, interest_level).values()
@@ -65,7 +65,7 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_
         in_reactions = list(set(in_reactions) - set(reactions_exclude))
     for r in in_reactions:
         if r in reactions_include:
-            interest_level = "union1"
+            interest_level = "core1"
         out_reaction = Reaction(r.id)
         if r.name:
             out_reaction.name = r.name
