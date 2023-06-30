@@ -369,7 +369,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         for r_id in oldg_r_ids:
                             if r_goOldNew.get(typ).get(r_id):
                                 for new_r in r_goOldNew.get(typ).get(r_id):
-                                    if not new_r not in gene.reactions.get(typ):
+                                    if new_r not in gene.reactions.get(typ):
                                         gene.reactions.get(typ).append(new_r)
             for reaction in self.reactions.converted.values():
                 old_rs = r_goNewOld.get(reaction.id).get(typ)
@@ -432,6 +432,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.reactants = {typ: []}
                         new_biomass.products = {typ: []}
                         new_biomass.metabolites = {typ: {}}
+                        new_biomass.genes = {typ: []}
                         new_biomass.lower_bound = {typ: [r.lower_bound]}
                         new_biomass.upper_bound = {typ: [r.upper_bound]}
                         new_biomass.subsystem = {typ: [r.subsystem]}
@@ -440,6 +441,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         nc_biomass.reactants = {typ: []}
                         nc_biomass.products = {typ: []}
                         nc_biomass.metabolites = {typ: {}}
+                        nc_biomass.genes = {typ: []}
                         nc_biomass.lower_bound = {typ: [r.lower_bound]}
                         nc_biomass.upper_bound = {typ: [r.upper_bound]}
                         nc_biomass.subsystem = {typ: [r.subsystem]}
@@ -448,6 +450,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.reactants.update({typ: []})
                         new_biomass.products.update({typ: []})
                         new_biomass.metabolites.update({typ: {}})
+                        new_biomass.genes.update({typ: []})
                         new_biomass.lower_bound.update({typ: [r.lower_bound]})
                         new_biomass.upper_bound.update({typ: [r.upper_bound]})
                         new_biomass.subsystem.update({typ: [r.subsystem]})
@@ -455,6 +458,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         nc_biomass.reactants.update({typ: []})
                         nc_biomass.products.update({typ: []})
                         nc_biomass.metabolites.update({typ: {}})
+                        nc_biomass.genes.update({typ: []})
                         nc_biomass.lower_bound.update({typ: [r.lower_bound]})
                         nc_biomass.upper_bound.update({typ: [r.upper_bound]})
                         nc_biomass.subsystem.update({typ: [r.subsystem]})
