@@ -325,3 +325,53 @@ if __name__ == '__main__':
     #                                     "BU_core3/MetQuest_BU_core3_model/Biomass_precursors/")
     #     else:
     #         print(f"No paths for {k}, because {v}")
+
+
+
+    # for m in bp_synt:
+    #     bp_core1 = dill.load(
+    #         open("../Output/BU_core1/MetQuest_BU_core1_models/BU_core1_model_biomass_precursors_paths.pkl", "rb"))
+    #     if type(bp_core1[m]) != str:
+    #         g = nx.DiGraph()
+    #         g = drawMetSynthesis1model(g, "1stPath", supermodel, met_not_int, colors, m, bp_core1[m], sources, "core1")
+    #     bp_agora = dill.load(
+    #         open("../Output/BU_agora/MetQuest_BU_agora_models/BU_agora_out_model_biomass_precursors_paths.pkl", "rb"))
+    #     if type(bp_agora[m]) != str:
+    #         g = drawMetSynthesis1model(g, "2dPath", supermodel, met_not_int, colors, m, bp_agora[m], sources, "agora")
+    #     bp_carveme = dill.load(
+    #         open("../Output/BU_carveme/MetQuest_BU_carveme_models/BU_carveme_out_model_biomass_precursors_paths.pkl",
+    #              "rb"))
+    #     if type(bp_carveme[m]) != str:
+    #         g = drawMetSynthesis1model(g, "2dPath", supermodel, met_not_int, colors, m, bp_carveme[m], sources,
+    #                                    "carveme")
+    #     bp_gapseq = dill.load(
+    #         open("../Output/BU_gapseq/MetQuest_BU_gapseq_models/BU_gapseq_out_model_biomass_precursors_paths.pkl",
+    #              "rb"))
+    #     if type(bp_gapseq[m]) != str:
+    #         g = drawMetSynthesis1model(g, "2dPath", supermodel, met_not_int, colors, m, bp_gapseq[m], sources, "gapseq")
+    #     bp_modelseed = dill.load(
+    #         open(
+    #             "../Output/BU_modelseed/MetQuest_BU_modelseed_models/BU_modelseed_out_model_biomass_precursors_paths.pkl",
+    #             "rb"))
+    #     if type(bp_modelseed[m]) != str:
+    #         g = drawMetSynthesis1model(g, "2dPath", supermodel, met_not_int, colors, m, bp_modelseed[m], sources,
+    #                                    "modelseed")
+    #     bp_core2 = dill.load(
+    #         open("../Output/BU_core2/MetQuest_BU_core2_models/BU_core2_model_biomass_precursors_paths.pkl", "rb"))
+    #     if type(bp_core2[m]) != str:
+    #         g = drawMetSynthesis1model(g, "intersection", supermodel, met_not_int, colors, m, bp_core2[m], sources,
+    #                                    "core2")
+    #     bp_core3 = dill.load(
+    #         open("../Output/BU_core3/MetQuest_BU_core3_model/BU_core3_model_biomass_precursors_paths.pkl", "rb"))
+    #     if type(bp_core3[m]) != str:
+    #         g = drawMetSynthesis1model(g, "intersection", supermodel, met_not_int, colors, m, bp_core3[m], sources,
+    #                                    "core3")
+    #     bp_core4 = dill.load(
+    #         open("../Output/BU_core4/MetQuest_BU_core_models/BU_core_model_biomass_precursors_paths.pkl", "rb"))
+    #     if type(bp_core4[m]) != str:
+    #         g = drawMetSynthesis1model(g, "intersection", supermodel, met_not_int, colors, m, bp_core4[m], sources,
+    #                                    "core4")
+    #     if type(bp_core1[m]) != str:
+    #         pyvis_graph = Network(width='{}px'.format(2000), height='{}px'.format(1000), directed=True, notebook=False)
+    #         pyvis_graph.from_nx(g)
+    #         pyvis_graph.show("../Output/BU_diff_biomass_precursors/" + m + ".html")

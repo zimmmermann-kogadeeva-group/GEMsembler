@@ -429,6 +429,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                     if not new_biomass:
                         new_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         new_biomass.name = "Biomass"
+                        new_biomass.reaction = ""
                         new_biomass.reactants = {typ: []}
                         new_biomass.products = {typ: []}
                         new_biomass.metabolites = {typ: {}}
@@ -438,6 +439,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.subsystem = {typ: [r.subsystem]}
                         nc_biomass = NewObject("Biomass", r.id, final_r_not_sel.get(typ).get(r.id)[0], typ, types, {})
                         nc_biomass.name = "Biomass"
+                        nc_biomass.reaction = ""
                         nc_biomass.reactants = {typ: []}
                         nc_biomass.products = {typ: []}
                         nc_biomass.metabolites = {typ: {}}

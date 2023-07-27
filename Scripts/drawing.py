@@ -450,3 +450,46 @@ def drawMetSynthesis(supermodel, met_not_int: list, colorBrewer: dict, met_of_in
     else:
         print(f"No paths for {met_of_int}, because {paths}")
     return g
+
+def drawMetSynthesis1model(g, col_r, supermodel, met_not_int: list, colorBrewer: dict, met_of_int: str, paths, sources: list, level: str,
+                     directed=True, wid=2000, hei=1000, Nletter=1):
+    r_done = []
+    if type(paths) == list:
+        for path in paths:
+            for r_id in path:
+                if r_id not in r_done:
+                    r = supermodel.reactions.converted.get(r_id)
+                    for rea in r.reactants.get("core1"):
+                        tmp_rea = rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+                        for pro in r.products.get("core1"):
+                            tmp_pro = pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+                            if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
+                                colname_r = defineNodeColor(colorBrewer, col_r, r, Nletter)
+                                cn_rea = defineEdgeColor(colorBrewer, "metabolites", rea, r, r.reactants, Nletter)
+                                cn_pro = defineEdgeColor(colorBrewer, "metabolites", pro, r, r.products, Nletter)
+                                cn_rea_2 = defineEdgeColor(colorBrewer, col_r, rea, r, r.reactants, Nletter)
+                                cn_pro_2 = defineEdgeColor(colorBrewer, col_r, pro, r, r.products, Nletter)
+                                if (rea.id == met_of_int) or (rea.id in sources):
+                                    colname_rea = defineNodeColor(colorBrewer, "interest", rea, Nletter)
+                                else:
+                                    colname_rea = defineNodeColor(colorBrewer, "metabolites", rea, Nletter)
+                                if (pro.id == met_of_int) or (pro.id in sources):
+                                    colname_pro = defineNodeColor(colorBrewer, "interest", pro, Nletter)
+                                else:
+                                    colname_pro = defineNodeColor(colorBrewer, "metabolites", pro, Nletter)
+                                g.add_node(colname_r[1], shape="box", color=colname_r[0])
+                                g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
+                                g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
+                                if r.lower_bound.get(level)[0] >= 0:
+                                    g.add_edge(colname_rea[1], colname_r[1], color=cn_rea[0], font_color="black")
+                                    g.add_edge(colname_r[1], colname_pro[1], color=cn_pro_2[0], font_color="black")
+                                if r.upper_bound.get(level)[0] <= 0:
+                                    g.add_edge(colname_pro[1], colname_r[1], color=cn_pro[0], font_color="black")
+                                    g.add_edge(colname_r[1], colname_rea[1], color=cn_rea_2[0], font_color="black")
+                                else:
+                                    g.add_edge(colname_rea[1], colname_r[1], color=cn_rea[0], font_color="black")
+                                    g.add_edge(colname_r[1], colname_pro[1], color=cn_pro_2[0], font_color="black")
+                                    g.add_edge(colname_pro[1], colname_r[1], color=cn_pro_2[0], font_color="black")
+                                    g.add_edge(colname_r[1], colname_rea[1], color=cn_rea[0], font_color="black")
+                    r_done.append(r_id)
+    return g
