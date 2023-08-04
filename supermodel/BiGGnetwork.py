@@ -1,9 +1,7 @@
-import os
-from os.path import join
 import pandas as pd
-import sys
 
 
+# Helper functions for pandas data manipulation
 def separate(data, col, into, sep=" ", **kwargs):
     data[into] = data[col].str.split(sep, **kwargs)
     return data
@@ -20,6 +18,8 @@ def apply(data, col, func, new_col=None, **kwargs):
     return data
 
 
+# Function to get a unique list of reactions. 
+# `leave_from_mixed_directions` ...
 def get_reaction_ids(data, leave_from_mixed_directions=True):
     mixed_reactions = data["reaction"].unique().tolist()
     if leave_from_mixed_directions:
@@ -37,16 +37,21 @@ def getBiGGnetwork(
     """Getting tables with reaction ids unique reaction equations with
     metabolites sorted for the whole BiGG database. If reaction equations are
     duplicated one used in most amount of models selected."""
+
+    # Get equations for all reactions removing amounts of each compound and
+    # padding with spaces for later steps
     reactions = (
         bigg_database_r["reaction_string"]
         .str.replace(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+", "", regex=True)
         .apply(lambda x: f" {x} ")
     )
 
+    # Get unique metabolites from set of all reactions
     uniq_all_met = (
         reactions.str.replace(r"(<->)", "", regex=True).str.split().explode().unique()
     )
 
+    # Make a table mapping each metabolite to list of reactions that contain it
     m_connections = pd.DataFrame(
         [
             (x, bigg_database_r["bigg_id"][reactions.str.contains(f" {x} ")].tolist())
@@ -55,6 +60,11 @@ def getBiGGnetwork(
         columns=["metabolite", "reactions"],
     )
 
+    # Create a new table that contains number of models for each reaction. Add
+    # columns for metabolites in each side of the equation and sort the
+    # metabolites in each of these columns. Then sort the whole table by both
+    # metabolite columns and number of models for each reaction. Sorting will
+    # help later.
     r_connections_uniq = (
         pd.DataFrame(
             {
@@ -77,6 +87,8 @@ def getBiGGnetwork(
         .reset_index(drop=True)
     )
 
+    # Get a list of reaction IDs by making a new table that contains reverse of
+    # each reaction ...
     mixed_reactions = (
         r_connections_uniq.copy()
         .rename(
@@ -91,6 +103,8 @@ def getBiGGnetwork(
         .pipe(get_reaction_ids, leave_from_mixed_directions)
     )
 
+    # Get a subset of the table of reactions based on the above list of
+    # reaction IDs. 
     r_connections_no_mix = (
         r_connections_uniq[~r_connections_uniq["reaction"].isin(mixed_reactions)]
         .copy()
