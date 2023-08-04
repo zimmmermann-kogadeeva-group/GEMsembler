@@ -1,6 +1,6 @@
 import operator
 import os
-
+from genes import makeNewGPR, uniteGPR
 import pandas as pd
 
 from general import findKeysByValue
@@ -104,7 +104,7 @@ class SetofNewObjects():
                     if obj_type == "metabolites":
                         old_obj = [all_models.get(t).metabolites.get_by_id(i) for i in v.annotation.get(t)]
                     elif obj_type == "reactions":
-                        old_obj = [all_models.get(t).reactions.get_by_id(v.annotation.get(t)[0])]
+                        old_obj = [all_models.get(t).reactions.get_by_id(j) for j in v.annotation.get(t)]
                     if old_obj: goNewOld.get(k)[t] = old_obj
         return goOldNew, goNewOld
 
@@ -151,6 +151,7 @@ class SetofNewReactions(SetofNewObjects):
             obj.upper_bound = {k: [] for k in obj.sources.keys()}
             obj.subsystem = {k: [] for k in obj.sources.keys()}
             obj.genes = {k: [] for k in obj.sources.keys()}
+            obj.gene_reaction_rule = {k: [] for k in obj.sources.keys()}
         for ncobj in self.notconverted.values():
             name = "Not converted"
             equation = None
@@ -163,6 +164,7 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.upper_bound = {k: [] for k in ncobj.sources.keys()}
             ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
             ncobj.genes = {k: [] for k in ncobj.sources.keys()}
+            ncobj.gene_reaction_rule = {k: [] for k in ncobj.sources.keys()}
 
 
 class NewGene(object):
@@ -374,8 +376,10 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
             for reaction in self.reactions.converted.values():
                 old_rs = r_goNewOld.get(reaction.id).get(typ)
                 if old_rs:
+                    new_gpr_unite_r = []
                     for oldr in old_rs:
                         if oldr.genes:
+                            gene_convert = {}
                             for oldrg in oldr.genes:
                                 if typ == "carveme":
                                     oldrg_id =".".join(oldrg.id.rsplit("_", 1))
@@ -388,6 +392,20 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                                     new_g_id = attr_new.values[0]
                                     if self.genes.converted.get(new_g_id) not in reaction.genes.get(typ):
                                         reaction.genes.get(typ).append(self.genes.converted.get(new_g_id))
+                                    gene_convert.update({oldrg.id: new_g_id})
+                                else:
+                                    gene_convert.update({oldrg.id: "not_found"})
+                            old_gpr = oldr.gene_reaction_rule
+                            new_gpr = makeNewGPR(old_gpr, gene_convert)
+                            if new_gpr:
+                                new_gpr_unite_r.append(new_gpr)
+                    if len(new_gpr_unite_r) == 1:
+                        reaction.gene_reaction_rule.get(typ).append(new_gpr_unite_r[0])
+                    elif len(new_gpr_unite_r) >= 1:
+                        united_gpr = uniteGPR(new_gpr_unite_r)
+                        reaction.gene_reaction_rule.get(typ).append(united_gpr)
+
+
 
     def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str],
                         all_models: dict, periplasmic_r: dict, periplasmic_m: dict):
@@ -434,6 +452,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.products = {typ: []}
                         new_biomass.metabolites = {typ: {}}
                         new_biomass.genes = {typ: []}
+                        new_biomass.gene_reaction_rule = {typ: []}
                         new_biomass.lower_bound = {typ: [r.lower_bound]}
                         new_biomass.upper_bound = {typ: [r.upper_bound]}
                         new_biomass.subsystem = {typ: [r.subsystem]}
@@ -444,6 +463,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         nc_biomass.products = {typ: []}
                         nc_biomass.metabolites = {typ: {}}
                         nc_biomass.genes = {typ: []}
+                        nc_biomass.gene_reaction_rule = {typ: []}
                         nc_biomass.lower_bound = {typ: [r.lower_bound]}
                         nc_biomass.upper_bound = {typ: [r.upper_bound]}
                         nc_biomass.subsystem = {typ: [r.subsystem]}
@@ -453,6 +473,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         new_biomass.products.update({typ: []})
                         new_biomass.metabolites.update({typ: {}})
                         new_biomass.genes.update({typ: []})
+                        new_biomass.gene_reaction_rule.update({typ: []})
                         new_biomass.lower_bound.update({typ: [r.lower_bound]})
                         new_biomass.upper_bound.update({typ: [r.upper_bound]})
                         new_biomass.subsystem.update({typ: [r.subsystem]})
@@ -461,6 +482,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                         nc_biomass.products.update({typ: []})
                         nc_biomass.metabolites.update({typ: {}})
                         nc_biomass.genes.update({typ: []})
+                        nc_biomass.gene_reaction_rule.update({typ: []})
                         nc_biomass.lower_bound.update({typ: [r.lower_bound]})
                         nc_biomass.upper_bound.update({typ: [r.upper_bound]})
                         nc_biomass.subsystem.update({typ: [r.subsystem]})

@@ -88,11 +88,10 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_
         for met, k in r.metabolites.get(interest_level).items():
             out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
             out_reaction.add_metabolites({out_met: k})
-        gene_reaction_rule = " or ".join([g.id for g in r.genes.get(interest_level)])
-        if len(gene_reaction_rule) > 1:
-            out_reaction.gene_reaction_rule = "(" + gene_reaction_rule + ")"
-        elif len(gene_reaction_rule) == 1:
-            out_reaction.gene_reaction_rule = gene_reaction_rule
+        if r.gene_reaction_rule.get(interest_level):
+            out_reaction.gene_reaction_rule = r.gene_reaction_rule.get(interest_level)[0]
+        else:
+            out_reaction.gene_reaction_rule = ""
         outmodel.add_reactions([out_reaction])
     if supermodel.reactions.converted.get("Biomass") not in in_reactions:
         bio_r = Reaction("Biomass")
