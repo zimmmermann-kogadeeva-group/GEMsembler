@@ -9,12 +9,11 @@
 __pycache__/
 
 # Misc
-.envrc
 env_simple.yml
+.envrc
+notes.md
 TAGS
 tags
-<<<<<<< HEAD
-=======
 *.swp
->>>>>>> b4a0759 (Refactored BiGGnetwork.py)
+*.pkl
 
