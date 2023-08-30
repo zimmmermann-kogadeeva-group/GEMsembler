@@ -152,6 +152,7 @@ class SetofNewReactions(SetofNewObjects):
             obj.subsystem = {k: [] for k in obj.sources.keys()}
             obj.genes = {k: [] for k in obj.sources.keys()}
             obj.gene_reaction_rule = {k: [] for k in obj.sources.keys()}
+            obj.gene_reaction_rule.update({k+"_original": [] for k in obj.sources.keys()})
         for ncobj in self.notconverted.values():
             name = "Not converted"
             equation = None
@@ -165,6 +166,7 @@ class SetofNewReactions(SetofNewObjects):
             ncobj.subsystem = {k: [] for k in ncobj.sources.keys()}
             ncobj.genes = {k: [] for k in ncobj.sources.keys()}
             ncobj.gene_reaction_rule = {k: [] for k in ncobj.sources.keys()}
+            ncobj.gene_reaction_rule.update({k + "_original": [] for k in ncobj.sources.keys()})
 
 
 class NewGene(object):
@@ -396,15 +398,15 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
                                 else:
                                     gene_convert.update({oldrg.id: "not_found"})
                             old_gpr = oldr.gene_reaction_rule
-                            new_gpr = makeNewGPR(old_gpr, gene_convert)
+                            new_gpr, mix_gpr = makeNewGPR(old_gpr, gene_convert)
                             if new_gpr:
                                 new_gpr_unite_r.append(new_gpr)
+                            reaction.gene_reaction_rule.get(typ + "_original").append(mix_gpr)
                     if len(new_gpr_unite_r) == 1:
                         reaction.gene_reaction_rule.get(typ).append(new_gpr_unite_r[0])
                     elif len(new_gpr_unite_r) >= 1:
                         united_gpr = uniteGPR(new_gpr_unite_r)
                         reaction.gene_reaction_rule.get(typ).append(united_gpr)
-
 
 
     def findConnections(self, m_goNewOld: dict, m_goOldNew: dict, r_goNewOld: dict, r_goOldNew: dict, types: [str],

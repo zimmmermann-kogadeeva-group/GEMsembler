@@ -9,7 +9,7 @@ from general import findKeysByValue
 
 def getCoreConnections(connections: dict, core_size: int, sources: [str]) -> [str]:
     """ Getting connections (reactants/products/ for reaction or reactions for metabolites or genes for reactions and vv)
-     that are present in more then core_size sources = original models. """
+     that are present in more than core_size sources = original models. """
     all_connections = []
     for s in sources:
         connection = connections.get(s)
@@ -95,6 +95,7 @@ def getCoreGPR(gprs: dict, core_size: int, sources: [str], and_as_solid: bool) -
         for i in range(core_size, len(sources) + 1):
             s_comb = s_comb + list(itertools.combinations(sources, i))
         ands_selected = []
+        original_ands = []
         for comb in s_comb:
             all_gpr_ands = []
             for s in comb:
@@ -110,13 +111,24 @@ def getCoreGPR(gprs: dict, core_size: int, sources: [str], and_as_solid: bool) -
             for ands in ands_comb:
                 intersect = set(ands[0])
                 for a in ands:
-                  intersect = set(intersect) & set(a)
+                    intersect = set(intersect) & set(a)
+                    original_ands.append(sorted(a))
                 if intersect:
                     ands_selected.append(list(intersect))
-        ands_selected_uniq = [list(x) for x in set(tuple(x) for x in ands_selected)]
+        ands_selected_uniq = [sorted(list(x)) for x in set(tuple(x) for x in ands_selected)]
+        artificial_ands = [y for y in ands_selected_uniq if y not in original_ands]
+        ands_selected_simple = []
+        for u in ands_selected_uniq:
+            inside = False
+            if u in artificial_ands:
+                for o in ands_selected_uniq:
+                    if (u != o) and (set(u) & set(o) == set(u)):
+                        inside = True
+            if not inside:
+                ands_selected_simple.append(u)
         selected_gpr_ands = []
-        for gpr_ands in ands_selected_uniq:
-            if len(gpr_ands) > 1 and len(ands_selected_uniq) > 1:
+        for gpr_ands in ands_selected_simple:
+            if len(gpr_ands) > 1 and len(ands_selected_simple) > 1:
                 selected_gpr_ands.append("(" + " and ".join(sorted(gpr_ands)) + ")")
             else:
                 selected_gpr_ands.append(" and ".join(sorted(gpr_ands)))

@@ -118,15 +118,25 @@ def runGenesConversion(model_type: [str], all_models: dict, input_genomes_names:
 
 def makeNewGPR(gpr: str, g_id_convert: dict):
     new_gpr = gpr
+    mix_gpr = gpr
     for old_id, new_id in g_id_convert.items():
         new_gpr = re.sub(rf'\b{old_id}\b', new_id, new_gpr)
         if new_id != "not_found":
+            mix_gpr = re.sub(rf'\b{old_id}\b', new_id, mix_gpr)
             globals()[new_id] = symbols(new_id)
+        else:
+            old_if_formated = "g_" + old_id.replace('.', "_")
+            mix_gpr = re.sub(rf'\b{old_id}\b', old_if_formated, mix_gpr)
+            globals()[old_if_formated] = symbols(old_if_formated)
     new_gpr= re.sub(r'\bnot_found\b', "1", new_gpr)
     new_gpr = re.sub(r'\bor\b', "+", new_gpr)
     new_gpr = re.sub(r'\band\b', "*", new_gpr)
+    mix_gpr = re.sub(r'\bor\b', "+", mix_gpr)
+    mix_gpr = re.sub(r'\band\b', "*", mix_gpr)
     equation = sympify(new_gpr)
     equation_expanded = expand(equation)
+    equation_mix = sympify(mix_gpr)
+    equation_expanded_mix = expand(equation_mix)
     if is_float(str(equation_expanded)):
         new_gpr_expanded = ""
     else:
@@ -143,7 +153,20 @@ def makeNewGPR(gpr: str, g_id_convert: dict):
             else:
                 new_gpr_expanded[i] = " and ".join(sorted(genes_and))
         new_gpr_expanded = " or ".join(sorted(new_gpr_expanded))
-    return new_gpr_expanded
+    new_gpr_expanded_mix = str(equation_expanded_mix).split(" + ")
+    for j in range(len(new_gpr_expanded_mix)):
+        genes_and_mix = []
+        for gm in new_gpr_expanded_mix[j].split("*"):
+            if gm and (not is_float(gm)):
+                genes_and_mix.append(gm)
+        if not genes_and_mix:
+            new_gpr_expanded_mix.pop(j)
+        elif (len(genes_and_mix) > 1) and (len(new_gpr_expanded_mix) > 1):
+            new_gpr_expanded_mix[j] = "(" + " and ".join(sorted(genes_and_mix)) + ")"
+        else:
+            new_gpr_expanded_mix[j] = " and ".join(sorted(genes_and_mix))
+    new_gpr_expanded_mix = " or ".join(sorted(new_gpr_expanded_mix))
+    return new_gpr_expanded, new_gpr_expanded_mix
 
 
 def uniteGPR(list_gpr: [str]):

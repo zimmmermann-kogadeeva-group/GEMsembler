@@ -46,12 +46,14 @@ def gapfillTransportR(cobra_model: Model, supermodel: SuperModel):
                     cobra_model.add_reactions([tr_r])
 
 
-def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_bounds=True, gapfill_transport=True,
-                       write_sbml=True, name=None,
+def getModelOfInterest(supermodel: SuperModel, interest_level: str, gene_interest_level=None, extend_zero_bounds=True,
+                       gapfill_transport=True, write_sbml=True, name=None,
                        reactions_include: [NewObject] = None,
                        reactions_exclude: [NewObject] = None):
     """ Creating COBRA model from supermodel based on specific level of interest for example core or union.
     Additionaly, some reactions"""
+    if not gene_interest_level:
+        gene_interest_level = interest_level
     outmodel = Model(interest_level)
     if interest_level == "core1":
         in_reactions = getattr(supermodel.reactions, "converted").values()
@@ -88,8 +90,8 @@ def getModelOfInterest(supermodel: SuperModel, interest_level: str, extend_zero_
         for met, k in r.metabolites.get(interest_level).items():
             out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
             out_reaction.add_metabolites({out_met: k})
-        if r.gene_reaction_rule.get(interest_level):
-            out_reaction.gene_reaction_rule = r.gene_reaction_rule.get(interest_level)[0]
+        if r.gene_reaction_rule.get(gene_interest_level):
+            out_reaction.gene_reaction_rule = r.gene_reaction_rule.get(gene_interest_level)[0]
         else:
             out_reaction.gene_reaction_rule = ""
         outmodel.add_reactions([out_reaction])
