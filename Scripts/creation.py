@@ -230,7 +230,7 @@ class SetofNewGenes(object):
                         self.converted.update({new_id: new_gene})
 
 
-class SuperModel():  # TODO add transport reactions for periplasmic metabolites for models without periplasmic compartments
+class SuperModel():  # TODO REAL 30.08.23 add transport reactions for periplasmic metabolites for models without periplasmic compartments
     """ Supermodel class with metabolites and reactions. Sources - names of original models used to create supermodel.
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
@@ -441,7 +441,7 @@ class SuperModel():  # TODO add transport reactions for periplasmic metabolites 
 
 
     def addBiomass(self, types: [str], m_goOldNew: dict, all_models: dict, final_r_not_sel: dict,
-                   final_m_not_sel: dict): #TODO add reaction attribute to Biomass
+                   final_m_not_sel: dict):
         new_biomass = None
         for typ in types:
             for r in all_models.get(typ).reactions:
