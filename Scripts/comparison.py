@@ -499,17 +499,32 @@ def runComparison(supermodel: SuperModel, run_all=True, core_size=None, compare_
             setattr(supermodel.genes, source, {})
         for met in supermodel.metabolites.converted.values():
             tmp_models = findKeysByValue(met.sources, 1, operator.ge)
-            setattr(met, "all_sources", len(tmp_models))
+            if len(tmp_models) == len(supermodel.sources):
+                name = "core" + str(len(supermodel.sources))
+            else:
+                name = "Yes_" + "".join([sI[:Nletter] for sI in sorted(tmp_models)]) + \
+                       "_No_" + "".join([sNI[:Nletter] for sNI in sorted(list(set(supermodel.sources) - set(tmp_models)))])
+            setattr(met, "stat_notes", {"all_sources": tmp_models, "number_sources": len(tmp_models), "name_sources": name})
             for tmp_source in tmp_models:
                 getattr(supermodel.metabolites, tmp_source).update({met.id: met})
         for r in supermodel.reactions.converted.values():
             tmp_models = findKeysByValue(r.sources, 1, operator.ge)
-            setattr(r, "all_sources", len(tmp_models))
+            if len(tmp_models) == len(supermodel.sources):
+                name = "core" + str(len(supermodel.sources))
+            else:
+                name = "Yes_" + "".join([sI[:Nletter] for sI in sorted(tmp_models)]) + \
+                       "_No_" + "".join([sNI[:Nletter] for sNI in sorted(list(set(supermodel.sources) - set(tmp_models)))])
+            setattr(r, "stat_notes", {"all_sources": tmp_models, "number_sources": len(tmp_models), "name_sources": name})
             for tmp_source in tmp_models:
                 getattr(supermodel.reactions, tmp_source).update({r.id: r})
         for g in supermodel.genes.converted.values():
             tmp_models = findKeysByValue(g.sources, 1, operator.ge)
-            setattr(g, "all_sources", len(tmp_models))
+            if len(tmp_models) == len(supermodel.sources):
+                name = "core" + str(len(supermodel.sources))
+            else:
+                name = "Yes_" + "".join([sI[:Nletter] for sI in sorted(tmp_models)]) + \
+                       "_No_" + "".join([sNI[:Nletter] for sNI in sorted(list(set(supermodel.sources) - set(tmp_models)))])
+            setattr(g, "stat_notes", {"all_sources": tmp_models, "number_sources": len(tmp_models), "name_sources": name})
             for tmp_source in tmp_models:
                 getattr(supermodel.genes, tmp_source).update({g.id: g})
         core_size = len(supermodel.sources)

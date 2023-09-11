@@ -540,16 +540,16 @@ class SuperModel():  # TODO REAL 30.08.23 add transport reactions for periplasmi
 
 
 def runSupermodelCreation(model_type, final_m, final_m_not_sel, final_r, final_r_not_sel, all_models, bigg_all_m,
-                          bigg_all_r, additional_periplasmic_m, periplasmic_r):
+                          bigg_all_r, converted_m, converted_r, additional_periplasmic_m, periplasmic_r):
     """ Creating supermodel with metabolites and reactions.
     Some decisions are made with assumptions that metabolites are transferred not uniquely only if changed from
     extracellular/cellular to periplasmic and reactions are transferred not uniquely only if they have
     the same reaction equation in original model. """
     metabolites = SetofNewMetabolites()
-    metabolites.makeSetofNew(final_m, final_m_not_sel, bigg_all_m, model_type, additional_periplasmic_m)
+    metabolites.makeSetofNew(final_m, final_m_not_sel, converted_m, model_type, additional_periplasmic_m)
     metabolites.setMetaboliteAttributes(bigg_all_m)
     reactions = SetofNewReactions()
-    reactions.makeSetofNew(final_r, final_r_not_sel, bigg_all_r, model_type)
+    reactions.makeSetofNew(final_r, final_r_not_sel, converted_r, model_type)
     reactions.setReactionAttributes(bigg_all_r)
     genes = SetofNewGenes()
     genes.addNewGenes(model_type, all_models)
