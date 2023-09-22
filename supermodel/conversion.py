@@ -1,11 +1,7 @@
 import re
-from ast import literal_eval
-import operator
 from abc import ABC, abstractmethod
 import cobra
 import pandas as pd
-from collections import Counter
-import general
 
 
 class ConversionToBiGG(ABC):

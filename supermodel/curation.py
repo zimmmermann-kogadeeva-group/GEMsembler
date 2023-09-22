@@ -4,12 +4,12 @@ from os.path import join, dirname, realpath
 import pandas as pd
 
 
-def checkDuplicatedReactions(model_types: [str], all_models: dict,):
+def checkDuplicatedReactions(all_models: dict,):
     """ Getting tables with reactions with the same equation/same equation + same GPR for each model. """
     duplicated = {}
-    for typ in model_types:
+    for name, model in all_models.items():
         data = pd.DataFrame(columns=["ID", "Reactants", "Products", "GPR"])
-        for r in all_models.get(typ).reactions:
+        for r in model.reactions:
             reactants = sorted([react.id for react in r.reactants])
             products = sorted([pro.id for pro in r.products])
             if (r.lower_bound == 0) and (r.upper_bound > 0):
@@ -35,7 +35,7 @@ def checkDuplicatedReactions(model_types: [str], all_models: dict,):
         struct_duplicated = struct_duplicated.sort_values(["Reactants", "Products"])
         gpr_duplicated = data[data.duplicated(subset=['Reactants', 'Products', "GPR"], keep=False)]
         gpr_duplicated = gpr_duplicated.sort_values(["Reactants", "Products", "GPR"])
-        duplicated.update({typ: [struct_duplicated, gpr_duplicated]})
+        duplicated.update({name: [struct_duplicated, gpr_duplicated]})
     return duplicated
 
 

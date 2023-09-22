@@ -1,10 +1,46 @@
 import re
-
 from cobra import Model
 import pandas as pd
 import os
 from sympy import symbols, sympify, expand
 from general import is_float
+
+
+def checkNTorAA(path_fasta: str):
+    """Check whether fasta file is nt or aa. Codes are taken from  https://web.cas.org/help/BLAST/topics/codes.htm"""
+    nt_letters = ["A", "C", "G", "T", "U", "R", "Y", "K", "M", "S", "W", "B", "D", "H", "V", "N", "-"]
+    aa_letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
+                  "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "*", "-"]
+    aa_specific = list(set(aa_letters)-set(nt_letters))
+    with open(path_fasta) as fasta_file:
+        file_lines = fasta_file.readlines()
+    sequence = ''
+    for line in file_lines:
+        if not line.startswith(">"):
+            sequence = sequence + line.strip()
+    aa_status = False
+    for aa in aa_specific:
+        if aa in sequence:
+            aa_status = True
+    return aa_status
+
+
+def checkGeneIDs(path_fasta: str, model: Model):
+    gene_ids = [g.id for g in model.genes]
+    with open(path_fasta) as fasta_file:
+        file_lines = fasta_file.readlines()
+    ids_intersect = []
+    for line in file_lines:
+        if line.startswith(">"):
+            id_seq = line.split()[0][1:]
+            if id_seq in gene_ids:
+                ids_intersect.append(id_seq)
+    if ids_intersect:
+        ids_same = True
+    else:
+        ids_same = False
+    return ids_same
+
 
 def getGenome(ncbi_genome_name: str):
     genomedata = open(ncbi_genome_name, "r")

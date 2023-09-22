@@ -2,7 +2,6 @@ import operator
 import os
 from genes import makeNewGPR, uniteGPR
 import pandas as pd
-
 from general import findKeysByValue
 
 
