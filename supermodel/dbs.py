@@ -47,7 +47,7 @@ def remove_duplicates(data, leave_from_mixed_directions=True):
     return data[~data["reaction"].isin(reaction_list)]
 
 
-def getBiGGnetwork(
+def get_bigg_network(
     bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_directions=True
 ):
     """Getting tables with reaction ids unique reaction equations with
@@ -115,74 +115,87 @@ def getBiGGnetwork(
     return r_connections, m_connections
 
 
-def get_dbs(path_to_dbs: str):
-    path_to_dbs = Path(path_to_dbs)
-    # SEEDmodel
-    seed_orig = pd.read_csv(path_to_dbs / "seed_to_bigg.tsv.gz", sep="\t").rename(
-        columns={"seed_ids": "old", "bigg_ids": "new"}
-    )
+path_to_dbs = Path(__file__).parent.parent / "data"
 
-    seed_orig_m = (
-        seed_orig.query("type == 'm'").drop(columns="type").reset_index(drop=True)
-    )
-    seed_orig_r = (
-        seed_orig.query("type == 'r'").drop(columns="type").reset_index(drop=True)
-    )
+# SEEDmodel
+seed_orig = pd.read_csv(path_to_dbs / "seed_to_bigg.tsv.gz", sep="\t").rename(
+    columns={"seed_ids": "old", "bigg_ids": "new"}
+)
 
-    # SEEDmodel additional
-    seed_addit = pd.read_csv(
-        path_to_dbs / "seed_to_bigg_metanetx.tsv.gz", sep="\t"
-    ).rename(columns={"seed_ids": "old", "bigg_ids": "new"})
+seed_orig_m = (
+    seed_orig.query("type == 'm'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
+seed_orig_r = (
+    seed_orig.query("type == 'r'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
 
-    seed_addit_m = (
-        seed_addit.query("type == 'm'").drop(columns="type").reset_index(drop=True)
-    )
-    seed_addit_r = (
-        seed_addit.query("type == 'r'").drop(columns="type").reset_index(drop=True)
-    )
+# SEEDmodel additional
+seed_addit = pd.read_csv(path_to_dbs / "seed_to_bigg_metanetx.tsv.gz", sep="\t").rename(
+    columns={"seed_ids": "old", "bigg_ids": "new"}
+)
 
-    # KEGG to BIGG
-    kegg_bigg = pd.read_csv(
-        path_to_dbs / "kegg_to_bigg_metanetx.tsv.gz", sep="\t"
-    ).rename(columns={"kegg_ids": "old", "bigg_ids": "new"})
+seed_addit_m = (
+    seed_addit.query("type == 'm'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
+seed_addit_r = (
+    seed_addit.query("type == 'r'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
 
-    kegg_bigg_m = (
-        kegg_bigg.query("type == 'm'").drop(columns="type").reset_index(drop=True)
-    )
-    kegg_bigg_r = (
-        kegg_bigg.query("type == 'r'").drop(columns="type").reset_index(drop=True)
-    )
+# KEGG to BIGG
+kegg_bigg = pd.read_csv(path_to_dbs / "kegg_to_bigg_metanetx.tsv.gz", sep="\t").rename(
+    columns={"kegg_ids": "old", "bigg_ids": "new"}
+)
 
-    # Old to new BIGG
-    old_new_bigg = pd.read_csv(path_to_dbs / "old_to_new_bigg.tsv.gz", sep="\t").rename(
-        columns={"old_bigg_ids": "old", "bigg_ids": "new"}
-    )
+kegg_bigg_m = (
+    kegg_bigg.query("type == 'm'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
+kegg_bigg_r = (
+    kegg_bigg.query("type == 'r'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
 
-    old_new_bigg_m = (
-        old_new_bigg.query("type == 'm'").drop(columns="type").reset_index(drop=True)
-    )
-    old_new_bigg_r = (
-        old_new_bigg.query("type == 'r'").drop(columns="type").reset_index(drop=True)
-    )
-    old_new_bigg_m["new"] = old_new_bigg_m["new"].str[:-2]
+# Old to new BIGG
+old_new_bigg = pd.read_csv(path_to_dbs / "old_to_new_bigg.tsv.gz", sep="\t").rename(
+    columns={"old_bigg_ids": "old", "bigg_ids": "new"}
+)
+old_new_bigg["new"].mask(
+    old_new_bigg["type"] == "m", old_new_bigg["new"].str.slice(stop=-2), inplace=True
+)
 
-    # BIGG
-    bigg_all_m = pd.read_csv(path_to_dbs / "bigg_models_metabolites.tsv.gz", sep="\t")
+old_new_bigg_m = (
+    old_new_bigg.query("type == 'm'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
+old_new_bigg_r = (
+    old_new_bigg.query("type == 'r'")
+    .groupby("old")
+    .apply(lambda x: x["new"].tolist())
+    .to_dict()
+)
 
-    bigg_all_r = pd.read_csv(path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t")
-    bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"]
+# BIGG
+bigg_all_m = pd.read_csv(path_to_dbs / "bigg_models_metabolites.tsv.gz", sep="\t")
 
-    bigg_db_network_r, bigg_db_network_m = getBiGGnetwork(bigg_all_r)
+bigg_all_r = pd.read_csv(path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t")
+bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"]
 
-    return {
-        "seed_orig_m": seed_orig_m,
-        "seed_orig_r": seed_orig_r,
-        "seed_addit_m": seed_addit_m,
-        "seed_addit_r": seed_addit_r,
-        "kegg_bigg_m": kegg_bigg_m,
-        "kegg_bigg_r": kegg_bigg_r,
-        "bigg_all_m": bigg_all_m,
-        "bigg_all_r": bigg_all_r,
-        "bigg_db_network_m": bigg_db_network_m,
-        "bigg_db_network_r": bigg_db_network_r,
-    }
+bigg_db_network_r, bigg_db_network_m = get_bigg_network(bigg_all_r)
