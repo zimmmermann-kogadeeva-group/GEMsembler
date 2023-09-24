@@ -1,88 +1,93 @@
 import cobra
-from cobra.io import read_sbml_model
-from os.path import join, dirname, realpath
 import pandas as pd
 
 
-def checkDuplicatedReactions(all_models: dict,):
-    """ Getting tables with reactions with the same equation/same equation + same GPR for each model. """
-    duplicated = {}
-    for name, model in all_models.items():
-        data = pd.DataFrame(columns=["ID", "Reactants", "Products", "GPR"])
-        for r in model.reactions:
-            reactants = sorted([react.id for react in r.reactants])
-            products = sorted([pro.id for pro in r.products])
-            if (r.lower_bound == 0) and (r.upper_bound > 0):
-                data = pd.concat(
-                    [data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
-                                        columns=data.columns)],
-                    ignore_index=True)
-            if (r.lower_bound < 0) and (r.upper_bound == 0):
-                data = pd.concat(
-                    [data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
-                                        columns=data.columns)],
-                    ignore_index=True)
-            if (r.lower_bound < 0) and (r.upper_bound > 0):
-                data = pd.concat(
-                    [data, pd.DataFrame([[r.id, " ".join(reactants), " ".join(products), r.gene_reaction_rule]],
-                                        columns=data.columns)],
-                    ignore_index=True)
-                data = pd.concat(
-                    [data, pd.DataFrame([[r.id, " ".join(products), " ".join(reactants), r.gene_reaction_rule]],
-                                        columns=data.columns)],
-                    ignore_index=True)
-        struct_duplicated = data[data.duplicated(subset=['Reactants', 'Products'], keep=False)]
-        struct_duplicated = struct_duplicated.sort_values(["Reactants", "Products"])
-        gpr_duplicated = data[data.duplicated(subset=['Reactants', 'Products', "GPR"], keep=False)]
-        gpr_duplicated = gpr_duplicated.sort_values(["Reactants", "Products", "GPR"])
-        duplicated.update({name: [struct_duplicated, gpr_duplicated]})
-    return duplicated
+def remove_b_type_exchange(
+    model: cobra.core.model.Model,
+) -> cobra.core.model.Model:
+    """
+    Removing boundary metabolites / exchange reactions with _b at the end if
+    another (_e) compartment exist. Replacing _b with normal compartment if id
+    with normal compartment doesn't exist separately.
+    """
 
-
-def removeBtypeExchange(curated_model: cobra.core.model.Model):
-    """ Removing boundary metabolites / exchange reactions with _b at the end if another (_e) compartment exist.
-     Replacing _b with normal compartment if id with normal compartment doesn't exist separately. """
-    all_met_ids = [m.id for m in curated_model.metabolites]
-    b_met_ids = [m.id for m in curated_model.metabolites if m.id.endswith("_b")]
-    all_r_ids = [r.id for r in curated_model.reactions]
-    b_r_ids = [r.id for r in curated_model.reactions if r.id.endswith("_b")]
+    # Rename metabolites ending with "_b" and if new id of a given metabolite
+    # is already in the list of metabolites, then remove it
     met_to_remove = []
+    for met in model.metabolites:
+        if met.id.endswith("_b"):
+            new_id = met.id.removesuffix("_b") + "_" + met.compartment
+            if new_id in model.metabolites:
+                met_to_remove.append(met)
+            else:
+                met.id = new_id
+
+    # Rename reactions ending with "_b" and if new id of a given reaction
+    # is already in the list of reactions, then remove it
     r_to_remove = []
-    for b_met in b_met_ids:
-        b_met_e = b_met.removesuffix("_b") + "_" + curated_model.metabolites.get_by_id(b_met).compartment
-        if b_met_e in all_met_ids:
-            met_to_remove.append(curated_model.metabolites.get_by_id(b_met))
-        else:
-            curated_model.metabolites.get_by_id(b_met).id = b_met_e
-            curated_model.repair()
-    for b_r in b_r_ids:
-        b_r_e = b_r.removesuffix("_b") + "_" + list(curated_model.reactions.get_by_id(b_r).compartments)[0]
-        # TODO: make an approach in case compartments in specific filed is not the same as compartments at the end of id
-        if b_r_e in all_r_ids:
-            r_to_remove.append(curated_model.reactions.get_by_id(b_r))
-        else:
-            curated_model.reactions.get_by_id(b_r).id = b_r_e
-            curated_model.repair()
-    curated_model.remove_metabolites(met_to_remove)
-    curated_model.remove_reactions(r_to_remove)
-    return curated_model
+    for r in model.reactions:
+        if r.id.endswith("_b"):
+            new_id = r.id.removesuffix("_b") + "_" + list(r.compartments)[0]
+            if new_id in model.reactions:
+                r_to_remove.append(r)
+            else:
+                r.id = new_id
+
+    # Remove appropriate metabolites and reactions
+    model.remove_metabolites(met_to_remove)
+    model.remove_reactions(r_to_remove)
+
+    # Repair the model
+    model.repair()
+
+    return model
 
 
-if __name__ == '__main__':
-    # region Open models
-    model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
-    fileDir = dirname(realpath('__file__'))  # getting directory of the script for paths to files
-    name_carv_hom = join(fileDir, "../Data/BU_carveme_hom.xml")
-    name_gapseq = join(fileDir, "../Data/BU_gapseq.xml")
-    name_modelseed = join(fileDir, "../Data/BU_modelSEED.sbml")
-    name_agora = join(fileDir, "../Data/BU_agora.xml")
-    names = {"carveme": name_carv_hom, "gapseq": name_gapseq, "modelseed": name_modelseed, "agora": name_agora}
-    all_models = {}
-    for typ in model_type_list:
-        nam = names.get(typ)
-        model = read_sbml_model(nam)
-        all_models.update({typ: model})
-    duplicated = checkDuplicatedReactions(model_type_list, all_models)
-    for typ in model_type_list:
-        print(duplicated.get(typ)[0])
-        print(duplicated.get(typ)[1])
+def get_rows(reaction: cobra.core.Reaction):
+    """
+    Returns a list of row(s) to build a table of reaction information (id,
+    products, reactants, and gene reaction rule). Two reactions are returned
+    when flux can be positive or negative i.e. flux lower bound is negative and
+    upper bound is positive.
+    """
+
+    # Get all reactants and products and convert the resulting list to a string
+    reactants = " ".join(sorted([x.id for x in reaction.reactants]))
+    products = " ".join(sorted([x.id for x in reaction.products]))
+
+    # Depending on the flux lower and upper bounds return products and reactants
+    # in specific order.
+    # TODO: what about reactions that have lower_bound and upper_bound both equal to
+    # zero like reaction 1368 in ./example/BU_gapseq.xml.gz model
+    if (reaction.lower_bound == 0) and (reaction.upper_bound >= 0):
+        return [[reaction.id, reactants, products, reaction.gene_reaction_rule]]
+    elif (reaction.lower_bound < 0) and (reaction.upper_bound == 0):
+        return [[reaction.id, products, reactants, reaction.gene_reaction_rule]]
+    elif (reaction.lower_bound < 0) and (reaction.upper_bound > 0):
+        return [
+            [reaction.id, reactants, products, reaction.gene_reaction_rule],
+            [reaction.id, products, reactants, reaction.gene_reaction_rule],
+        ]
+
+
+def get_duplicated_reactions(model):
+    """
+    Returns two tables of duplicated reactions:
+    - duplicated reactions based on reactants and products
+    - duplicated reactions based on reactants, products and GPR
+    """
+    # Create a table of information on reactions. Double list comprehension is
+    # needed as sometimes two reactions are returned by `get_rows()` function
+    data = pd.DataFrame(
+        [row for reaction in model.reactions for row in get_rows(reaction)],
+        columns=["ID", "Reactants", "Products", "GPR"],
+    )
+
+    struct_duplicated = data[
+        data.duplicated(subset=["Reactants", "Products"], keep=False)
+    ].sort_values(["Reactants", "Products"])
+
+    gpr_duplicated = data[
+        data.duplicated(subset=["Reactants", "Products", "GPR"], keep=False)
+    ].sort_values(["Reactants", "Products", "GPR"])
+    return struct_duplicated, gpr_duplicated

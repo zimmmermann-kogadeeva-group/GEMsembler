@@ -1,9 +1,15 @@
+
+from cobra.io import read_sbml_model
+import pandas as pd
+
+from .get_dbs import get_dbs
+from .curation import remove_b_type_exchange, get_duplicated_reactions
+
 import copy
 import operator
 import os
 import sys
 from os.path import join, exists
-import pandas as pd
 from cobra.io import read_sbml_model
 import anticreation
 import curation
@@ -68,14 +74,78 @@ class GatheredModels:
         self.duplicated_r = curation.checkDuplicatedReactions(self.preprocessed_models)
 
 
+def load_model(path, model_type):
+    model = read_sbml_model(path)
+    # Curate
+    if model_type == "modelseed":
+        model = remove_b_type_exchange(model)
+    
+    # TODO: maybe move this to some other place - depends on later code
+    struct_dupl, gpr_dupl = get_duplicated_reactions(model)
+    
+    return model, struct_dupl, gpr_dupl
+
+
 if __name__ == '__main__':
+    # TODO: maybe move opening the conversion tables in the conversion classes
+    dbs = get_dbs(Path(__file__).parent().parent() / "data")
 
-    # converting ids for models not with BiGG ids
-    allmet_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
-                                                            ConversionStrategies, "metabolites")
-    allreact_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
-                                                              ConversionStrategies, "reactions")
+    # region Open models
+    model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
+    models_same_db = {"modelseed": ["gapseq", "modelseed"]}
+    models_to_curate = ["modelseed"]
+    models_to_convert = model_type_list[1:]
+    models_NOTto_convert = model_type_list[:1]
+    models_wo_periplasmic = ["modelseed", "agora"]
 
+    fileDir = os.path.dirname(os.path.realpath('__file__'))  # getting directory of the script for paths to files
+    name_carv_hom = join(fileDir, "../Data/BU_carveme_hom.xml")
+    name_gapseq = join(fileDir, "../Data/BU_gapseq.xml")
+    name_modelseed = join(fileDir, "../Data/BU_modelSEED.sbml")
+    name_agora = join(fileDir, "../Data/BU_agora.xml")
+    names = {"carveme": name_carv_hom, "gapseq": name_gapseq, "modelseed": name_modelseed, "agora": name_agora}
+    all_models_dill_file = join(fileDir, "../Scripts/all_models.pkl")
+    if exists(all_models_dill_file):
+        all_models = dill.load(open(all_models_dill_file, "rb"))
+    else:
+        all_models = {}
+        for typ in model_type_list:
+            nam = names.get(typ)
+            model = read_sbml_model(nam)
+            all_models.update({typ: model})
+        dill.dump(all_models, open(all_models_dill_file, "wb"))
+
+    # endregion
+
+    # region Perform curation
+    curated_models = copy.deepcopy(all_models)
+    for cur in models_to_curate:
+        curated_models[cur] = curation.removeBtypeExchange(curated_models[cur])
+
+    duplicated_reactions = curation.checkDuplicatedReactions(model_type_list, curated_models)
+    # endregion
+
+    # Conversion strategies
+    GapseqConv = conversion.ConversionForGapseq(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m, bigg_r)
+    ModelseedConv = conversion.ConversionForModelseed(seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r, bigg_m,
+                                                      bigg_r)
+    AgoraConv = conversion.ConversionForAgora(old_new_bigg_m, old_new_bigg_r, kegg_bigg_m, kegg_bigg_r, bigg_m, bigg_r)
+    CarvemeConv = conversion.ConversionForCarveMe(old_new_bigg_m, old_new_bigg_r, bigg_m, bigg_r)
+    ConversionStrategies = {"gapseq": GapseqConv, "modelseed": ModelseedConv, "agora": AgoraConv,
+                            "carveme": CarvemeConv}
+    allmet_converted_dill_file = join(fileDir, "../Scripts/allmet_converted.pkl")
+    allreact_converted_dill_file = join(fileDir, "../Scripts/allreact_converted.pkl")
+    if exists(allmet_converted_dill_file) & exists(allreact_converted_dill_file):
+        allmet_converted = dill.load(open(allmet_converted_dill_file, "rb"))
+        allreact_converted = dill.load(open(allreact_converted_dill_file, "rb"))
+    else:
+        # converting ids for models not with BiGG ids
+        allmet_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
+                                                                ConversionStrategies, "metabolites")
+        allreact_converted = conversion.runConversionForALLmodels(models_to_convert, curated_models,
+                                                                  ConversionStrategies, "reactions")
+        dill.dump(allmet_converted, open(allmet_converted_dill_file, "wb"))
+        dill.dump(allreact_converted, open(allreact_converted_dill_file, "wb"))
     # checking ids from models that supposed to be with BiGG but still may be old (or potentialy wrond but that i don't remember)
     allmet_checked, allmet_not_pass = conversion.runNoneConversionChecking(models_NOTto_convert, curated_models,
                                                                            ConversionStrategies, "metabolites")

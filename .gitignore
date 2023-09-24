@@ -1,0 +1,19 @@
+
+# Pycharm related
+*.idea
+
+# Python related
+*.ipynb_checkpoints/
+*.ipynb
+.jupyter.log
+__pycache__/
+
+# Misc
+env_simple.yml
+.envrc
+notes.md
+TAGS
+tags
+*.swp
+*.pkl
+
