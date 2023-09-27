@@ -1,12 +1,5 @@
-from .curation import remove_b_type_exchange, get_duplicated_reactions
-import copy
 import operator
-import os
-import sys
-from os.path import join, exists
-from cobra.io import read_sbml_model
 import anticreation
-import curation
 import conversion
 import general
 import selection
@@ -14,90 +7,8 @@ import structural
 import genes
 import creation
 import comparison
-import dill
 from copy import deepcopy
-from collections import Counter
 import gathering
-
-
-class GatheredModels:
-    """Class, that gathers information and necessary conversion results for all models. Input for the class and
-    tool in general is dictionary with all models and related information.
-    This dictionary dict_of_all_models_with_feature:
-
-    {model_id:
-    {'path_to_model':str,
-    'model_type':str one of (agora, carveme, gapseq, modelseed) or if custom, create type class in advance,
-    'path_to_genome': str (can be '' or None if convert_genes = False)}}
-
-    And other parameters:
-    if all 3 parameters bellow are None then gene conversion is not done and genomes for model_id are not need
-    assembly = None
-    path_final_genome_nt = None
-    path_final_genome_aa = None
-
-    Optional: custom_model_type """
-
-    def __init__(
-        self,
-        dict_of_all_models_with_feature: dict,
-        assembly_id=None,
-        path_final_genome_nt=None,
-        path_final_genome_aa=None,
-        path_to_db=None,
-        custom_model_type=None,
-    ):
-        model_ids_checking = Counter(list(dict_of_all_models_with_feature.keys()))
-        not_uniq_ids = general.findKeysByValue(model_ids_checking, 1, operator.gt)
-        if not not_uniq_ids:
-            sys.exit(f"Some model ids are not unique: {' '.join(not_uniq_ids)}")
-        if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
-            print(
-                "Warning! No final genome for gene conversion is provided. Gene conversion will not be performed.\n"
-                "If you want to convert genes, please provide either assembly id or custom fasta files (nt/aa/both), to wich genes must be converted."
-            )
-            convert_genes = False
-        else:
-            convert_genes = True
-        strategies = gathering.StrategiesForModelType(path_to_db)
-        models_same_db = {db: [] for db in strategies.db_name.values()}
-        self.original_models = {}
-        self.preprocessed_models = {}
-        self.duplicated_r = {}
-        self.converted_m = {}
-        self.converted_r = {}
-        for k, v in dict_of_all_models_with_feature.items():
-            model = read_sbml_model(v["path_to_model"])
-            models_same_db[strategies.db_name[v["model_type"]]].append(k)
-            self.original_models.update({k: model})
-            if strategies.remove_b[v["model_type"]]:
-                model_b_removed = curation.remove_b_type_exchange(model)
-                self.preprocessed_models.update({k: model_b_removed})
-            else:
-                self.preprocessed_models.update({k: model})
-            dupl_r, dupl_r_gpr = curation.get_duplicated_reactions(model)
-            self.duplicated_r.update({k: dupl_r})
-            self.converted_m.update(
-                {
-                    k: {
-                        m.id: strategies.conversion_strategies[
-                            v["model_type"]
-                        ].convert_metabolite(m)
-                        for m in self.preprocessed_models[k].metabolites
-                    }
-                }
-            )
-            self.converted_r.update(
-                {
-                    k: {
-                        r.id: strategies.conversion_strategies[
-                            v["model_type"]
-                        ].convert_reaction(r)
-                        for r in self.preprocessed_models[k].reactions
-                    }
-                }
-            )
-        models_same_db = {kdb: kv for kdb, kv in models_same_db.items() if len(kv) > 1}
 
 
 if __name__ == "__main__":
