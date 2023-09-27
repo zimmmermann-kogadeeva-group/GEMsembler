@@ -1,22 +1,8 @@
 #!/usr/bin/env python3
 
-import pandas as pd
 import re
-
-from .dbs import (
-    seed_orig_m,
-    seed_orig_r,
-    seed_addit_m,
-    seed_addit_r,
-    kegg_bigg_m,
-    kegg_bigg_r,
-    old_new_bigg_m,
-    old_new_bigg_r,
-    bigg_all_m,
-    bigg_all_r,
-    bigg_db_network_m,
-    bigg_db_network_r,
-)
+from abc import ABC, abstractmethod
+from .dbs import get_db, get_BiGG_lists
 
 
 class Converted(object):
@@ -72,10 +58,18 @@ class Converted(object):
         )
 
 
-class ConvBase(object):
+class ConvBase(ABC):
     def __init__(self, bigg_m=None, bigg_r=None):
-        self.__bigg_m__ = bigg_m or set(bigg_all_m["universal_bigg_id"])
-        self.__bigg_r__ = bigg_r or set(bigg_all_r["universal_bigg_id"])
+        self.__bigg_m__ = bigg_m or get_BiGG_lists(metabolites=True)
+        self.__bigg_r__ = bigg_r or get_BiGG_lists(metabolites=False)
+
+    @abstractmethod
+    def convert_metabolite(self, metabolite):
+        return NotImplemented
+
+    @abstractmethod
+    def convert_reaction(self, metabolite):
+        return NotImplemented
 
     def convert_model(self, model):
         return {
@@ -86,16 +80,21 @@ class ConvBase(object):
 
 class ConvGapseq(ConvBase):
     def __init__(
-        self, main_map_m=None, main_map_r=None, additional_table_m=None,
-        additional_table_r=None, bigg_m=None, bigg_r=None
+        self,
+        main_map_m=None,
+        main_map_r=None,
+        additional_table_m=None,
+        additional_table_r=None,
+        bigg_m=None,
+        bigg_r=None,
     ):
         super().__init__(bigg_m, bigg_r)
 
         # TODO: checks that tables, if given, are of the appropriate format
-        self.__main_map_m__ = main_map_m or seed_orig_m
-        self.__main_map_r__ = main_map_r or seed_orig_r
-        self.__addit_map_m__ = additional_table_m or seed_addit_m
-        self.__addit_map_r__ = additional_table_r or seed_addit_r
+        self.__main_map_m__ = main_map_m or get_db("seed_orig_m")
+        self.__main_map_r__ = main_map_r or get_db("seed_orig_r")
+        self.__addit_map_m__ = additional_table_m or get_db("seed_addit_m")
+        self.__addit_map_r__ = additional_table_r or get_db("seed_addit_r")
 
         self.__annot_m__ = "bigg.metabolite"
         self.__annot_r__ = "bigg.reaction"
@@ -134,16 +133,21 @@ class ConvGapseq(ConvBase):
 
 class ConvModelseed(ConvBase):
     def __init__(
-        self, main_map_m=None, additional_table_m=None, main_map_r=None,
-        additional_table_r=None, bigg_m=None, bigg_r=None
+        self,
+        main_map_m=None,
+        additional_table_m=None,
+        main_map_r=None,
+        additional_table_r=None,
+        bigg_m=None,
+        bigg_r=None,
     ):
         super().__init__(bigg_m, bigg_r)
 
         # TODO: checks that tables, if given, are of the appropriate format
-        self.__main_map_m__ = main_map_m or seed_orig_m
-        self.__main_map_r__ = main_map_r or seed_orig_r
-        self.__addit_map_m__ = additional_table_m or seed_addit_m
-        self.__addit_map_m__ = additional_table_r or seed_addit_r
+        self.__main_map_m__ = main_map_m or get_db("seed_orig_m")
+        self.__main_map_r__ = main_map_r or get_db("seed_orig_r")
+        self.__addit_map_m__ = additional_table_m or get_db("seed_addit_m")
+        self.__addit_map_r__ = additional_table_r or get_db("seed_addit_r")
         self.__comp_regex__ = re.compile("_(c0|e0|b)$")
 
     def convert_metabolite(self, metabolite):
@@ -166,7 +170,6 @@ class ConvModelseed(ConvBase):
         return Converted(
             check_db=self.__bigg_r__,
             compartment=[x.removesuffix("0") for x in reaction.compartments],
-            annot=conv_annot,
             main=conv_main,
             addit=conv_addit,
         )
@@ -174,20 +177,25 @@ class ConvModelseed(ConvBase):
 
 class ConvAgora(ConvBase):
     def __init__(
-        self, main_map_m=None, additional_table_m=None, main_map_r=None,
-        additional_table_r=None, bigg_m=None, bigg_r=None
+        self,
+        main_map_m=None,
+        additional_table_m=None,
+        main_map_r=None,
+        additional_table_r=None,
+        bigg_m=None,
+        bigg_r=None,
     ):
         super().__init__(bigg_m, bigg_r)
 
         # TODO: checks that tables, if given, are of the appropriate format
-        self.__main_map_m__ = main_map_m or old_new_bigg_m
-        self.__main_map_r__ = main_map_r or old_new_bigg_r
-        self.__addit_map_m__ = additional_table_m or kegg_bigg_m
-        self.__addit_map_r__ = additional_table_r or kegg_bigg_r
+        self.__main_map_m__ = main_map_m or get_db("old_new_bigg_m")
+        self.__main_map_r__ = main_map_r or get_db("old_new_bigg_r")
+        self.__addit_map_m__ = additional_table_m or get_db("kegg_bigg_m")
+        self.__addit_map_r__ = additional_table_r or get_db("kegg_bigg_r")
 
         self.__annot_m__ = "kegg.compound"
         self.__annot_r__ = "kegg.reaction"
-        self.__comp_regex__ = re.compile("\[(c|e)\]$")
+        self.__comp_regex__ = re.compile("\[([ce])\]$")
 
     def convert_metabolite(self, metabolite):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
@@ -235,9 +243,9 @@ class ConvCarveme(ConvBase):
         super().__init__(bigg_m, bigg_r)
 
         # TODO: checks that tables, if given, are of the appropriate format
-        self.__main_map_m__ = main_map_m or old_new_bigg_m
-        self.__main_map_r__ = main_map_r or old_new_bigg_r
-        self.__comp_regex__ = re.compile("_(c|e|p)$")
+        self.__main_map_m__ = main_map_m or get_db("old_new_bigg_m")
+        self.__main_map_r__ = main_map_r or get_db("old_new_bigg_r")
+        self.__comp_regex__ = re.compile("_([cep])$")
 
     def convert_metabolite(self, metabolite):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)

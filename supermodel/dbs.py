@@ -47,34 +47,24 @@ def remove_duplicates(data, leave_from_mixed_directions=True):
     return data[~data["reaction"].isin(reaction_list)]
 
 
-def get_bigg_network(
-    bigg_database_r: pd.core.frame.DataFrame, leave_from_mixed_directions=True
-):
-    """Getting tables with reaction ids unique reaction equations with
+def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
+    """Getting dictionary for BiGG topology: unique reaction equation as key and id as value.
+    Maybe writing down a table with reaction ids unique reaction equations with
     metabolites sorted for the whole BiGG database. If reaction equations are
     duplicated one used in most amount of models selected."""
 
-    reaction_regex = re.compile(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+|<->")
-
-    m_connections = (
-        bigg_database_r[["bigg_id", "reaction_string"]]
-        .copy()
-        # Remove +, <-> and num. moles in chem. eq. to get list of metabolites
-        .pipe(apply, "reaction_string", lambda x: reaction_regex.sub("", x).split())
-        # Expand the list of metabolites to one per row
-        .explode("reaction_string")
-        # Group by the metabolites (column yet to be renamed)
-        .groupby("reaction_string")
-        # Collect together reaction IDs per each metabolite
-        .apply(lambda x: list(x["bigg_id"]))
-        .reset_index()
-        .rename(columns={0: "reactions", "reaction_string": "metabolite"})
+    if not path_to_dbs:
+        path_to_dbs = Path(__file__).parent.parent / "data"
+    bigg_database_r = pd.read_csv(
+        path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t"
     )
+
+    reaction_regex = re.compile(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+|<->")
 
     r_connections = (
         pd.DataFrame(
             {
-                "reaction": bigg_database_r["bigg_id"],
+                "reaction": bigg_database_r["universal_bigg_id"],
                 "models_number": bigg_database_r["model_list"].str.split().apply(len),
             }
         )
@@ -112,90 +102,53 @@ def get_bigg_network(
         .reset_index(drop=True)
     )
 
-    return r_connections, m_connections
+    bigg_r_network = (
+        r_connections.groupby("equation")
+        .apply(lambda x: x["reaction"].values[0])
+        .to_dict()
+    )
+    return bigg_r_network
 
 
-path_to_dbs = Path(__file__).parent.parent / "data"
+def get_db(db_name, path_to_dbs=None):
+    """Loading conversion tables for different databases db_name: old_new_bigg_m, old_new_bigg_r, seed_orig_m, seed_orig_r,
+     seed_addit_m, seed_addit_r, kegg_bigg_m, kegg_bigg_r. """
+    if not path_to_dbs:
+        path_to_dbs = Path(__file__).parent.parent / "data"
+    typ = db_name[-1]
+    source = db_name.split("_")[0]
+    if db_name.split("_")[0] == "old":
+        data_table = pd.read_csv(
+            path_to_dbs / db_name[:-2] + "_bigg.tsv.gz", sep="\t"
+        ).rename(columns={source + "_ids": "old", "bigg_ids": "new"})
+        data_table["new"].mask(
+            data_table["type"] == typ,
+            data_table["new"].str.slice(stop=-2),
+            inplace=True,
+        )
+    else:
+        data_table = pd.read_csv(
+            path_to_dbs / db_name[:-2] + ".tsv.gz", sep="\t"
+        ).rename(columns={source + "_ids": "old", "bigg_ids": "new"})
+    typ_conv = (
+        data_table.query(f"type == '{typ}'")
+        .groupby("old")
+        .apply(lambda x: x["new"].tolist())
+        .to_dict()
+    )
 
-# SEEDmodel
-seed_orig = pd.read_csv(path_to_dbs / "seed_to_bigg.tsv.gz", sep="\t").rename(
-    columns={"seed_ids": "old", "bigg_ids": "new"}
-)
+    return typ_conv
 
-seed_orig_m = (
-    seed_orig.query("type == 'm'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-seed_orig_r = (
-    seed_orig.query("type == 'r'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
 
-# SEEDmodel additional
-seed_addit = pd.read_csv(path_to_dbs / "seed_to_bigg_metanetx.tsv.gz", sep="\t").rename(
-    columns={"seed_ids": "old", "bigg_ids": "new"}
-)
-
-seed_addit_m = (
-    seed_addit.query("type == 'm'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-seed_addit_r = (
-    seed_addit.query("type == 'r'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-
-# KEGG to BIGG
-kegg_bigg = pd.read_csv(path_to_dbs / "kegg_to_bigg_metanetx.tsv.gz", sep="\t").rename(
-    columns={"kegg_ids": "old", "bigg_ids": "new"}
-)
-
-kegg_bigg_m = (
-    kegg_bigg.query("type == 'm'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-kegg_bigg_r = (
-    kegg_bigg.query("type == 'r'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-
-# Old to new BIGG
-old_new_bigg = pd.read_csv(path_to_dbs / "old_to_new_bigg.tsv.gz", sep="\t").rename(
-    columns={"old_bigg_ids": "old", "bigg_ids": "new"}
-)
-old_new_bigg["new"].mask(
-    old_new_bigg["type"] == "m", old_new_bigg["new"].str.slice(stop=-2), inplace=True
-)
-
-old_new_bigg_m = (
-    old_new_bigg.query("type == 'm'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-old_new_bigg_r = (
-    old_new_bigg.query("type == 'r'")
-    .groupby("old")
-    .apply(lambda x: x["new"].tolist())
-    .to_dict()
-)
-
-# BIGG
-bigg_all_m = pd.read_csv(path_to_dbs / "bigg_models_metabolites.tsv.gz", sep="\t")
-
-bigg_all_r = pd.read_csv(path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t")
-bigg_all_r["universal_bigg_id"] = bigg_all_r["bigg_id"]
-
-bigg_db_network_r, bigg_db_network_m = get_bigg_network(bigg_all_r)
+def get_BiGG_lists(metabolites: bool, path_to_dbs=None):
+    if not path_to_dbs:
+        path_to_dbs = Path(__file__).parent.parent / "data"
+    if metabolites:
+        bigg_data = pd.read_csv(
+            path_to_dbs / "bigg_models_metabolites.tsv.gz", sep="\t"
+        )
+    else:
+        bigg_data = pd.read_csv(path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t")
+        bigg_data["universal_bigg_id"] = bigg_data["bigg_id"]
+    bigg_list = list(set(bigg_data["universal_bigg_id"]))
+    return bigg_list
