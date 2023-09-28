@@ -32,6 +32,12 @@ class Converted(object):
         self.pattern = list(pattern - annot - main - addit)
         self.no_conv = list(no_conv - annot - main - addit - pattern)
 
+        # Find 1st not empty conversion and set it as highest available
+        for attr in ["annot_and_main", "annot", "main", "addit", "pattern", "no_conv"]:
+            if getattr(self, attr):
+                self.highest = getattr(self, attr)
+                break
+
         # TODO: add back compartments
 
     def __repr__(self):
