@@ -115,4 +115,3 @@ class GatheredModels:
                     }
                 }
             )
-        models_same_db = {kdb: kv for kdb, kv in models_same_db.items() if len(kv) > 1}

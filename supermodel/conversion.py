@@ -34,11 +34,11 @@ class Converted(object):
 
         # Find 1st not empty conversion and set it as highest available
         for attr in ["annot_and_main", "annot", "main", "addit", "pattern", "no_conv"]:
-            if getattr(self, attr):
+            if getattr(self, attr) or attr == "no_conv":
                 self.highest = getattr(self, attr)
                 break
 
-        # TODO: add back compartments
+        # TODO: add back compartments (selection and others won't work properly without compartments added)
 
     def __repr__(self):
         return (
