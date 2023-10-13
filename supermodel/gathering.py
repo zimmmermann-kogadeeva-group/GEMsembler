@@ -5,6 +5,7 @@ import conversion
 from cobra.io import read_sbml_model
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
+from .selection import checkDBConsistency, checkFromOneFromMany
 
 
 class StrategiesForModelType:
@@ -78,15 +79,16 @@ class GatheredModels:
         else:
             convert_genes = True
         strategies = StrategiesForModelType(path_to_db)
-        models_same_db = {db: [] for db in strategies.db_name.values()}
+        models_same_db = {db: {} for db in strategies.db_name.values()}
         self.original_models = {}
         self.preprocessed_models = {}
         self.duplicated_r = {}
-        self.converted_m = {}
-        self.converted_r = {}
+        self.converted = {}
         for k, v in dict_of_all_models_with_feature.items():
             model = read_sbml_model(v["path_to_model"])
-            models_same_db[strategies.db_name[v["model_type"]]].append(k)
+            models_same_db[strategies.db_name[v["model_type"]]].update(
+                {k: v["model_type"]}
+            )
             self.original_models.update({k: model})
             if strategies.remove_b[v["model_type"]]:
                 model_b_removed = remove_b_type_exchange(model)
@@ -95,23 +97,15 @@ class GatheredModels:
                 self.preprocessed_models.update({k: model})
             dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
             self.duplicated_r.update({k: dupl_r})
-            self.converted_m.update(
+            self.converted.update(
                 {
-                    k: {
-                        m.id: strategies.conversion_strategies[
-                            v["model_type"]
-                        ].convert_metabolite(m)
-                        for m in self.preprocessed_models[k].metabolites
-                    }
+                    k: strategies.conversion_strategies[v["model_type"]]
+                    .super()
+                    .convert_model(self.preprocessed_models[k])
                 }
             )
-            self.converted_r.update(
-                {
-                    k: {
-                        r.id: strategies.conversion_strategies[
-                            v["model_type"]
-                        ].convert_reaction(r)
-                        for r in self.preprocessed_models[k].reactions
-                    }
-                }
-            )
+        self.first_selected = checkDBConsistency(
+            models_same_db, self.converted, "highest"
+        )
+        for s in self.first_selected.values():
+            checkFromOneFromMany(s)

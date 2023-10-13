@@ -14,12 +14,13 @@ import gathering
 if __name__ == "__main__":
 
     # checking ids from models that supposed to be with BiGG but still may be old (or potentialy wrond but that i don't remember)
-    allmet_checked, allmet_not_pass = conversion.runNoneConversionChecking(
-        models_NOTto_convert, curated_models, ConversionStrategies, "metabolites"
-    )
-    allreact_checked, allreact_not_pass = conversion.runNoneConversionChecking(
-        models_NOTto_convert, curated_models, ConversionStrategies, "reactions"
-    )
+    # allmet_checked, allmet_not_pass = conversion.runNoneConversionChecking(
+    #     models_NOTto_convert, curated_models, ConversionStrategies, "metabolites"
+    # )
+    # allreact_checked, allreact_not_pass = conversion.runNoneConversionChecking(
+    #     models_NOTto_convert, curated_models, ConversionStrategies, "reactions"
+    # )
+
     # checking reaction equations for models with BiGG
     allreact_checked_struct, allreact_not_pass_struct = structural.runStructuralCheck(
         models_NOTto_convert,
@@ -28,13 +29,7 @@ if __name__ == "__main__":
         curated_models,
         bigg_db_network,
     )
-    # geting select ids that are converted 1-1, 1-n, n-1, n-n from converted ids (and check for consistency in models that are deferent but use ids from the same databes (modelseed in this case))
-    allmet_selected = selection.runSelection(
-        models_to_convert, allmet_converted, "metabolites", models_same_db
-    )
-    allreact_selected = selection.runSelection(
-        models_to_convert, allreact_converted, "reactions", models_same_db
-    )
+
     # converting reactions via reactions equations from BiGG database via metabolites that were converted 1-1 or 1-n and selecting ones that were converted with equations and were converted uniquely
     structural_r_info, structural_r_sel = structural.runStructuralConversion(
         models_to_convert,

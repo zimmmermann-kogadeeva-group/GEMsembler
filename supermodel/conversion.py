@@ -79,8 +79,10 @@ class ConvBase(ABC):
 
     def convert_model(self, model):
         return {
-            "metabolites": [self.convert_metabolite(x) for x in model.metabolites],
-            "reactions": [self.convert_reaction(x) for x in model.reactions],
+            "metabolites": {
+                x.id: self.convert_metabolite(x) for x in model.metabolites
+            },
+            "reactions": {x.id: self.convert_reaction(x) for x in model.reactions},
         }
 
 
