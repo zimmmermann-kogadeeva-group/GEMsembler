@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from .dbs import get_db, get_BiGG_lists
 
 
+# TODO: this could be a simple function
 class Converted(object):
     def __init__(
         self,
