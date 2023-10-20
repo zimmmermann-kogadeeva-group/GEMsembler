@@ -1,7 +1,8 @@
 import sys
 import operator
 from collections import Counter
-import conversion
+from copy import deepcopy
+from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora
 from cobra.io import read_sbml_model
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
@@ -32,10 +33,10 @@ class StrategiesForModelType:
             "agora": True,
         }
         self.conversion_strategies = {
-            "carveme": conversion.ConvCarveme(),
-            "gapseq": conversion.ConvGapseq(),
-            "modelseed": conversion.ConvModelseed(),
-            "agora": conversion.ConvAgora(),
+            "carveme": ConvCarveme(),
+            "gapseq": ConvGapseq(),
+            "modelseed": ConvModelseed(),
+            "agora": ConvAgora(),
         }
 
 
@@ -68,7 +69,7 @@ class GatheredModels:
     ):
         model_ids_checking = Counter(list(dict_of_all_models_with_feature.keys()))
         not_uniq_ids = findKeysByValue(model_ids_checking, 1, operator.gt)
-        if not not_uniq_ids:
+        if len(not_uniq_ids) >= 1:
             sys.exit(f"Some model ids are not unique: {' '.join(not_uniq_ids)}")
         if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
             print(
@@ -91,7 +92,7 @@ class GatheredModels:
             )
             self.original_models.update({k: model})
             if strategies.remove_b[v["model_type"]]:
-                model_b_removed = remove_b_type_exchange(model)
+                model_b_removed = remove_b_type_exchange(deepcopy(model))
                 self.preprocessed_models.update({k: model_b_removed})
             else:
                 self.preprocessed_models.update({k: model})
@@ -99,13 +100,13 @@ class GatheredModels:
             self.duplicated_r.update({k: dupl_r})
             self.converted.update(
                 {
-                    k: strategies.conversion_strategies[v["model_type"]]
-                    .super()
-                    .convert_model(self.preprocessed_models[k])
+                    k: strategies.conversion_strategies[v["model_type"]].convert_model(
+                        self.preprocessed_models[k]
+                    )
                 }
             )
-        self.first_selected = checkDBConsistency(
-            models_same_db, self.converted, "highest"
-        )
-        for s in self.first_selected.values():
-            checkFromOneFromMany(s)
+        # self.first_selected = checkDBConsistency(
+        #     models_same_db, self.converted, "highest"
+        # )
+        # for s in self.first_selected.values():
+        #     checkFromOneFromMany(s)

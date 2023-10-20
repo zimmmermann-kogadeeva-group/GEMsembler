@@ -16,6 +16,7 @@ class Converted(object):
         addit=None,
         pattern=None,
         no_conv=None,
+        metabolite=True,
     ):
         # Check whether in appropriate db
         self.compartment = compartment
@@ -33,10 +34,22 @@ class Converted(object):
         self.pattern = list(pattern - annot - main - addit)
         self.no_conv = list(no_conv - annot - main - addit - pattern)
 
+        # If metabolite add compartment to metabolite id
+        if metabolite:
+            self.annot_and_main = [
+                i + "_" + self.compartment[0] for i in self.annot_and_main
+            ]
+            self.annot = [i + "_" + self.compartment[0] for i in self.annot]
+            self.main = [i + "_" + self.compartment[0] for i in self.main]
+            self.addit = [i + "_" + self.compartment[0] for i in self.addit]
+            self.pattern = [i + "_" + self.compartment[0] for i in self.pattern]
+            self.no_conv = [i + "_" + self.compartment[0] for i in self.no_conv]
+
         # Find 1st not empty conversion and set it as highest available
         for attr in ["annot_and_main", "annot", "main", "addit", "pattern", "no_conv"]:
             if getattr(self, attr) or attr == "no_conv":
                 self.highest = getattr(self, attr)
+                self.level = attr
                 break
 
         # TODO: add back compartments (selection and others won't work properly without compartments added)
@@ -45,6 +58,8 @@ class Converted(object):
         return (
             "Converted class object\n"
             f"compartment: {self.compartment}\n"
+            f"highest: {self.highest}\n"
+            f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"
             f"annot: {self.annot}\n"
             f"main: {self.main}\n"
@@ -56,6 +71,8 @@ class Converted(object):
     def __str__(self):
         return (
             f"compartment: {self.compartment}\n"
+            f"highest: {self.highest}\n"
+            f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"
             f"annot: {self.annot}\n"
             f"main: {self.main}\n"
@@ -122,6 +139,7 @@ class ConvGapseq(ConvBase):
             annot=conv_annot,
             main=conv_main,
             addit=conv_addit,
+            metabolite=True,
         )
 
     def convert_reaction(self, reaction):
@@ -137,6 +155,7 @@ class ConvGapseq(ConvBase):
             annot=conv_annot,
             main=conv_main,
             addit=conv_addit,
+            metabolite=False,
         )
 
 
@@ -169,6 +188,7 @@ class ConvModelseed(ConvBase):
             compartment=[metabolite.compartment.removesuffix("0")],
             main=conv_main,
             addit=conv_addit,
+            metabolite=True,
         )
 
     def convert_reaction(self, reaction):
@@ -181,6 +201,7 @@ class ConvModelseed(ConvBase):
             compartment=[x.removesuffix("0") for x in reaction.compartments],
             main=conv_main,
             addit=conv_addit,
+            metabolite=False,
         )
 
 
@@ -211,10 +232,13 @@ class ConvAgora(ConvBase):
         conv_main = self.__main_map_m__.get(id_wo_comp, [])
         conv_addit = [
             y
-            for x in metabolite.annotation.get(self.__annot_m__, [])
+            for x in [metabolite.annotation.get(self.__annot_m__, "")]
             for y in self.__addit_map_m__.get(x, [])
         ]
-        conv_pattern = ["_".join(id_wo_comp.rsplit("__", 1))]
+        conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
+        if id_wo_comp == "leu_L":
+            print(id_wo_comp.rsplit("_", 1))
+            print(conv_pattern)
         conv_noconv = [id_wo_comp]
 
         return Converted(
@@ -224,6 +248,7 @@ class ConvAgora(ConvBase):
             addit=conv_addit,
             pattern=conv_pattern,
             no_conv=conv_noconv,
+            metabolite=True,
         )
 
     def convert_reaction(self, reaction):
@@ -231,19 +256,24 @@ class ConvAgora(ConvBase):
         conv_main = self.__main_map_r__.get(id_wo_comp, [])
         conv_addit = [
             y
-            for x in reaction.annotation.get(self.__annot_r__, [])
+            for x in [reaction.annotation.get(self.__annot_r__, "")]
             for y in self.__addit_map_r__.get(x, [])
         ]
-        conv_pattern = ["_".join(id_wo_comp.rsplit("__", 1))]
+        conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
         conv_noconv = [id_wo_comp]
+        if reaction.id == "ACS":
+            print(id_wo_comp)
+            print(conv_main)
+            print(conv_pattern)
 
         return Converted(
-            check_db=self.__bigg_m__,
+            check_db=self.__bigg_r__,
             compartment=reaction.compartments,
             main=conv_main,
             addit=conv_addit,
             pattern=conv_pattern,
             no_conv=conv_noconv,
+            metabolite=False,
         )
 
 
@@ -270,15 +300,13 @@ class ConvCarveme(ConvBase):
             check_db=self.__bigg_m__,
             compartment=[metabolite.compartment.split("_")[1]],
             main=conv_main,
+            metabolite=True,
         )
 
     def convert_reaction(self, reaction):
         id_wo_comp = reaction.id
         if id_wo_comp not in self.__bigg_r__:
-            conv_main = [
-                x + reaction.compartment.split("_")[1]
-                for x in self.__main_map_r__.get(id_wo_comp, [])
-            ]
+            conv_main = [x for x in self.__main_map_r__.get(id_wo_comp, [])]
         else:
             conv_main = [id_wo_comp]
 
@@ -286,4 +314,5 @@ class ConvCarveme(ConvBase):
             check_db=self.__bigg_r__,
             compartment=[x.split("_")[1] for x in reaction.compartments],
             main=conv_main,
+            metabolite=False,
         )

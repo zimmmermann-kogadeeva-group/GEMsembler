@@ -1,18 +1,9 @@
-import operator
-import anticreation
-import conversion
-import general
-import selection
-import structural
-import genes
-import creation
-import comparison
-from copy import deepcopy
-import gathering
+from .gathering import GatheredModels
 
 
 if __name__ == "__main__":
-
+    pass
+"""       
     # checking ids from models that supposed to be with BiGG but still may be old (or potentialy wrond but that i don't remember)
     # allmet_checked, allmet_not_pass = conversion.runNoneConversionChecking(
     #     models_NOTto_convert, curated_models, ConversionStrategies, "metabolites"
@@ -245,4 +236,7 @@ if __name__ == "__main__":
     )
     carveme_model = anticreation.getModelOfInterest(
         supermodel, "carveme", name="BU_carveme_out_model.xml"
-    )
+    ) 
+        
+        
+"""

@@ -1,2 +1,1 @@
-
-from .main import load_model
+from .gathering import GatheredModels

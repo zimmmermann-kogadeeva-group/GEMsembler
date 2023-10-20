@@ -54,9 +54,9 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
     duplicated one used in most amount of models selected."""
 
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
+        path_to_dbs = Path(__file__).parent.parent / "data_package"
     bigg_database_r = pd.read_csv(
-        path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t"
+        path_to_dbs / "bigg_models_reactions.txt.gz", sep="\t"
     )
 
     reaction_regex = re.compile(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+|<->")
@@ -114,41 +114,32 @@ def get_db(db_name, path_to_dbs=None):
     """Loading conversion tables for different databases db_name: old_new_bigg_m, old_new_bigg_r, seed_orig_m, seed_orig_r,
      seed_addit_m, seed_addit_r, kegg_bigg_m, kegg_bigg_r. """
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
+        path_to_dbs = Path(__file__).parent.parent / "data_package"
     typ = db_name[-1]
     source = db_name.split("_")[0]
-    if db_name.split("_")[0] == "old":
-        data_table = pd.read_csv(
-            path_to_dbs / db_name[:-2] + "_bigg.tsv.gz", sep="\t"
-        ).rename(columns={source + "_ids": "old", "bigg_ids": "new"})
-        data_table["new"].mask(
-            data_table["type"] == typ,
-            data_table["new"].str.slice(stop=-2),
-            inplace=True,
-        )
-    else:
-        data_table = pd.read_csv(
-            path_to_dbs / db_name[:-2] + ".tsv.gz", sep="\t"
-        ).rename(columns={source + "_ids": "old", "bigg_ids": "new"})
-    typ_conv = (
-        data_table.query(f"type == '{typ}'")
-        .groupby("old")
-        .apply(lambda x: x["new"].tolist())
-        .to_dict()
+
+    data_table = (
+        pd.read_csv(path_to_dbs / str(db_name[:-2] + ".tsv.gz"), sep="\t")
+        .rename(columns={source + "_ids": "old", "bigg_ids": "new"})
+        .dropna()
     )
 
-    return typ_conv
+    typ_conv = data_table.query(f"type == '{typ}'")
+    typ_conv["new"] = typ_conv["new"].str.split(",", expand=False)
+    conv_dict = dict(typ_conv.drop(columns="type").values)
+
+    return conv_dict
 
 
 def get_BiGG_lists(metabolites: bool, path_to_dbs=None):
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
+        path_to_dbs = Path(__file__).parent.parent / "data_package"
     if metabolites:
         bigg_data = pd.read_csv(
-            path_to_dbs / "bigg_models_metabolites.tsv.gz", sep="\t"
+            path_to_dbs / "bigg_models_metabolites.txt.gz", sep="\t"
         )
     else:
-        bigg_data = pd.read_csv(path_to_dbs / "bigg_models_reactions.tsv.gz", sep="\t")
+        bigg_data = pd.read_csv(path_to_dbs / "bigg_models_reactions.txt.gz", sep="\t")
         bigg_data["universal_bigg_id"] = bigg_data["bigg_id"]
     bigg_list = list(set(bigg_data["universal_bigg_id"]))
     return bigg_list
