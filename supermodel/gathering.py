@@ -105,8 +105,8 @@ class GatheredModels:
                     )
                 }
             )
-        # self.first_selected = checkDBConsistency(
-        #     models_same_db, self.converted, "highest"
-        # )
+        self.first_selected = checkDBConsistency(
+            models_same_db, self.converted, "highest"
+        )
         # for s in self.first_selected.values():
         #     checkFromOneFromMany(s)

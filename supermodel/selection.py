@@ -33,29 +33,24 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
     for bd, models in models_same_db.items():
         bd_ids = {"metabolites": [], "reactions": []}
         if len(set(list(models.values()))) <= 1 or bd == "bigg":
+            print(models)
             for m in models.keys():
+                consistent.update({m: {"metabolites": {}, "reactions": {}}})
                 for obj_t in bd_ids.keys():
-                    consistent.update(
+                    consistent[m][obj_t].update(
                         {
-                            obj_t: {
-                                m: {
-                                    idd: Selected(
-                                        getattr(
-                                            converted_model.get(m).get(obj_t).get(idd),
-                                            attr_to_check,
-                                        ),
-                                        getattr(
-                                            converted_model.get(m).get(obj_t).get(idd),
-                                            attr_to_check,
-                                        ),
-                                        converted_model.get(m)
-                                        .get(obj_t)
-                                        .get(idd)
-                                        .compartment,
-                                    )
-                                    for idd in converted_model.get(obj_t).keys()
-                                }
-                            }
+                            idd: Selected(
+                                getattr(
+                                    converted_model.get(m).get(obj_t).get(idd),
+                                    attr_to_check,
+                                ),
+                                getattr(
+                                    converted_model.get(m).get(obj_t).get(idd),
+                                    attr_to_check,
+                                ),
+                                converted_model.get(m).get(obj_t).get(idd).compartment,
+                            )
+                            for idd in converted_model.get(m).get(obj_t).keys()
                         }
                     )
         else:
@@ -101,7 +96,7 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                     else:
                         common_ids = list(set.intersection(*map(set, bigg_ids)))
                         for present in mod_present:
-                            consistent.get(present).update(
+                            consistent.get(present).get(obj_type).update(
                                 {
                                     iid: Selected(
                                         getattr(

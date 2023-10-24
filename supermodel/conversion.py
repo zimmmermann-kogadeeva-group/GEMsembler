@@ -236,9 +236,6 @@ class ConvAgora(ConvBase):
             for y in self.__addit_map_m__.get(x, [])
         ]
         conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
-        if id_wo_comp == "leu_L":
-            print(id_wo_comp.rsplit("_", 1))
-            print(conv_pattern)
         conv_noconv = [id_wo_comp]
 
         return Converted(
@@ -261,10 +258,6 @@ class ConvAgora(ConvBase):
         ]
         conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
         conv_noconv = [id_wo_comp]
-        if reaction.id == "ACS":
-            print(id_wo_comp)
-            print(conv_main)
-            print(conv_pattern)
 
         return Converted(
             check_db=self.__bigg_r__,
