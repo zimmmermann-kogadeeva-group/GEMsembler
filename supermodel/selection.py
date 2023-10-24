@@ -70,13 +70,6 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                     for mod in models.keys():
                         if converted_model.get(mod).get(obj_type).get(iid) is not None:
                             mod_present.append(mod)
-                            if iid == "cpd00663_c0":
-                                print(
-                                    getattr(
-                                        converted_model.get(mod).get(obj_type).get(iid),
-                                        attr_to_check,
-                                    )
-                                )
                             if getattr(
                                 converted_model.get(mod).get(obj_type).get(iid),
                                 attr_to_check,
@@ -87,9 +80,6 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                                         attr_to_check,
                                     )
                                 )
-                    if iid == "cpd00663_c0":
-                        print(bigg_ids)
-                        print(mod_present)
                     if not bigg_ids:
                         for pres in mod_present:
                             consistent.get(pres).get(obj_type).update(
@@ -107,16 +97,6 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                     else:
                         common_ids = list(set.intersection(*map(set, bigg_ids)))
                         for present in mod_present:
-                            if iid == "cpd00663_c0":
-                                print(common_ids)
-                                print(
-                                    getattr(
-                                        converted_model.get(present)
-                                        .get(obj_type)
-                                        .get(iid),
-                                        attr_to_check,
-                                    )
-                                )
                             consistent.get(present).get(obj_type).update(
                                 {
                                     iid: Selected(

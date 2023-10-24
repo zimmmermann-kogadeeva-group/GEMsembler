@@ -244,7 +244,7 @@ class ConvAgora(ConvBase):
             main=conv_main,
             addit=conv_addit,
             pattern=conv_pattern,
-            no_conv=conv_noconv,
+            annot=conv_noconv,
             metabolite=True,
         )
 
@@ -265,7 +265,7 @@ class ConvAgora(ConvBase):
             main=conv_main,
             addit=conv_addit,
             pattern=conv_pattern,
-            no_conv=conv_noconv,
+            annot=conv_noconv,
             metabolite=False,
         )
 
