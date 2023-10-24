@@ -15,10 +15,12 @@ class Selected(object):
                 self.consistent = f"Not converted"
             else:
                 self.consistent = f"No: {' '.join(highest)}"
-        elif consistent == highest:
+        elif sorted(consistent) == sorted(highest):
             self.consistent = "Yes"
         else:
-            self.consistent = f"Changed: {' '.join(list(set(highest)-set(consistent)))}"
+            self.consistent = (
+                f"Changed: from {', '.join(highest)} to {', '.join(consistent)}"
+            )
         if len(self.highest_consistent) == 1:
             self.to_one_id = True
         if len(self.highest_consistent) > 1:
@@ -33,7 +35,6 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
     for bd, models in models_same_db.items():
         bd_ids = {"metabolites": [], "reactions": []}
         if len(set(list(models.values()))) <= 1 or bd == "bigg":
-            print(models)
             for m in models.keys():
                 consistent.update({m: {"metabolites": {}, "reactions": {}}})
                 for obj_t in bd_ids.keys():
@@ -69,6 +70,13 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                     for mod in models.keys():
                         if converted_model.get(mod).get(obj_type).get(iid) is not None:
                             mod_present.append(mod)
+                            if iid == "cpd00663_c0":
+                                print(
+                                    getattr(
+                                        converted_model.get(mod).get(obj_type).get(iid),
+                                        attr_to_check,
+                                    )
+                                )
                             if getattr(
                                 converted_model.get(mod).get(obj_type).get(iid),
                                 attr_to_check,
@@ -79,6 +87,9 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                                         attr_to_check,
                                     )
                                 )
+                    if iid == "cpd00663_c0":
+                        print(bigg_ids)
+                        print(mod_present)
                     if not bigg_ids:
                         for pres in mod_present:
                             consistent.get(pres).get(obj_type).update(
@@ -96,6 +107,16 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                     else:
                         common_ids = list(set.intersection(*map(set, bigg_ids)))
                         for present in mod_present:
+                            if iid == "cpd00663_c0":
+                                print(common_ids)
+                                print(
+                                    getattr(
+                                        converted_model.get(present)
+                                        .get(obj_type)
+                                        .get(iid),
+                                        attr_to_check,
+                                    )
+                                )
                             consistent.get(present).get(obj_type).update(
                                 {
                                     iid: Selected(
