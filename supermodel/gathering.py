@@ -7,6 +7,8 @@ from cobra.io import read_sbml_model
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
 from .selection import checkDBConsistency, checkFromOneFromMany
+from .structural import runStructuralConversion, runStructuralCheck
+from .dbs import get_bigg_network
 
 
 class StrategiesForModelType:
@@ -80,6 +82,7 @@ class GatheredModels:
         else:
             convert_genes = True
         strategies = StrategiesForModelType(path_to_db)
+        bigg_network = get_bigg_network()
         models_same_db = {db: {} for db in strategies.db_name.values()}
         self.original_models = {}
         self.preprocessed_models = {}
@@ -108,5 +111,40 @@ class GatheredModels:
         self.first_selected = checkDBConsistency(
             models_same_db, self.converted, "highest"
         )
-        for s in self.first_selected.values():
-            checkFromOneFromMany(s)
+        self.structural = {}
+        for model_id, sel in self.first_selected.items():
+            checkFromOneFromMany(sel)
+            if (
+                strategies.db_name[
+                    dict_of_all_models_with_feature[model_id]["model_type"]
+                ]
+                == "bigg"
+            ):
+                self.structural.update(
+                    {
+                        model_id: {
+                            "reactions": runStructuralCheck(
+                                self.first_selected[model_id]["reactions"],
+                                self.preprocessed_models[model_id],
+                                bigg_network,
+                            )
+                        }
+                    }
+                )
+            else:
+                self.structural.update(
+                    {
+                        model_id: {
+                            "reactions": runStructuralConversion(
+                                self.first_selected[model_id],
+                                self.preprocessed_models[model_id],
+                                bigg_network,
+                                strategies.wo_periplasmic[
+                                    dict_of_all_models_with_feature[model_id][
+                                        "model_type"
+                                    ]
+                                ],
+                            )
+                        }
+                    }
+                )

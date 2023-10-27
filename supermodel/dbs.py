@@ -64,7 +64,7 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
     r_connections = (
         pd.DataFrame(
             {
-                "reaction": bigg_database_r["universal_bigg_id"],
+                "reaction": bigg_database_r["bigg_id"],
                 "models_number": bigg_database_r["model_list"].str.split().apply(len),
             }
         )
