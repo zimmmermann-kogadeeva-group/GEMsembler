@@ -54,7 +54,7 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
     duplicated one used in most amount of models selected."""
 
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data_package"
+        path_to_dbs = Path(__file__).parent.parent / "data"
     bigg_database_r = pd.read_csv(
         path_to_dbs / "bigg_models_reactions.txt.gz", sep="\t"
     )
@@ -111,10 +111,13 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
 
 
 def get_db(db_name, path_to_dbs=None):
-    """Loading conversion tables for different databases db_name: old_new_bigg_m, old_new_bigg_r, seed_orig_m, seed_orig_r,
-     seed_addit_m, seed_addit_r, kegg_bigg_m, kegg_bigg_r. """
+    """
+    Loading conversion tables for different databases db_name: old_new_bigg_m,
+    old_new_bigg_r, seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r,
+    kegg_bigg_m, kegg_bigg_r.
+    """
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data_package"
+        path_to_dbs = Path(__file__).parent.parent / "data"
     typ = db_name[-1]
     source = db_name.split("_")[0]
 
@@ -124,7 +127,7 @@ def get_db(db_name, path_to_dbs=None):
         .dropna()
     )
 
-    typ_conv = data_table.query(f"type == '{typ}'")
+    typ_conv = data_table.query(f"type == '{typ}'").copy()
     typ_conv["new"] = typ_conv["new"].str.split(",", expand=False)
     conv_dict = dict(typ_conv.drop(columns="type").values)
 
@@ -133,7 +136,7 @@ def get_db(db_name, path_to_dbs=None):
 
 def get_BiGG_lists(metabolites: bool, path_to_dbs=None):
     if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data_package"
+        path_to_dbs = Path(__file__).parent.parent / "data"
     if metabolites:
         bigg_data = pd.read_csv(
             path_to_dbs / "bigg_models_metabolites.txt.gz", sep="\t"

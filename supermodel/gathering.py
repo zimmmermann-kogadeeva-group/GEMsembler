@@ -1,112 +1,188 @@
 import sys
+import warnings
+import logging
 import operator
-from collections import Counter
+from collections import Counter, defaultdict
 from copy import deepcopy
-from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora
+
 from cobra.io import read_sbml_model
+
+from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
 from .selection import checkDBConsistency, checkFromOneFromMany
 
 
-class StrategiesForModelType:
-    """Whole strategy of processing particular model type"""
+class LoggerContext:
+    def __init__(self, logger_name, show_logs=False):
+        self.__show_logs__ = show_logs
+        self.__logger__ = logging.getLogger(logger_name)
 
-    def __init__(self, path_to_db=None):
-        self.model_type_list = ["carveme", "gapseq", "modelseed", "agora"]
-        self.remove_b = {
-            "carveme": False,
-            "gapseq": False,
-            "modelseed": True,
-            "agora": False,
-        }
-        self.db_name = {
-            "carveme": "bigg",
-            "gapseq": "modelseed",
-            "modelseed": "modelseed",
-            "agora": "wierd_bigg",
-        }
-        self.wo_periplasmic = {
-            "carveme": False,
-            "gapseq": False,
-            "modelseed": True,
-            "agora": True,
-        }
-        self.conversion_strategies = {
-            "carveme": ConvCarveme(),
-            "gapseq": ConvGapseq(),
-            "modelseed": ConvModelseed(),
-            "agora": ConvAgora(),
-        }
+    def __enter__(self):
+        if not self.__show_logs__:
+            self.__logger__.setLevel(logging.CRITICAL)
+
+    def __exit__(self, exit_type, exit_value, exit_traceback):
+        if not self.__show_logs__:
+            self.__logger__.setLevel(logging.NOTSET)
 
 
 class GatheredModels:
-    """Class, that gathers information and necessary conversion results for all models. Input for the class and
-    tool in general is dictionary with all models and related information.
-    This dictionary dict_of_all_models_with_feature:
+    """
+    Class that gathers information and necessary conversion results for all
+    models. Input for the class and tool in general is dictionary with all
+    models and related information.
 
-    {model_id:
-    {'path_to_model':str,
-    'model_type':str one of (agora, carveme, gapseq, modelseed) or if custom, create type class in advance,
-    'path_to_genome': str (can be '' or None if convert_genes = False)}}
+    Parameters
+    ----------
+    dict_of_all_models_with_feature : dict
+        Dictionary of the following format:
+        {
+            model_id:
+            {
+                'path_to_model': str,
+                'model_type': str one of (agora, carveme, gapseq, modelseed) or custom,
+                'path_to_genome': str (can be '' or None if convert_genes = False)
+            }
+        }
+        Note: if custom `model_type` create type class in advance,
+    assembly : None, optional
+    path_final_genome_nt : None, optional
+    path_final_genome_aa : None, optional
+    custom_model_type : None, optional
 
-    And other parameters:
-    if all 3 parameters bellow are None then gene conversion is not done and genomes for model_id are not need
-    assembly = None
-    path_final_genome_nt = None
-    path_final_genome_aa = None
-
-    Optional: custom_model_type """
+    Notes
+    -----
+    If all 3 parameters bellow are None then gene conversion is not done and
+    genomes for model_id are not need.
+    """
 
     def __init__(
         self,
-        dict_of_all_models_with_feature: dict,
         assembly_id=None,
         path_final_genome_nt=None,
         path_final_genome_aa=None,
-        path_to_db=None,
         custom_model_type=None,
     ):
-        model_ids_checking = Counter(list(dict_of_all_models_with_feature.keys()))
-        not_uniq_ids = findKeysByValue(model_ids_checking, 1, operator.gt)
-        if len(not_uniq_ids) >= 1:
-            sys.exit(f"Some model ids are not unique: {' '.join(not_uniq_ids)}")
+        self.__conf__ = {
+            "carveme": {
+                "remove_b": False,
+                "db_name": "bigg",
+                "wo_periplasmic": False,
+                "conv_strategy": ConvCarveme(),
+            },
+            "gapseq": {
+                "remove_b": False,
+                "db_name": "modelseed",
+                "wo_periplasmic": False,
+                "conv_strategy": ConvGapseq(),
+            },
+            "modelseed": {
+                "remove_b": True,
+                "db_name": "modelseed",
+                "wo_periplasmic": False,
+                "conv_strategy": ConvModelseed(),
+            },
+            "agora": {
+                "remove_b": False,
+                "db_name": "weird_bigg",
+                "wo_periplasmic": True,
+                "conv_strategy": ConvAgora(),
+            },
+        }
+        self.__models__ = {}
+        self.first_selected = None
+
+        # Check if assembly and final genome are present.
+        # If not, throw a warning.
         if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
-            print(
-                "Warning! No final genome for gene conversion is provided. Gene conversion will not be performed.\n"
-                "If you want to convert genes, please provide either assembly id or custom fasta files (nt/aa/both), to wich genes must be converted."
+            warnings.warn(
+                "\nWarning! No final genome for gene conversion is provided. "
+                "Gene conversion will not be performed.\nIf you want to "
+                "convert genes, please provide either assembly id or custom "
+                "fasta files (nt/aa/both), \nto wich genes must be converted."
             )
             convert_genes = False
         else:
             convert_genes = True
-        strategies = StrategiesForModelType(path_to_db)
-        models_same_db = {db: {} for db in strategies.db_name.values()}
-        self.original_models = {}
-        self.preprocessed_models = {}
-        self.duplicated_r = {}
-        self.converted = {}
-        for k, v in dict_of_all_models_with_feature.items():
-            model = read_sbml_model(v["path_to_model"])
-            models_same_db[strategies.db_name[v["model_type"]]].update(
-                {k: v["model_type"]}
-            )
-            self.original_models.update({k: model})
-            if strategies.remove_b[v["model_type"]]:
-                model_b_removed = remove_b_type_exchange(deepcopy(model))
-                self.preprocessed_models.update({k: model_b_removed})
-            else:
-                self.preprocessed_models.update({k: model})
-            dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
-            self.duplicated_r.update({k: dupl_r})
-            self.converted.update(
-                {
-                    k: strategies.conversion_strategies[v["model_type"]].convert_model(
-                        self.preprocessed_models[k]
-                    )
-                }
-            )
+
+    def _get_same_db_models(self):
+        same_db_models = defaultdict(dict)
+        for model_id, model_attrs in self.__models__.items():
+            model_type = model_attrs["model_type"]
+            db_name = self.__conf__.get(model_type).get("db_name")
+            same_db_models[db_name][model_id] = model_type
+        return same_db_models
+
+    def run(self):
+        same_db_models = self._get_same_db_models()
+
         self.first_selected = checkDBConsistency(
-            models_same_db, self.converted, "highest"
+            same_db_models,
+            {
+                model_id: model_attrs["converted"]
+                for model_id, model_attrs in self.__models__.items()
+            },
+            "highest",
         )
+
         for s in self.first_selected.values():
             checkFromOneFromMany(s)
+
+    def set_configuration(
+        self,
+        model_type: str,
+        remove_b: bool,
+        db_name: str,
+        wo_periplasmic: bool,
+        conv_strategy,
+        **kwargs,
+    ):
+        assert isinstance(conv_strategy, ConvBase)
+
+        # TODO: add checks on conf input arg
+        self.__conf__[model_type] = {
+            "remove_b": remove_b,
+            "db_name": db_name,
+            "wo_periplasmic": wo_periplasmic,
+            "conv_strategy": conv_strategy,
+            **kwargs,
+        }
+
+    def add_model(
+        self,
+        model_id: str,
+        path_to_model: str,
+        model_type: str,
+        path_to_genome: str = None,
+        show_logs: bool = False,
+    ):
+        # Run checks on model_id and model_type
+        # TODO: check with conversion dictionaries
+        assert model_id not in self.__models__, f"model_id {model_id} already used"
+        assert model_type in self.__conf__, f"Missing configuration for {model_type}"
+
+        # Read the cobra model
+        with LoggerContext("cobra", show_logs):
+            model = read_sbml_model(path_to_model)
+
+        self.__models__[model_id] = {
+            "original_model": deepcopy(model),
+            "path_to_model": path_to_model,
+            "model_type": model_type,
+            "path_to_genome": path_to_genome,
+        }
+
+        # If model_type requires it, remove `_b` extensions
+        if self.__conf__.get(model_type).get("remove_b"):
+            model = remove_b_type_exchange(model)
+        self.__models__[model_id]["model"] = model
+
+        dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
+        self.__models__[model_id]["duplicated_r"] = dupl_r
+
+        # TODO: add isinstance
+        conv = self.__conf__.get(model_type).get("conv_strategy")
+        self.__models__[model_id]["converted"] = (
+            self.__conf__.get(model_type).get("conv_strategy").convert_model(model)
+        )

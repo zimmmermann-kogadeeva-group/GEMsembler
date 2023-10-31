@@ -28,9 +28,13 @@ class Selected(object):
 
 
 def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_check: str):
-    """ Checking ID for different models with IDs from the same database. If one original ID from one database
-    is converted separately for different models, looking for intersection of those lists. If no intersection found,
-     conversion is inconsistent. If intersection is less that whole converted list, remove ids outside intersection. """
+    """
+    Checking ID for different models with IDs from the same database. If one
+    original ID from one database is converted separately for different models,
+    looking for intersection of those lists. If no intersection found,
+    conversion is inconsistent. If intersection is less that whole converted
+    list, remove ids outside intersection. 
+    """
     consistent = {}
     for bd, models in models_same_db.items():
         bd_ids = {"metabolites": [], "reactions": []}

@@ -52,8 +52,6 @@ class Converted(object):
                 self.level = attr
                 break
 
-        # TODO: add back compartments (selection and others won't work properly without compartments added)
-
     def __repr__(self):
         return (
             "Converted class object\n"
