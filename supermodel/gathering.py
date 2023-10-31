@@ -11,6 +11,8 @@ from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
 from .selection import checkDBConsistency, checkFromOneFromMany
+from .structural import runStructuralConversion, runStructuralCheck
+from .dbs import get_bigg_network
 
 
 class LoggerContext:
@@ -128,6 +130,44 @@ class GatheredModels:
 
         for s in self.first_selected.values():
             checkFromOneFromMany(s)
+
+        self.structural = {}
+        for model_id, sel in self.first_selected.items():
+            checkFromOneFromMany(sel)
+            if (
+                strategies.db_name[
+                    dict_of_all_models_with_feature[model_id]["model_type"]
+                ]
+                == "bigg"
+            ):
+                self.structural.update(
+                    {
+                        model_id: {
+                            "reactions": runStructuralCheck(
+                                self.first_selected[model_id]["reactions"],
+                                self.preprocessed_models[model_id],
+                                bigg_network,
+                            )
+                        }
+                    }
+                )
+            else:
+                self.structural.update(
+                    {
+                        model_id: {
+                            "reactions": runStructuralConversion(
+                                self.first_selected[model_id],
+                                self.preprocessed_models[model_id],
+                                bigg_network,
+                                strategies.wo_periplasmic[
+                                    dict_of_all_models_with_feature[model_id][
+                                        "model_type"
+                                    ]
+                                ],
+                            )
+                        }
+                    }
+                )
 
     def set_configuration(
         self,
