@@ -1,5 +1,6 @@
 import copy
 import pandas as pd
+from collections import defaultdict
 
 
 class Selected(object):
@@ -35,108 +36,78 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
     conversion is inconsistent. If intersection is less that whole converted
     list, remove ids outside intersection. 
     """
-    consistent = {}
+    consistent = defaultdict(dict)
     for bd, models in models_same_db.items():
-        bd_ids = {"metabolites": [], "reactions": []}
+        bd_ids = []
         if len(set(list(models.values()))) <= 1 or bd == "bigg":
             for m in models.keys():
-                consistent.update({m: {"metabolites": {}, "reactions": {}}})
-                for obj_t in bd_ids.keys():
-                    consistent[m][obj_t].update(
-                        {
-                            idd: Selected(
-                                getattr(
-                                    converted_model.get(m).get(obj_t).get(idd),
-                                    attr_to_check,
-                                ),
-                                getattr(
-                                    converted_model.get(m).get(obj_t).get(idd),
-                                    attr_to_check,
-                                ),
-                                converted_model.get(m).get(obj_t).get(idd).compartment,
-                            )
-                            for idd in converted_model.get(m).get(obj_t).keys()
-                        }
+                consistent[m] = {
+                    idd: Selected(
+                        getattr(converted_model.get(m).get(idd), attr_to_check,),
+                        getattr(converted_model.get(m).get(idd), attr_to_check,),
+                        converted_model.get(m).get(idd).compartment,
                     )
+                    for idd in converted_model.get(m).keys()
+                }
         else:
             for model in models.keys():
-                consistent.update({model: {"metabolites": {}, "reactions": {}}})
-                bd_ids["metabolites"] = bd_ids["metabolites"] + list(
-                    converted_model[model]["metabolites"].keys()
-                )
-                bd_ids["reactions"] = bd_ids["reactions"] + list(
-                    converted_model[model]["reactions"].keys()
-                )
-            for obj_type, ids in bd_ids.items():
-                for iid in list(set(ids)):
-                    bigg_ids = []
-                    mod_present = []
-                    for mod in models.keys():
-                        if converted_model.get(mod).get(obj_type).get(iid) is not None:
-                            mod_present.append(mod)
-                            if getattr(
-                                converted_model.get(mod).get(obj_type).get(iid),
-                                attr_to_check,
-                            ):
-                                bigg_ids.append(
-                                    getattr(
-                                        converted_model.get(mod).get(obj_type).get(iid),
-                                        attr_to_check,
-                                    )
+                bd_ids = bd_ids + list(converted_model[model].keys())
+            for iid in list(set(bd_ids)):
+                bigg_ids = []
+                mod_present = []
+                for mod in models.keys():
+                    if converted_model.get(mod).get(iid) is not None:
+                        mod_present.append(mod)
+                        if getattr(converted_model.get(mod).get(iid), attr_to_check,):
+                            bigg_ids.append(
+                                getattr(
+                                    converted_model.get(mod).get(iid), attr_to_check,
                                 )
-                    if not bigg_ids:
-                        for pres in mod_present:
-                            consistent.get(pres).get(obj_type).update(
-                                {
-                                    iid: Selected(
-                                        [],
-                                        [],
-                                        converted_model.get(pres)
-                                        .get(obj_type)
-                                        .get(iid)
-                                        .compartment,
-                                    )
-                                }
                             )
-                    else:
-                        common_ids = list(set.intersection(*map(set, bigg_ids)))
-                        for present in mod_present:
-                            consistent.get(present).get(obj_type).update(
-                                {
-                                    iid: Selected(
-                                        getattr(
-                                            converted_model.get(present)
-                                            .get(obj_type)
-                                            .get(iid),
-                                            attr_to_check,
-                                        ),
-                                        common_ids,
-                                        converted_model.get(present)
-                                        .get(obj_type)
-                                        .get(iid)
-                                        .compartment,
-                                    )
-                                }
-                            )
+                if not bigg_ids:
+                    for pres in mod_present:
+                        consistent[pres].update(
+                            {
+                                iid: Selected(
+                                    [],
+                                    [],
+                                    converted_model.get(pres).get(iid).compartment,
+                                )
+                            }
+                        )
+                else:
+                    common_ids = list(set.intersection(*map(set, bigg_ids)))
+                    for present in mod_present:
+                        consistent[present].update(
+                            {
+                                iid: Selected(
+                                    getattr(
+                                        converted_model.get(present).get(iid),
+                                        attr_to_check,
+                                    ),
+                                    common_ids,
+                                    converted_model.get(present).get(iid).compartment,
+                                )
+                            }
+                        )
     return consistent
 
 
 def checkFromOneFromMany(selected: dict):
     """ Selecting converted with one or several original IDs giving the same converted results: from_one/from_many. """
-    for sel_obj_typ in selected.values():
-        to_smth_str = {
-            orig_id: " ".join(sorted(bigg_ids.highest_consistent))
-            for orig_id, bigg_ids in sel_obj_typ.items()
-        }
-        reversed_to_smth = {bigg_id: [] for bigg_id in to_smth_str.values()}
-        for (k, v) in to_smth_str.items():
-            reversed_to_smth[v].append(k)
-        for value in reversed_to_smth.values():
-            if len(value) == 1:
-                sel_obj_typ[value[0]].from_one_id = True
-            else:
-                for val in value:
-                    sel_obj_typ[val].from_one_id = False
+    to_smth_str = {
+        orig_id: " ".join(sorted(bigg_ids.highest_consistent))
+        for orig_id, bigg_ids in selected.items()
+    }
+    reversed_to_smth = {bigg_id: [] for bigg_id in to_smth_str.values()}
+    for (k, v) in to_smth_str.items():
+        reversed_to_smth[v].append(k)
+    for value in reversed_to_smth.values():
+        if len(value) == 1:
+            selected[value[0]].from_one_id = True
+        else:
+            for val in value:
+                selected[val].from_one_id = False
 
 
 def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):

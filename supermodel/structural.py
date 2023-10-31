@@ -313,6 +313,7 @@ def convertReactionViaNetworkStructure(
     bigg_met1 = {}
     bigg_met1_to_many = {}
     for met1 in orig_met1:
+        print(selected_met.keys())
         compart1 = compart1 + selected_met[met1].compartments
         if (
             selected_met[met1].to_one_id == True
@@ -387,21 +388,22 @@ def convertReactionViaNetworkStructure(
 
 
 def runStructuralConversion(
-    first_stage_selected: dict,
+    first_stage_selected_r: dict,
+    first_stage_selected_m: dict,
     model: cobra.core.model.Model,
     bigg_network: dict,
     models_periplasmic: bool,
 ):
     """ Running structural conversion for all reactions. Selection reactions that have only 1 id as result """
     structural_conversion_r = {}
-    for orig_id, selected in first_stage_selected["reactions"].items():
+    for orig_id, selected in first_stage_selected_r.items():
         orig_met1 = [react.id for react in model.reactions.get_by_id(orig_id).reactants]
         orig_met2 = [pro.id for pro in model.reactions.get_by_id(orig_id).products]
         structural_bigg_id = convertReactionViaNetworkStructure(
             orig_id,
             orig_met1,
             orig_met2,
-            first_stage_selected["metabolites"],
+            first_stage_selected_m,
             bigg_network,
             models_periplasmic,
         )

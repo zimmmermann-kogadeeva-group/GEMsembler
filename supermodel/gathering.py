@@ -7,7 +7,7 @@ from copy import deepcopy
 
 from cobra.io import read_sbml_model
 
-from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora
+from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
 from .selection import checkDBConsistency, checkFromOneFromMany
@@ -82,7 +82,7 @@ class GatheredModels:
             "modelseed": {
                 "remove_b": True,
                 "db_name": "modelseed",
-                "wo_periplasmic": False,
+                "wo_periplasmic": True,
                 "conv_strategy": ConvModelseed(),
             },
             "agora": {
@@ -93,7 +93,11 @@ class GatheredModels:
             },
         }
         self.__models__ = {}
-        self.first_selected = None
+        self.converted_metabolites = defaultdict(dict)
+        self.converted_reactions = defaultdict(dict)
+        self.first_stage_selected_metabolites = None
+        self.first_stage_selected_reactions = None
+        self.structural_first_run_reactions = defaultdict(dict)
 
         # Check if assembly and final genome are present.
         # If not, throw a warning.
@@ -102,7 +106,7 @@ class GatheredModels:
                 "\nWarning! No final genome for gene conversion is provided. "
                 "Gene conversion will not be performed.\nIf you want to "
                 "convert genes, please provide either assembly id or custom "
-                "fasta files (nt/aa/both), \nto wich genes must be converted."
+                "fasta files (nt/aa/both), \nto which genes must be converted."
             )
             convert_genes = False
         else:
@@ -117,56 +121,52 @@ class GatheredModels:
         return same_db_models
 
     def run(self):
+        # run conversion
+        for model_id, model_attrs in self.__models__.items():
+            conv = self.__conf__.get(model_attrs["model_type"]).get("conv_strategy")
+            self.converted_metabolites[model_id] = {
+                m.id: conv.convert_metabolite(m)
+                for m in model_attrs["preprocess_model"].metabolites
+            }
+            self.converted_reactions[model_id] = {
+                r.id: conv.convert_reaction(r)
+                for r in model_attrs["preprocess_model"].reactions
+            }
+
+        # prepare dictionary for models per used database
         same_db_models = self._get_same_db_models()
 
-        self.first_selected = checkDBConsistency(
-            same_db_models,
-            {
-                model_id: model_attrs["converted"]
-                for model_id, model_attrs in self.__models__.items()
-            },
-            "highest",
+        # run first stage selection
+        self.first_stage_selected_metabolites = checkDBConsistency(
+            same_db_models, self.converted_metabolites, "highest",
         )
-
-        for s in self.first_selected.values():
+        for s in self.first_stage_selected_metabolites.values():
             checkFromOneFromMany(s)
 
-        self.structural = {}
-        for model_id, sel in self.first_selected.items():
-            checkFromOneFromMany(sel)
-            if (
-                strategies.db_name[
-                    dict_of_all_models_with_feature[model_id]["model_type"]
-                ]
-                == "bigg"
-            ):
-                self.structural.update(
-                    {
-                        model_id: {
-                            "reactions": runStructuralCheck(
-                                self.first_selected[model_id]["reactions"],
-                                self.preprocessed_models[model_id],
-                                bigg_network,
-                            )
-                        }
-                    }
+        self.first_stage_selected_reactions = checkDBConsistency(
+            same_db_models, self.converted_reactions, "highest",
+        )
+        for s in self.first_stage_selected_reactions.values():
+            checkFromOneFromMany(s)
+
+        # run first structural conversion
+        bigg_network = get_bigg_network()
+        for model_id, first_sel in self.first_stage_selected_reactions.items():
+            model_type = self.__models__[model_id]["model_type"]
+            db_name = self.__conf__.get(model_type).get("db_name")
+            if db_name == "bigg":
+                self.structural_first_run_reactions[model_id] = runStructuralCheck(
+                    first_sel,
+                    self.__models__[model_id]["preprocess_model"],
+                    bigg_network,
                 )
             else:
-                self.structural.update(
-                    {
-                        model_id: {
-                            "reactions": runStructuralConversion(
-                                self.first_selected[model_id],
-                                self.preprocessed_models[model_id],
-                                bigg_network,
-                                strategies.wo_periplasmic[
-                                    dict_of_all_models_with_feature[model_id][
-                                        "model_type"
-                                    ]
-                                ],
-                            )
-                        }
-                    }
+                self.structural_first_run_reactions[model_id] = runStructuralConversion(
+                    first_sel,
+                    self.first_stage_selected_metabolites[model_id],
+                    self.__models__[model_id]["preprocess_model"],
+                    bigg_network,
+                    self.__conf__.get(model_type).get("wo_periplasmic"),
                 )
 
     def set_configuration(
@@ -216,13 +216,7 @@ class GatheredModels:
         # If model_type requires it, remove `_b` extensions
         if self.__conf__.get(model_type).get("remove_b"):
             model = remove_b_type_exchange(model)
-        self.__models__[model_id]["model"] = model
+        self.__models__[model_id]["preprocess_model"] = model
 
         dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
-        self.__models__[model_id]["duplicated_r"] = dupl_r
-
-        # TODO: add isinstance
-        conv = self.__conf__.get(model_type).get("conv_strategy")
-        self.__models__[model_id]["converted"] = (
-            self.__conf__.get(model_type).get("conv_strategy").convert_model(model)
-        )
+        self.__models__[model_id]["duplicated_reactions"] = dupl_r
