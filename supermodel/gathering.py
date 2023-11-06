@@ -1,9 +1,11 @@
-import sys
-import warnings
-import logging
-import operator
 from collections import Counter, defaultdict
 from copy import deepcopy
+import logging
+import operator
+from pathlib import Path
+import pickle
+import sys
+import warnings
 
 from cobra.io import read_sbml_model
 
@@ -138,13 +140,17 @@ class GatheredModels:
 
         # run first stage selection
         self.first_stage_selected_metabolites = checkDBConsistency(
-            same_db_models, self.converted_metabolites, "highest",
+            same_db_models,
+            self.converted_metabolites,
+            "highest",
         )
         for s in self.first_stage_selected_metabolites.values():
             checkFromOneFromMany(s)
 
         self.first_stage_selected_reactions = checkDBConsistency(
-            same_db_models, self.converted_reactions, "highest",
+            same_db_models,
+            self.converted_reactions,
+            "highest",
         )
         for s in self.first_stage_selected_reactions.values():
             checkFromOneFromMany(s)
@@ -195,6 +201,7 @@ class GatheredModels:
         path_to_model: str,
         model_type: str,
         path_to_genome: str = None,
+        cache: bool = True,
         show_logs: bool = False,
     ):
         # Run checks on model_id and model_type
@@ -202,10 +209,20 @@ class GatheredModels:
         assert model_id not in self.__models__, f"model_id {model_id} already used"
         assert model_type in self.__conf__, f"Missing configuration for {model_type}"
 
-        # Read the cobra model
-        with LoggerContext("cobra", show_logs):
-            model = read_sbml_model(path_to_model)
+        cache_path = Path(path_to_model).with_suffix(".p")
+        if cache_path.exists():
+            with open(cache_path, "rb") as fh:
+                model = pickle.load(fh)
+        else:
+            # Read the cobra model
+            with LoggerContext("cobra", show_logs):
+                model = read_sbml_model(path_to_model)
+            # Cache the model to a pickle if option is set
+            if cache:
+                with open(cache_path, "wb") as fh:
+                    pickle.dump(model, fh)
 
+        # Populate the internal data
         self.__models__[model_id] = {
             "original_model": deepcopy(model),
             "path_to_model": path_to_model,
