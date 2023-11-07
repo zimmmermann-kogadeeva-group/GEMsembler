@@ -2,9 +2,7 @@ import cobra
 import pandas as pd
 
 
-def remove_b_type_exchange(
-    model: cobra.core.model.Model,
-) -> cobra.core.model.Model:
+def remove_b_type_exchange(model: cobra.core.model.Model,) -> cobra.core.model.Model:
     """
     Removing boundary metabolites / exchange reactions with _b at the end if
     another (_e) compartment exist. Replacing _b with normal compartment if id

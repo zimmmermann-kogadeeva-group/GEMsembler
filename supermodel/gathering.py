@@ -98,6 +98,7 @@ class GatheredModels:
         self.first_stage_selected_metabolites = None
         self.first_stage_selected_reactions = None
         self.structural_first_run_reactions = defaultdict(dict)
+        self.second_stage_selected_reactions = defaultdict(dict)
 
         # Check if assembly and final genome are present.
         # If not, throw a warning.
@@ -136,7 +137,7 @@ class GatheredModels:
         # prepare dictionary for models per used database
         same_db_models = self._get_same_db_models()
 
-        # run first stage selection
+        # run first stage selection for converted
         self.first_stage_selected_metabolites = checkDBConsistency(
             same_db_models, self.converted_metabolites, "highest",
         )
@@ -168,6 +169,16 @@ class GatheredModels:
                     bigg_network,
                     self.__conf__.get(model_type).get("wo_periplasmic"),
                 )
+
+        # run second stage selection for first structural
+        self.second_stage_selected_reactions = checkDBConsistency(
+            same_db_models,
+            self.structural_first_run_reactions,
+            "structural",
+            replace_with_consistent=False,
+        )
+        for ss in self.second_stage_selected_reactions.values():
+            checkFromOneFromMany(ss)
 
     def set_configuration(
         self,

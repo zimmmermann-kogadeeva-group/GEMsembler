@@ -19,7 +19,7 @@ class Converted(object):
         metabolite=True,
     ):
         # Check whether in appropriate db
-        self.compartment = compartment
+        self.compartments = compartment
         annot = set() if annot is None else {x for x in annot if x in check_db}
         main = set() if main is None else {x for x in main if x in check_db}
         addit = set() if addit is None else {x for x in addit if x in check_db}
@@ -37,13 +37,13 @@ class Converted(object):
         # If metabolite add compartment to metabolite id
         if metabolite:
             self.annot_and_main = [
-                i + "_" + self.compartment[0] for i in self.annot_and_main
+                i + "_" + self.compartments[0] for i in self.annot_and_main
             ]
-            self.annot = [i + "_" + self.compartment[0] for i in self.annot]
-            self.main = [i + "_" + self.compartment[0] for i in self.main]
-            self.addit = [i + "_" + self.compartment[0] for i in self.addit]
-            self.pattern = [i + "_" + self.compartment[0] for i in self.pattern]
-            self.no_conv = [i + "_" + self.compartment[0] for i in self.no_conv]
+            self.annot = [i + "_" + self.compartments[0] for i in self.annot]
+            self.main = [i + "_" + self.compartments[0] for i in self.main]
+            self.addit = [i + "_" + self.compartments[0] for i in self.addit]
+            self.pattern = [i + "_" + self.compartments[0] for i in self.pattern]
+            self.no_conv = [i + "_" + self.compartments[0] for i in self.no_conv]
 
         # Find 1st not empty conversion and set it as highest available
         for attr in ["annot_and_main", "annot", "main", "addit", "pattern", "no_conv"]:
@@ -55,7 +55,7 @@ class Converted(object):
     def __repr__(self):
         return (
             "Converted class object\n"
-            f"compartment: {self.compartment}\n"
+            f"compartment: {self.compartments}\n"
             f"highest: {self.highest}\n"
             f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"
@@ -68,7 +68,7 @@ class Converted(object):
 
     def __str__(self):
         return (
-            f"compartment: {self.compartment}\n"
+            f"compartment: {self.compartments}\n"
             f"highest: {self.highest}\n"
             f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"

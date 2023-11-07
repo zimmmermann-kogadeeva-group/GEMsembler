@@ -4,31 +4,52 @@ from collections import defaultdict
 
 
 class Selected(object):
-    def __init__(self, highest: list, consistent: list, compartments: list):
+    def __init__(
+        self,
+        highest: list,
+        consistent: list,
+        compartments: list,
+        replace_with_consistent: bool,
+    ):
         self.converted = True
         self.to_one_id = None
         self.from_one_id = None
         self.compartments = compartments
-        self.highest_consistent = consistent
+        if replace_with_consistent:
+            self.highest_consistent = consistent
+        else:
+            self.highest_consistent = highest
         if not consistent:
-            self.converted = False
             if not highest:
+                self.converted = False
                 self.consistent = f"Not converted"
-            else:
+            elif replace_with_consistent:
+                self.converted = False
                 self.consistent = f"No: {' '.join(highest)}"
+            else:
+                self.consistent = f"Can be considered as No"
         elif sorted(consistent) == sorted(highest):
             self.consistent = "Yes"
-        else:
+        elif replace_with_consistent:
             self.consistent = (
                 f"Changed: from {', '.join(highest)} to {', '.join(consistent)}"
             )
+        else:
+            self.consistent = f"Could be Changed: from {', '.join(highest)} to {', '.join(consistent)}"
+            if not highest:
+                self.converted = False
         if len(self.highest_consistent) == 1:
             self.to_one_id = True
         if len(self.highest_consistent) > 1:
             self.to_one_id = False
 
 
-def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_check: str):
+def checkDBConsistency(
+    models_same_db: dict,
+    converted_model: dict,
+    attr_to_check: str,
+    replace_with_consistent=True,
+):
     """
     Checking ID for different models with IDs from the same database. If one
     original ID from one database is converted separately for different models,
@@ -39,17 +60,21 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
     consistent = defaultdict(dict)
     for bd, models in models_same_db.items():
         bd_ids = []
+        # no consistency check
         if len(set(list(models.values()))) <= 1 or bd == "bigg":
             for m in models.keys():
                 consistent[m] = {
                     idd: Selected(
                         getattr(converted_model.get(m).get(idd), attr_to_check,),
                         getattr(converted_model.get(m).get(idd), attr_to_check,),
-                        converted_model.get(m).get(idd).compartment,
+                        converted_model.get(m).get(idd).compartments,
+                        replace_with_consistent,
                     )
                     for idd in converted_model.get(m).keys()
                 }
+        # consistency check
         else:
+            # collecting all original ids
             for model in models.keys():
                 bd_ids = bd_ids + list(converted_model[model].keys())
             for iid in list(set(bd_ids)):
@@ -57,6 +82,7 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                 mod_present = []
                 for mod in models.keys():
                     if converted_model.get(mod).get(iid) is not None:
+                        # collecting in models ids is present
                         mod_present.append(mod)
                         if getattr(converted_model.get(mod).get(iid), attr_to_check,):
                             bigg_ids.append(
@@ -71,7 +97,8 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                                 iid: Selected(
                                     [],
                                     [],
-                                    converted_model.get(pres).get(iid).compartment,
+                                    converted_model.get(pres).get(iid).compartments,
+                                    replace_with_consistent,
                                 )
                             }
                         )
@@ -86,7 +113,8 @@ def checkDBConsistency(models_same_db: dict, converted_model: dict, attr_to_chec
                                         attr_to_check,
                                     ),
                                     common_ids,
-                                    converted_model.get(present).get(iid).compartment,
+                                    converted_model.get(present).get(iid).compartments,
+                                    replace_with_consistent,
                                 )
                             }
                         )
