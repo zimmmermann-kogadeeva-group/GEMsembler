@@ -5,15 +5,16 @@
 # Python related
 *.ipynb_checkpoints/
 *.ipynb
+*.egg-info/
 .jupyter.log
 __pycache__/
+.venv/
+.flake8
 
 # Misc
 env_simple.yml
-.envrc
-.flake8
 notes.md
-TAGS
+.envrc
 tags
 *.swp
 *.pkl

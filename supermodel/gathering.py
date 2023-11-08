@@ -67,7 +67,13 @@ class GatheredModels:
         path_final_genome_nt=None,
         path_final_genome_aa=None,
         custom_model_type=None,
+        clear_db_cache=False,
     ):
+        # If specified, clear the cached conversion tables and dictionaries
+        if clear_db_cache:
+            for p in Path("~/.gemsembler/").expanduser().iterdir():
+                p.unlink()
+
         self.__conf__ = {
             "carveme": {
                 "remove_b": False,
@@ -126,14 +132,10 @@ class GatheredModels:
         # run conversion
         for model_id, model_attrs in self.__models__.items():
             conv = self.__conf__.get(model_attrs["model_type"]).get("conv_strategy")
-            self.converted_metabolites[model_id] = {
-                m.id: conv.convert_metabolite(m)
-                for m in model_attrs["preprocess_model"].metabolites
-            }
-            self.converted_reactions[model_id] = {
-                r.id: conv.convert_reaction(r)
-                for r in model_attrs["preprocess_model"].reactions
-            }
+            converted_model = conv.convert_model(model_attrs["preprocess_model"])
+
+            self.converted_metabolites[model_id] = converted_model["metabolites"]
+            self.converted_reactions[model_id] = converted_model["reactions"]
 
         # prepare dictionary for models per used database
         same_db_models = self._get_same_db_models()
@@ -209,7 +211,7 @@ class GatheredModels:
         assert model_id not in self.__models__, f"model_id {model_id} already used"
         assert model_type in self.__conf__, f"Missing configuration for {model_type}"
 
-        cache_path = Path(path_to_model).with_suffix(".p")
+        cache_path = Path(path_to_model).with_suffix(".pkl")
         if cache_path.exists():
             with open(cache_path, "rb") as fh:
                 model = pickle.load(fh)

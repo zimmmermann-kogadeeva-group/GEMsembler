@@ -103,7 +103,7 @@ def process_bigg(data, metabolites=False):
 
 
 @cache_file
-def get_bigg_m():
+def get_old_bigg_m():
     df_bigg_m = download_db(
         "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
         "bigg_models_metabolites.txt.gz",
@@ -112,7 +112,7 @@ def get_bigg_m():
 
 
 @cache_file
-def get_bigg_r():
+def get_old_bigg_r():
     df_bigg_r = download_db(
         "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
         "bigg_models_reactions.txt.gz",
@@ -199,7 +199,7 @@ def get_seed_addit_r():
 
 
 @cache_file
-def get_kegg_bigg_m():
+def get_kegg_m():
     df_metanetx_m = download_db(
         "https://www.metanetx.org/cgi-bin/mnxget/mnxref/chem_xref.tsv",
         "chem_xref.tsv.gz",
@@ -214,7 +214,7 @@ def get_kegg_bigg_m():
 
 
 @cache_file
-def get_kegg_bigg_r():
+def get_kegg_r():
     df_metanetx_r = download_db(
         "https://www.metanetx.org/cgi-bin/mnxget/mnxref/reac_xref.tsv",
         "reac_xref.tsv.gz",

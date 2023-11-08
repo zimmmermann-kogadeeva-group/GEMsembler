@@ -12,11 +12,8 @@ license = {file = "LICENSE"}
 authors = [{ name = "Elena Matveishina", email = "elena.matveishina@embl.de" }]
 dependencies = [
     "cobra",
-    "numpy>=1.23",
-    "dill",
-    "networkx",
-    "pyvis",
-    "pyautogui"
+    "pandas",
+    "numpy",
 ]
 
 [project.scripts]
@@ -25,3 +22,8 @@ supermodel = "supermodel.__main__:main"
 [project.urls]
 "Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets"
 "Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets/issues"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
