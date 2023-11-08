@@ -1,8 +1,8 @@
 pytest:
+  image: python:latest
   stage: test
-  before_script:
-    - python -m pip install tox
   script:
+    - python -m pip install tox
     - tox run
   artifacts:
     when: always
