@@ -1,0 +1,8 @@
+pytest:
+  stage: test
+  script:
+    - tox run
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml

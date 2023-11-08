@@ -20,4 +20,4 @@ install_precommit: .git/hooks/pre-commit
 
 .PHONY: clean
 clean:
-	rm -rf example/*.pkl *.egg-info/ **/__pycache__/
+	rm -rf example/*.pkl *.egg-info/ **/__pycache__/ build/ report.xml
