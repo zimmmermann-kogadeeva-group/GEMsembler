@@ -1,5 +1,5 @@
 pytest:
-  image: python:latest
+  image: python:3.10
   stage: test
   script:
     - python -m pip install tox
