@@ -93,9 +93,12 @@ def process_bigg(data, metabolites=False):
         .pipe(lambda x: replace(x, "bigg_id", "_[a-z]+$", "") if metabolites else x)
         .drop_duplicates()
         .groupby("old_bigg_ids", group_keys=False)
-        .apply(lambda x: ",".join(x["bigg_id"].tolist()))
+        .apply(lambda x: x["bigg_id"].tolist())
         .reset_index(name="bigg_ids")
         .rename(columns={"old_bigg_ids": "old_ids"})
+        .set_index("old_ids")
+        .get("bigg_ids")
+        .to_dict()
     )
 
 
@@ -105,12 +108,7 @@ def get_bigg_m():
         "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
         "bigg_models_metabolites.txt.gz",
     )
-    return (
-        df_bigg_m.pipe(process_bigg, metabolites=True)
-        .set_index("old_ids")
-        .get("bigg_ids")
-        .to_dict()
-    )
+    return df_bigg_m.pipe(process_bigg, metabolites=True)
 
 
 @cache_file
@@ -119,7 +117,7 @@ def get_bigg_r():
         "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
         "bigg_models_reactions.txt.gz",
     )
-    return df_bigg_r.pipe(process_bigg).set_index("old_ids").get("bigg_ids").to_dict()
+    return df_bigg_r.pipe(process_bigg)
 
 
 def process_modelseed(data):
@@ -127,9 +125,13 @@ def process_modelseed(data):
         data[["id", "aliases"]]
         .set_index("id")["aliases"]
         .str.extract(r"BiGG: (.*?)\|")[0]
-        .str.replace("; ", ",")
+        .str.split("; ")
         .reset_index(name="bigg_ids")
         .rename(columns={"id": "seed_ids"})
+        .set_index("seed_ids")
+        .get("bigg_ids")
+        .dropna()
+        .to_dict()
     )
 
 
@@ -139,11 +141,7 @@ def get_seed_orig_m():
         "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/compounds.tsv",
         "compounds.tsv.gz",
     )
-    return (
-        df_modelseed_m.pipe(process_modelseed)
-        .set_index("bigg_ids")["seed_ids"]
-        .to_dict()
-    )
+    return df_modelseed_m.pipe(process_modelseed)
 
 
 @cache_file
@@ -152,11 +150,7 @@ def get_seed_orig_r():
         "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/reactions.tsv",
         "reactions.tsv.gz",
     )
-    return (
-        df_modelseed_r.pipe(process_modelseed)
-        .set_index("bigg_ids")["seed_ids"]
-        .to_dict()
-    )
+    return df_modelseed_r.pipe(process_modelseed)
 
 
 def process_metanetx(data, db_name, repl_regex):
@@ -173,6 +167,10 @@ def process_metanetx(data, db_name, repl_regex):
         .explode(db_name)
         .rename(columns={"bigg": "bigg_ids", db_name: f"{db_name}_ids"})
         .reset_index(drop=True)
+        .set_index(f"{db_name}_ids")
+        .get("bigg_ids")
+        .str.split(",")
+        .to_dict()
     )
 
 
@@ -184,13 +182,8 @@ def get_seed_addit_m():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return (
-        df_metanetx_m.pipe(
-            process_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
-        )
-        .set_index("bigg_ids")
-        .get("seed_ids")
-        .to_dict()
+    return df_metanetx_m.pipe(
+        process_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
     )
 
 
@@ -202,12 +195,7 @@ def get_seed_addit_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return (
-        df_metanetx_r.pipe(process_metanetx, "seed", "(\.reaction|R|):(R_)?")
-        .set_index("bigg_ids")
-        .get("seed_ids")
-        .to_dict()
-    )
+    return df_metanetx_r.pipe(process_metanetx, "seed", "(\.reaction|R|):(R_)?")
 
 
 @cache_file
@@ -218,15 +206,10 @@ def get_kegg_bigg_m():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return (
-        df_metanetx_m.pipe(
-            process_metanetx,
-            "kegg",
-            "(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
-        )
-        .set_index("bigg_ids")
-        .get("kegg_ids")
-        .to_dict()
+    return df_metanetx_m.pipe(
+        process_metanetx,
+        "kegg",
+        "(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
     )
 
 
@@ -238,12 +221,7 @@ def get_kegg_bigg_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return (
-        df_metanetx_r.pipe(process_metanetx, "kegg", "(\.reaction|R|):(R_)?")
-        .set_index("bigg_ids")
-        .get("kegg_ids")
-        .to_dict()
-    )
+    return df_metanetx_r.pipe(process_metanetx, "kegg", "(\.reaction|R|):(R_)?")
 
 
 def get_BiGG_lists(metabolites: bool):
