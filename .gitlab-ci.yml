@@ -1,10 +1,23 @@
 pytest:
   image: python:3.10
   stage: test
-  script:
+  before_script:
     - python -m pip install tox
+  script:
     - tox run
   artifacts:
     when: always
     reports:
       junit: report.xml
+
+pytest310:
+  extends: pytest
+  image: python:3.10
+  script:
+    - tox run -e py310
+
+pytest311:
+  extends: pytest
+  image: python:3.11
+  script:
+    - tox run -e py311
