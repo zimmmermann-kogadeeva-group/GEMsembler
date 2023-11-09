@@ -1,9 +1,11 @@
-import sys
-import warnings
-import logging
-import operator
 from collections import Counter, defaultdict
 from copy import deepcopy
+import logging
+import operator
+from pathlib import Path
+import pickle
+import sys
+import warnings
 
 from cobra.io import read_sbml_model
 
@@ -27,6 +29,22 @@ class LoggerContext:
     def __exit__(self, exit_type, exit_value, exit_traceback):
         if not self.__show_logs__:
             self.__logger__.setLevel(logging.NOTSET)
+
+
+def load_sbml_model(path_to_model, cache: bool = True, show_logs: bool = False):
+    cache_path = Path(path_to_model).with_suffix(".pkl")
+    if cache_path.exists():
+        with open(cache_path, "rb") as fh:
+            model = pickle.load(fh)
+    else:
+        # Read the cobra model
+        with LoggerContext("cobra", show_logs):
+            model = read_sbml_model(path_to_model)
+        # Cache the model to a pickle if option is set
+        if cache:
+            with open(cache_path, "wb") as fh:
+                pickle.dump(model, fh)
+    return model
 
 
 class GatheredModels:
@@ -65,7 +83,13 @@ class GatheredModels:
         path_final_genome_nt=None,
         path_final_genome_aa=None,
         custom_model_type=None,
+        clear_db_cache=False,
     ):
+        # If specified, clear the cached conversion tables and dictionaries
+        if clear_db_cache:
+            for p in Path("~/.gemsembler/").expanduser().iterdir():
+                p.unlink()
+
         self.__conf__ = {
             "carveme": {
                 "remove_b": False,
@@ -125,27 +149,27 @@ class GatheredModels:
         # run conversion
         for model_id, model_attrs in self.__models__.items():
             conv = self.__conf__.get(model_attrs["model_type"]).get("conv_strategy")
-            self.converted_metabolites[model_id] = {
-                m.id: conv.convert_metabolite(m)
-                for m in model_attrs["preprocess_model"].metabolites
-            }
-            self.converted_reactions[model_id] = {
-                r.id: conv.convert_reaction(r)
-                for r in model_attrs["preprocess_model"].reactions
-            }
+            converted_model = conv.convert_model(model_attrs["preprocess_model"])
+
+            self.converted_metabolites[model_id] = converted_model["metabolites"]
+            self.converted_reactions[model_id] = converted_model["reactions"]
 
         # prepare dictionary for models per used database
         same_db_models = self._get_same_db_models()
 
         # run first stage selection for converted
         self.first_stage_selected_metabolites = checkDBConsistency(
-            same_db_models, self.converted_metabolites, "highest",
+            same_db_models,
+            self.converted_metabolites,
+            "highest",
         )
         for s in self.first_stage_selected_metabolites.values():
             checkFromOneFromMany(s)
 
         self.first_stage_selected_reactions = checkDBConsistency(
-            same_db_models, self.converted_reactions, "highest",
+            same_db_models,
+            self.converted_reactions,
+            "highest",
         )
         for s in self.first_stage_selected_reactions.values():
             checkFromOneFromMany(s)
@@ -206,6 +230,7 @@ class GatheredModels:
         path_to_model: str,
         model_type: str,
         path_to_genome: str = None,
+        cache: bool = True,
         show_logs: bool = False,
     ):
         # Run checks on model_id and model_type
@@ -213,10 +238,9 @@ class GatheredModels:
         assert model_id not in self.__models__, f"model_id {model_id} already used"
         assert model_type in self.__conf__, f"Missing configuration for {model_type}"
 
-        # Read the cobra model
-        with LoggerContext("cobra", show_logs):
-            model = read_sbml_model(path_to_model)
+        model = load_sbml_model(path_to_model, cache, show_logs)
 
+        # Populate the internal data
         self.__models__[model_id] = {
             "original_model": deepcopy(model),
             "path_to_model": path_to_model,

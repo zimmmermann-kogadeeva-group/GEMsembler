@@ -1,11 +1,19 @@
+import json
+from functools import wraps
 import pandas as pd
 from pathlib import Path
 import re
 
 
-# Helper functions for pandas data manipulation
-def separate(data, col, into, sep=" ", **kwargs):
+# helper functions for pandas dataframes
+def separate(data, col, into=None, sep=" ", **kwargs):
+    into = into or col
     data[into] = data[col].str.split(sep, **kwargs)
+    return data
+
+
+def replace(data, col, pat, repl, regex=True, **kwargs):
+    data[col] = data[col].str.replace(pat, repl, regex=regex)
     return data
 
 
@@ -14,10 +22,221 @@ def set_value(data, col, value):
     return data
 
 
+def colapply(data, col, func):
+    data[col] = func(data[col])
+    return data
+
+
 def apply(data, col, func, new_col=None, **kwargs):
     new_col = new_col or col
     data[new_col] = data[col].apply(func, **kwargs)
     return data
+
+
+def cache_file(func):
+    """
+    Decorator for caching mapping dictionaries in ~/.gemsembler
+    """
+
+    @wraps(func)
+    def wrapper_decorator(*args, **kwargs):
+        # Create the directory holding
+        cache_path = Path("~").expanduser() / ".gemsembler"
+        cache_path.mkdir(exist_ok=True, parents=True)
+        cache_path /= func.__name__ + ".json"
+
+        if cache_path.exists():
+            with open(cache_path, "r") as fh:
+                data = json.load(fh)
+        else:
+            data = func(*args, **kwargs)
+            with open(cache_path, "w") as fh:
+                json.dump(data, fh)
+        return data
+
+    return wrapper_decorator
+
+
+def download_db(url, cache_name=None, **kwargs):
+    """
+    Function to download the data needed for conversion. Caches the data in
+    ~/.gemsembler.
+    """
+    # Either get filename for cache file from input arg or url
+    cache_name = cache_name or url.rsplit("/", 1)[-1]
+
+    # Create the directory holding
+    cache_path = Path("~").expanduser() / ".gemsembler"
+    cache_path.mkdir(exist_ok=True, parents=True)
+    cache_path /= cache_name
+
+    # If the cache file exists open it, otherwise download the data
+    if cache_path.exists():
+        data = pd.read_csv(cache_path, sep="\t", **kwargs)
+    else:
+        data = pd.read_csv(url, sep="\t", **kwargs)
+        data.to_csv(cache_path, sep="\t", index=False)
+    return data
+
+
+def process_bigg(data, metabolites=False):
+    """
+    Function to process the BiGG database and get the mapping between old and
+    new BiGG ids.
+    """
+    return (
+        data.dropna(subset="old_bigg_ids")
+        .copy()
+        .pipe(separate, "old_bigg_ids", sep="; ")
+        .explode(column="old_bigg_ids")
+        .get(["old_bigg_ids", "bigg_id"])
+        .pipe(lambda x: replace(x, "bigg_id", "_[a-z]+$", "") if metabolites else x)
+        .drop_duplicates()
+        .groupby("old_bigg_ids", group_keys=False)
+        .apply(lambda x: x["bigg_id"].tolist())
+        .reset_index(name="bigg_ids")
+        .rename(columns={"old_bigg_ids": "old_ids"})
+        .set_index("old_ids")
+        .get("bigg_ids")
+        .to_dict()
+    )
+
+
+@cache_file
+def get_old_bigg_m():
+    df_bigg_m = download_db(
+        "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
+        "bigg_models_metabolites.txt.gz",
+    )
+    return df_bigg_m.pipe(process_bigg, metabolites=True)
+
+
+@cache_file
+def get_old_bigg_r():
+    df_bigg_r = download_db(
+        "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
+        "bigg_models_reactions.txt.gz",
+    )
+    return df_bigg_r.pipe(process_bigg)
+
+
+def process_modelseed(data):
+    return (
+        data[["id", "aliases"]]
+        .set_index("id")["aliases"]
+        .str.extract(r"BiGG: (.*?)\|")[0]
+        .str.split("; ")
+        .reset_index(name="bigg_ids")
+        .rename(columns={"id": "seed_ids"})
+        .set_index("seed_ids")
+        .get("bigg_ids")
+        .dropna()
+        .to_dict()
+    )
+
+
+@cache_file
+def get_seed_orig_m():
+    df_modelseed_m = download_db(
+        "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/compounds.tsv",
+        "compounds.tsv.gz",
+    )
+    return df_modelseed_m.pipe(process_modelseed)
+
+
+@cache_file
+def get_seed_orig_r():
+    df_modelseed_r = download_db(
+        "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/reactions.tsv",
+        "reactions.tsv.gz",
+    )
+    return df_modelseed_r.pipe(process_modelseed)
+
+
+def process_metanetx(data, db_name, repl_regex):
+    return (
+        data.query("source.str.startswith(@db_name) or source.str.startswith('bigg')")
+        .copy()
+        .reset_index(drop=True)
+        .pipe(colapply, "source", lambda x: x.str.replace(repl_regex, ":", regex=True))
+        .pipe(separate, "source", sep=":", into=["db", "db_id"], expand=True)
+        .drop_duplicates(subset=["db", "db_id"])
+        .pivot_table(index="ID", columns="db", values="db_id", aggfunc=",".join)
+        .dropna()
+        .pipe(colapply, db_name, lambda x: x.str.split(","))
+        .explode(db_name)
+        .rename(columns={"bigg": "bigg_ids", db_name: f"{db_name}_ids"})
+        .reset_index(drop=True)
+        .set_index(f"{db_name}_ids")
+        .get("bigg_ids")
+        .str.split(",")
+        .to_dict()
+    )
+
+
+@cache_file
+def get_seed_addit_m():
+    df_metanetx_m = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/chem_xref.tsv",
+        "chem_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_m.pipe(
+        process_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
+    )
+
+
+@cache_file
+def get_seed_addit_r():
+    df_metanetx_r = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/reac_xref.tsv",
+        "reac_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_r.pipe(process_metanetx, "seed", "(\.reaction|R|):(R_)?")
+
+
+@cache_file
+def get_kegg_m():
+    df_metanetx_m = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/chem_xref.tsv",
+        "chem_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_m.pipe(
+        process_metanetx,
+        "kegg",
+        "(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
+    )
+
+
+@cache_file
+def get_kegg_r():
+    df_metanetx_r = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/reac_xref.tsv",
+        "reac_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_r.pipe(process_metanetx, "kegg", "(\.reaction|R|):(R_)?")
+
+
+def get_BiGG_lists(metabolites: bool):
+    if metabolites:
+        bigg_data = download_db(
+            "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
+            "bigg_models_metabolites.txt.gz",
+        )
+        return set(bigg_data.get("universal_bigg_id"))
+    else:
+        bigg_data = download_db(
+            "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
+            "bigg_models_reactions.txt.gz",
+        )
+        return set(bigg_data.get("bigg_id"))
 
 
 def remove_duplicates(data, leave_from_mixed_directions=True):
@@ -48,15 +267,16 @@ def remove_duplicates(data, leave_from_mixed_directions=True):
 
 
 def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
-    """Getting dictionary for BiGG topology: unique reaction equation as key and id as value.
-    Maybe writing down a table with reaction ids unique reaction equations with
-    metabolites sorted for the whole BiGG database. If reaction equations are
-    duplicated one used in most amount of models selected."""
+    """
+    Getting dictionary for BiGG topology: unique reaction equation as key and
+    id as value.  Maybe writing down a table with reaction ids unique reaction
+    equations with metabolites sorted for the whole BiGG database. If reaction
+    equations are duplicated one used in most amount of models selected.
+    """
 
-    if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
-    bigg_database_r = pd.read_csv(
-        path_to_dbs / "bigg_models_reactions.txt.gz", sep="\t"
+    bigg_database_r = download_db(
+        "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
+        "bigg_models_reactions.txt.gz",
     )
 
     reaction_regex = re.compile(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+|<->")
@@ -102,47 +322,8 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         .reset_index(drop=True)
     )
 
-    bigg_r_network = (
+    return (
         r_connections.groupby("equation")
         .apply(lambda x: x["reaction"].values[0])
         .to_dict()
     )
-    return bigg_r_network
-
-
-def get_db(db_name, path_to_dbs=None):
-    """
-    Loading conversion tables for different databases db_name: old_new_bigg_m,
-    old_new_bigg_r, seed_orig_m, seed_orig_r, seed_addit_m, seed_addit_r,
-    kegg_bigg_m, kegg_bigg_r.
-    """
-    if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
-    typ = db_name[-1]
-    source = db_name.split("_")[0]
-
-    data_table = (
-        pd.read_csv(path_to_dbs / str(db_name[:-2] + ".tsv.gz"), sep="\t")
-        .rename(columns={source + "_ids": "old", "bigg_ids": "new"})
-        .dropna()
-    )
-
-    typ_conv = data_table.query(f"type == '{typ}'").copy()
-    typ_conv["new"] = typ_conv["new"].str.split(",", expand=False)
-    conv_dict = dict(typ_conv.drop(columns="type").values)
-
-    return conv_dict
-
-
-def get_BiGG_lists(metabolites: bool, path_to_dbs=None):
-    if not path_to_dbs:
-        path_to_dbs = Path(__file__).parent.parent / "data"
-    if metabolites:
-        bigg_data = pd.read_csv(
-            path_to_dbs / "bigg_models_metabolites.txt.gz", sep="\t"
-        )
-    else:
-        bigg_data = pd.read_csv(path_to_dbs / "bigg_models_reactions.txt.gz", sep="\t")
-        bigg_data["universal_bigg_id"] = bigg_data["bigg_id"]
-    bigg_list = list(set(bigg_data["universal_bigg_id"]))
-    return bigg_list
