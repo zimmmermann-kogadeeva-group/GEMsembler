@@ -1,4 +1,4 @@
-pytest:
+.pytest:
   image: python:3.10
   stage: test
   before_script:
@@ -11,13 +11,13 @@ pytest:
       junit: report.xml
 
 pytest310:
-  extends: pytest
+  extends: .pytest
   image: python:3.10
   script:
     - tox run -e py310
 
 pytest311:
-  extends: pytest
+  extends: .pytest
   image: python:3.11
   script:
     - tox run -e py311
