@@ -44,8 +44,11 @@ class Structural(object):
                     "b_m": comment.split("-")[2].split(" "),
                 }
             else:
-                self.comment = comment
                 self.suggestions = None
+                if len(bigg_structural) == 1:
+                    self.comment = comment
+                else:
+                    self.comment = f"Several result ids and comments: {' -NEW_COMMENT- '.join(list(bigg_structural.values()))}"
 
 
 def getReaction(bigg_met1, bigg_met2, BiGG_network_r, comment):
@@ -207,8 +210,6 @@ def SeveralMetabolites(
             orig_to_many_variants1.append(key1)
             bigg_to_many_variants1.append([met_variant1 for met_variant1 in val1])
         bigg_to_many_variants1 = list(itertools.product(*bigg_to_many_variants1))
-    if r_id == "rxn00060_c0":
-        print(bigg_to_many_variants1)
     bigg_to_many_variants2 = []
     orig_to_many_variants2 = []
     if met2_to_many != {}:
@@ -216,15 +217,11 @@ def SeveralMetabolites(
             orig_to_many_variants2.append(key2)
             bigg_to_many_variants2.append([met_variant2 for met_variant2 in val2])
         bigg_to_many_variants2 = list(itertools.product(*bigg_to_many_variants2))
-    if r_id == "rxn00060_c0":
-        print(bigg_to_many_variants2)
     if bigg_to_many_variants1 and bigg_to_many_variants2:
         for variant1 in bigg_to_many_variants1:
             for variant2 in bigg_to_many_variants2:
                 bigg_met1_mod = list(bigg_met1.keys()) + list(variant1)
                 bigg_met2_mod = list(bigg_met2.keys()) + list(variant2)
-                if r_id == "rxn00060_c0":
-                    print(bigg_met1_mod, bigg_met2_mod)
                 tmp_bigg_r = getReaction(
                     bigg_met1_mod,
                     bigg_met2_mod,
@@ -247,9 +244,6 @@ def SeveralMetabolites(
     elif bigg_to_many_variants1 and (not bigg_to_many_variants2):
         for variant1 in bigg_to_many_variants1:
             bigg_met1_mod = list(bigg_met1.keys()) + list(variant1)
-            if r_id == "rxn00060_c0":
-                print(bigg_met1_mod)
-                print(list(bigg_met2.keys()))
             tmp_bigg_r = getReaction(
                 bigg_met1_mod,
                 list(bigg_met2.keys()),
@@ -271,8 +265,6 @@ def SeveralMetabolites(
     elif bigg_to_many_variants2 and (not bigg_to_many_variants1):
         for variant2 in list(bigg_to_many_variants2):
             bigg_met2_mod = list(bigg_met2.keys()) + list(variant2)
-            if r_id == "rxn00060_c0":
-                print(bigg_met2_mod)
             tmp_bigg_r = getReaction(
                 list(bigg_met1.keys()),
                 bigg_met2_mod,
@@ -313,7 +305,6 @@ def convertReactionViaNetworkStructure(
     bigg_met1 = {}
     bigg_met1_to_many = {}
     for met1 in orig_met1:
-        print(selected_met.keys())
         compart1 = compart1 + selected_met[met1].compartments
         if (
             selected_met[met1].to_one_id == True
@@ -365,11 +356,6 @@ def convertReactionViaNetworkStructure(
     elif (len(bigg_met1) + len(bigg_met1_to_many) == len(orig_met1)) & (
         len(bigg_met2) + len(bigg_met2_to_many) == len(orig_met2)
     ):
-        if r_id == "rxn00060_c0":
-            print(bigg_met1)
-            print(bigg_met1_to_many)
-            print(bigg_met2)
-            print(bigg_met2_to_many)
         bigg_r = SeveralMetabolites(
             r_id,
             bigg_met1,

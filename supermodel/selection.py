@@ -4,16 +4,26 @@ from collections import defaultdict
 
 
 class Selected(object):
+    """ Class for selected object that checks results of different stages. After conversion stage
+    replace_with_consistent = True and results, going further (highest_consistent), have to be consistent. After
+    structural stage replace_with_consistent = False and results, going further (highest_consistent), don't change (
+    highest). How results of consistency check differ from original is written in consistency attr. Compartments are
+    just passed through for later. To_one_id shows amount of result ids (highest_consistent): True if 1,
+    False if more than 1 and None if there is highest_consistent is empty. From_one_id is set as None and will become
+    True or False in checkFromOneFromMany function. From_many_other_ids is set as empty list and will be populated
+    later in checkFromOneFromMany function. """
+
     def __init__(
         self,
         highest: list,
         consistent: list,
         compartments: list,
         replace_with_consistent: bool,
+        other_highest=None,
     ):
-        self.converted = True
         self.to_one_id = None
         self.from_one_id = None
+        self.from_many_other_ids = []
         self.compartments = compartments
         if replace_with_consistent:
             self.highest_consistent = consistent
@@ -21,23 +31,29 @@ class Selected(object):
             self.highest_consistent = highest
         if not consistent:
             if not highest:
-                self.converted = False
                 self.consistent = f"Not converted"
             elif replace_with_consistent:
-                self.converted = False
-                self.consistent = f"No: {' '.join(highest)}"
+                self.consistent = (
+                    f"Not consistent. Originally bigg ids were {' '.join(highest)}. But in other models "
+                    f"bigg ids were {other_highest}"
+                )
             else:
-                self.consistent = f"Can be considered as No"
-        elif sorted(consistent) == sorted(highest):
+                self.consistent = (
+                    f"Can be considered as not consistent. Originally bigg ids were {' '.join(highest)}. "
+                    f"But in other models bigg ids were {other_highest}"
+                )
+        elif set(consistent) == set(highest):
             self.consistent = "Yes"
         elif replace_with_consistent:
             self.consistent = (
-                f"Changed: from {', '.join(highest)} to {', '.join(consistent)}"
+                f"Changed: from {', '.join(highest)} to {', '.join(consistent)}. In other models bigg "
+                f"ids were {other_highest}"
             )
         else:
-            self.consistent = f"Could be Changed: from {', '.join(highest)} to {', '.join(consistent)}"
-            if not highest:
-                self.converted = False
+            self.consistent = (
+                f"Could be Changed: from {', '.join(highest)} to {', '.join(consistent)}. In other "
+                f"models bigg ids were {other_highest}"
+            )
         if len(self.highest_consistent) == 1:
             self.to_one_id = True
         if len(self.highest_consistent) > 1:
@@ -77,8 +93,10 @@ def checkDBConsistency(
             # collecting all original ids
             for model in models.keys():
                 bd_ids = bd_ids + list(converted_model[model].keys())
+            # looping per original id through all models
             for iid in list(set(bd_ids)):
                 bigg_ids = []
+                bigg_ids_dict = {}
                 mod_present = []
                 for mod in models.keys():
                     if converted_model.get(mod).get(iid) is not None:
@@ -89,6 +107,9 @@ def checkDBConsistency(
                                 getattr(
                                     converted_model.get(mod).get(iid), attr_to_check,
                                 )
+                            )
+                            bigg_ids_dict[mod] = getattr(
+                                converted_model.get(mod).get(iid), attr_to_check
                             )
                 if not bigg_ids:
                     for pres in mod_present:
@@ -105,6 +126,9 @@ def checkDBConsistency(
                 else:
                     common_ids = list(set.intersection(*map(set, bigg_ids)))
                     for present in mod_present:
+                        other_ids = {
+                            k: v for k, v in bigg_ids_dict.items() if k != present
+                        }
                         consistent[present].update(
                             {
                                 iid: Selected(
@@ -115,6 +139,7 @@ def checkDBConsistency(
                                     common_ids,
                                     converted_model.get(present).get(iid).compartments,
                                     replace_with_consistent,
+                                    other_ids,
                                 )
                             }
                         )
@@ -122,20 +147,27 @@ def checkDBConsistency(
 
 
 def checkFromOneFromMany(selected: dict):
-    """ Selecting converted with one or several original IDs giving the same converted results: from_one/from_many. """
+    """ Checking in selected objects which original id where converted uniquely to one or several bigg ids
+    (from_one_id = True) and which original ids have the same results (from_one_id = False).
+    Writing down original ids with the same results in from_many_other_ids."""
+    # making dict with original ids and bigg results ids as str instead of list
     to_smth_str = {
         orig_id: " ".join(sorted(bigg_ids.highest_consistent))
         for orig_id, bigg_ids in selected.items()
     }
+    # creating empty dict with bigg results as keys
     reversed_to_smth = {bigg_id: [] for bigg_id in to_smth_str.values()}
+    # populating bigg keys in the empty dict with original ids, for which these bigg ids are results
     for (k, v) in to_smth_str.items():
         reversed_to_smth[v].append(k)
+    # writing check results depending on amount of original ids for bigg results
     for value in reversed_to_smth.values():
         if len(value) == 1:
             selected[value[0]].from_one_id = True
         else:
             for val in value:
                 selected[val].from_one_id = False
+                selected[val].from_many_other_ids = list(set(value) - {val})
 
 
 def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
