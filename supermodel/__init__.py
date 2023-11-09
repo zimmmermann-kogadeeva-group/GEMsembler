@@ -1,1 +1,1 @@
-from .gathering import GatheredModels
+from .gathering import GatheredModels, load_sbml_model

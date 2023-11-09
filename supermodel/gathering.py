@@ -31,6 +31,22 @@ class LoggerContext:
             self.__logger__.setLevel(logging.NOTSET)
 
 
+def load_sbml_model(path_to_model, cache: bool = True, show_logs: bool = False):
+    cache_path = Path(path_to_model).with_suffix(".pkl")
+    if cache_path.exists():
+        with open(cache_path, "rb") as fh:
+            model = pickle.load(fh)
+    else:
+        # Read the cobra model
+        with LoggerContext("cobra", show_logs):
+            model = read_sbml_model(path_to_model)
+        # Cache the model to a pickle if option is set
+        if cache:
+            with open(cache_path, "wb") as fh:
+                pickle.dump(model, fh)
+    return model
+
+
 class GatheredModels:
     """
     Class that gathers information and necessary conversion results for all
@@ -211,18 +227,7 @@ class GatheredModels:
         assert model_id not in self.__models__, f"model_id {model_id} already used"
         assert model_type in self.__conf__, f"Missing configuration for {model_type}"
 
-        cache_path = Path(path_to_model).with_suffix(".pkl")
-        if cache_path.exists():
-            with open(cache_path, "rb") as fh:
-                model = pickle.load(fh)
-        else:
-            # Read the cobra model
-            with LoggerContext("cobra", show_logs):
-                model = read_sbml_model(path_to_model)
-            # Cache the model to a pickle if option is set
-            if cache:
-                with open(cache_path, "wb") as fh:
-                    pickle.dump(model, fh)
+        model = load_sbml_model(path_to_model, cache, show_logs)
 
         # Populate the internal data
         self.__models__[model_id] = {
