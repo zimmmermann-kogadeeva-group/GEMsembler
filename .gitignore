@@ -10,6 +10,7 @@ build/
 .jupyter.log
 __pycache__/
 .venv/
+.tox/
 .flake8
 
 # Misc
