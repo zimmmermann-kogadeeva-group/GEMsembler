@@ -11,27 +11,38 @@ from .selection import Selected, checkDBConsistency, checkFromOneFromMany
 
 class Structural(object):
     def __init__(self, bigg_structural: dict, selected: Selected):
-        if list(bigg_structural.keys())[0] == "NOT_found":
+        comment = list(bigg_structural.values())[0]
+        if list(bigg_structural.keys())[0] == "NOT_found" or comment.startswith(
+            "Potentially_found"
+        ):
             self.structural = []
         else:
             self.structural = list(bigg_structural.keys())
-        comment = list(bigg_structural.values())[0]
         if len(bigg_structural) == 1 and comment.startswith(
             "Found_via_adding_periplasmic_compartment"
         ):
             self.comment = "Found_via_adding_periplasmic_compartment"
-            self.suggestions = {
-                "first": {
-                    "orig_m1": comment.split("-")[1].split(" "),
-                    "b_m1": comment.split("-")[2].split(" "),
-                    "p_m1": comment.split("-")[3].split(" "),
-                },
-                "second": {
-                    "orig_m2": comment.split("-")[4].split(" "),
-                    "b_m2": comment.split("-")[5].split(" "),
-                    "p_m2": comment.split("-")[6].split(" "),
-                },
-            }
+            self.suggestions = {"orig_m": [], "b_m": [], "p_m": []}
+            if comment.split("-")[1].split(" ")[0] != "":
+                self.suggestions["orig_m"] = self.suggestions["orig_m"] + comment.split(
+                    "-"
+                )[1].split(" ")
+                self.suggestions["b_m"] = self.suggestions["b_m"] + comment.split("-")[
+                    2
+                ].split(" ")
+                self.suggestions["p_m"] = self.suggestions["p_m"] + comment.split("-")[
+                    3
+                ].split(" ")
+            if comment.split("-")[4].split(" ")[0] != "":
+                self.suggestions["orig_m"] = self.suggestions["orig_m"] + comment.split(
+                    "-"
+                )[4].split(" ")
+                self.suggestions["b_m"] = self.suggestions["b_m"] + comment.split("-")[
+                    5
+                ].split(" ")
+                self.suggestions["p_m"] = self.suggestions["p_m"] + comment.split("-")[
+                    6
+                ].split(" ")
             self.compartments = list(bigg_structural.values())[0].split("-")[7].split()
         else:
             self.compartments = selected.compartments
@@ -43,6 +54,29 @@ class Structural(object):
                     "orig_m": comment.split("-")[1].split(" "),
                     "b_m": comment.split("-")[2].split(" "),
                 }
+            elif len(bigg_structural) == 1 and comment.startswith(
+                "Potentially_found_via_many_to_one_metabolites"
+            ):
+                self.comment = "Potentially_found_via_many_to_one_metabolites"
+                self.suggestions = {
+                    "reaction": list(bigg_structural.keys())[0],
+                    "orig_m": [],
+                    "b_m": [],
+                }
+                if comment.split("-")[1].split(" ")[0] != "":
+                    self.suggestions["orig_m"] = self.suggestions[
+                        "orig_m"
+                    ] + comment.split("-")[1].split(" ")
+                    self.suggestions["b_m"] = self.suggestions["b_m"] + comment.split(
+                        "-"
+                    )[2].split(" ")
+                if comment.split("-")[3].split(" ")[0] != "":
+                    self.suggestions["orig_m"] = self.suggestions[
+                        "orig_m"
+                    ] + comment.split("-")[3].split(" ")
+                    self.suggestions["b_m"] = self.suggestions["b_m"] + comment.split(
+                        "-"
+                    )[4].split(" ")
             else:
                 self.suggestions = None
                 if len(bigg_structural) == 1:
@@ -177,7 +211,8 @@ def Periplasmic(
                 bigg1 + bigg1_p,
                 bigg2 + bigg2_p,
                 BiGG_network_r,
-                f"Found_via_adding_periplasmic_compartment-{' '.join(orig1)}-{' '.join(comb1)}-{' '.join(bigg1_p)}-{' '.join(orig2)}-{' '.join(comb2)}-{' '.join(bigg2_p)}-{' '.join(list(set(c1 + c2)))}",
+                f"Found_via_adding_periplasmic_compartment-{' '.join(orig1)}-{' '.join(comb1)}-{' '.join(bigg1_p)}"
+                f"-{' '.join(orig2)}-{' '.join(comb2)}-{' '.join(bigg2_p)}-{' '.join(list(set(c1 + c2)))}",
             )
             # tmp_bigg_r_H = Hydrogens(bigg1+bigg1_p, bigg2+bigg2_p, compart1+["p"], compart2+["p"], BiGG_network_r,
             #                          f"Found_via_adding_periplasmic_compartment-{bigg1_p}-{bigg2_p}")
@@ -304,6 +339,7 @@ def convertReactionViaNetworkStructure(
     compart1 = []
     bigg_met1 = {}
     bigg_met1_to_many = {}
+    bigg_met1_from_many = {}
     for met1 in orig_met1:
         compart1 = compart1 + selected_met[met1].compartments
         if (
@@ -316,9 +352,15 @@ def convertReactionViaNetworkStructure(
             and selected_met[met1].from_one_id == True
         ):
             bigg_met1_to_many.update({met1: selected_met[met1].highest_consistent})
+        elif (
+            selected_met[met1].to_one_id == True
+            and selected_met[met1].from_one_id == False
+        ):
+            bigg_met1_from_many.update({met1: selected_met[met1].highest_consistent[0]})
     compart2 = []
     bigg_met2 = {}
     bigg_met2_to_many = {}
+    bigg_met2_from_many = {}
     for met2 in orig_met2:
         compart2 = compart2 + selected_met[met2].compartments
         if (
@@ -331,6 +373,11 @@ def convertReactionViaNetworkStructure(
             and selected_met[met2].from_one_id == True
         ):
             bigg_met2_to_many.update({met2: selected_met[met2].highest_consistent})
+        elif (
+            selected_met[met2].to_one_id == True
+            and selected_met[met2].from_one_id == False
+        ):
+            bigg_met2_from_many.update({met2: selected_met[met2].highest_consistent[0]})
     if (len(bigg_met1) == len(orig_met1)) & (len(bigg_met2) == len(orig_met2)):
         bigg_r = getReaction(
             list(bigg_met1.keys()),
@@ -368,6 +415,19 @@ def convertReactionViaNetworkStructure(
         )
         if not bigg_r:
             bigg_r = {"NOT_found": "Not_found_via_one_to_many_metabolites"}
+    elif (len(bigg_met1) + len(bigg_met1_from_many) == len(orig_met1)) & (
+        len(bigg_met2) + len(bigg_met2_from_many) == len(orig_met2)
+    ):
+        bigg_r = getReaction(
+            list(bigg_met1.keys()) + list(bigg_met1_from_many.values()),
+            list(bigg_met2.keys()) + list(bigg_met2_from_many.values()),
+            BiGG_network_r,
+            f"Potentially_found_via_many_to_one_metabolites-"
+            f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met1_from_many.values()))}-"
+            f"{' '.join(list(bigg_met2_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.values()))}",
+        )
+        if not bigg_r:
+            bigg_r = {"NOT_found": "Not_found_via_many_to_one_metabolites"}
     else:
         bigg_r = {"NOT_found": "Not_all_metabolites_for_reaction_are_converted"}
     return bigg_r

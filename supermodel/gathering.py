@@ -12,7 +12,7 @@ from cobra.io import read_sbml_model
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
-from .selection import checkDBConsistency, checkFromOneFromMany
+from .selection import run_selection
 from .structural import runStructuralConversion, runStructuralCheck
 from .dbs import get_bigg_network
 
@@ -158,21 +158,12 @@ class GatheredModels:
         same_db_models = self._get_same_db_models()
 
         # run first stage selection for converted
-        self.first_stage_selected_metabolites = checkDBConsistency(
-            same_db_models,
-            self.converted_metabolites,
-            "highest",
+        self.first_stage_selected_metabolites = run_selection(
+            same_db_models, self.converted_metabolites, "highest"
         )
-        for s in self.first_stage_selected_metabolites.values():
-            checkFromOneFromMany(s)
-
-        self.first_stage_selected_reactions = checkDBConsistency(
-            same_db_models,
-            self.converted_reactions,
-            "highest",
+        self.first_stage_selected_reactions = run_selection(
+            same_db_models, self.converted_reactions, "highest"
         )
-        for s in self.first_stage_selected_reactions.values():
-            checkFromOneFromMany(s)
 
         # run first structural conversion
         bigg_network = get_bigg_network()
@@ -195,14 +186,12 @@ class GatheredModels:
                 )
 
         # run second stage selection for first structural
-        self.second_stage_selected_reactions = checkDBConsistency(
+        self.second_stage_selected_reactions = run_selection(
             same_db_models,
             self.structural_first_run_reactions,
             "structural",
             replace_with_consistent=False,
         )
-        for ss in self.second_stage_selected_reactions.values():
-            checkFromOneFromMany(ss)
 
     def set_configuration(
         self,

@@ -19,12 +19,17 @@ class Selected(object):
         consistent: list,
         compartments: list,
         replace_with_consistent: bool,
+        other_present=None,
         other_highest=None,
     ):
         self.to_one_id = None
         self.from_one_id = None
         self.from_many_other_ids = []
         self.compartments = compartments
+        if other_present is None:
+            self.in_other_models = {}
+        else:
+            self.in_other_models = {other: [] for other in other_present}
         if replace_with_consistent:
             self.highest_consistent = consistent
         else:
@@ -59,12 +64,20 @@ class Selected(object):
         if len(self.highest_consistent) > 1:
             self.to_one_id = False
 
+    # adding results of mapping for selected objects with the same original id, but from other models
+    def check_others(self, original_id, selected: dict):
+        for other_model in self.in_other_models.keys():
+            self.in_other_models[other_model] = [
+                selected[other_model][original_id].to_one_id,
+                selected[other_model][original_id].from_one_id,
+            ]
+
 
 def checkDBConsistency(
     models_same_db: dict,
     converted_model: dict,
     attr_to_check: str,
-    replace_with_consistent=True,
+    replace_with_consistent: bool,
 ):
     """
     Checking ID for different models with IDs from the same database. If one
@@ -120,6 +133,7 @@ def checkDBConsistency(
                                     [],
                                     converted_model.get(pres).get(iid).compartments,
                                     replace_with_consistent,
+                                    set(mod_present) - {pres},
                                 )
                             }
                         )
@@ -139,6 +153,7 @@ def checkDBConsistency(
                                     common_ids,
                                     converted_model.get(present).get(iid).compartments,
                                     replace_with_consistent,
+                                    set(mod_present) - {present},
                                     other_ids,
                                 )
                             }
@@ -168,6 +183,23 @@ def checkFromOneFromMany(selected: dict):
             for val in value:
                 selected[val].from_one_id = False
                 selected[val].from_many_other_ids = list(set(value) - {val})
+
+
+def run_selection(
+    same_db_models: dict,
+    previous_stage: dict,
+    attr_to_check: str,
+    replace_with_consistent=True,
+):
+    first_stage_selected = checkDBConsistency(
+        same_db_models, previous_stage, attr_to_check, replace_with_consistent
+    )
+    for s in first_stage_selected.values():
+        checkFromOneFromMany(s)
+    for ss in first_stage_selected.values():
+        for or_id, sel in ss.items():
+            sel.check_others(or_id, first_stage_selected)
+    return first_stage_selected
 
 
 def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
