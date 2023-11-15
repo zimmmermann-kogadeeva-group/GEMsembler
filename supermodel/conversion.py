@@ -65,7 +65,7 @@ class Converted(object):
     def __repr__(self):
         return (
             "Converted class object\n"
-            f"compartment: {self.compartments}\n"
+            f"compartments: {self.compartments}\n"
             f"highest: {self.highest}\n"
             f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"
@@ -78,7 +78,7 @@ class Converted(object):
 
     def __str__(self):
         return (
-            f"compartment: {self.compartments}\n"
+            f"compartments: {self.compartments}\n"
             f"highest: {self.highest}\n"
             f"level: {self.level}\n"
             f"annot_and_main: {self.annot_and_main}\n"
