@@ -13,7 +13,7 @@ from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvB
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .general import findKeysByValue
 from .selection import run_selection
-from .structural import runStructuralConversion, runStructuralCheck
+from .structural import runStructuralConversion, runSuggestionsMet
 from .dbs import get_bigg_network
 
 
@@ -123,6 +123,9 @@ class GatheredModels:
         self.first_stage_selected_reactions = None
         self.structural_first_run_reactions = defaultdict(dict)
         self.second_stage_selected_reactions = defaultdict(dict)
+        self.structural_first_run_metabolites = defaultdict(dict)
+        self.second_stage_selected_metabolites = defaultdict(dict)
+        self.many_to_one_sug = defaultdict(dict)
 
         # Check if assembly and final genome are present.
         # If not, throw a warning.
@@ -170,27 +173,35 @@ class GatheredModels:
         for model_id, first_sel in self.first_stage_selected_reactions.items():
             model_type = self.__models__[model_id]["model_type"]
             db_name = self.__conf__.get(model_type).get("db_name")
-            if db_name == "bigg":
-                self.structural_first_run_reactions[model_id] = runStructuralCheck(
-                    first_sel,
-                    self.__models__[model_id]["preprocess_model"],
-                    bigg_network,
-                )
-            else:
-                self.structural_first_run_reactions[model_id] = runStructuralConversion(
-                    first_sel,
-                    self.first_stage_selected_metabolites[model_id],
-                    self.__models__[model_id]["preprocess_model"],
-                    bigg_network,
-                    self.__conf__.get(model_type).get("wo_periplasmic"),
-                )
-
-        # run second stage selection for first structural
+            self.structural_first_run_reactions[model_id] = runStructuralConversion(
+                db_name,
+                first_sel,
+                self.first_stage_selected_metabolites[model_id],
+                self.__models__[model_id]["preprocess_model"],
+                bigg_network,
+                self.__conf__.get(model_type).get("wo_periplasmic"),
+            )
+        # run second stage selection for first structural reactions
         self.second_stage_selected_reactions = run_selection(
             same_db_models,
             self.structural_first_run_reactions,
             "structural",
             replace_with_consistent=False,
+        )
+
+        # get suggestions from structural reactions for metabolites
+        for mod_id, rs_struct_sel in self.second_stage_selected_reactions.items():
+            mod_type = self.__models__[mod_id]["model_type"]
+            db_mod = self.__conf__.get(mod_type).get("db_name")
+            self.structural_first_run_metabolites[mod_id], self.many_to_one_sug[mod_id] = runSuggestionsMet(
+                db_mod,
+                self.structural_first_run_reactions[mod_id],
+                rs_struct_sel,
+                self.first_stage_selected_metabolites[mod_id],
+            )
+        # run second stage selection for suggestions for metabolites from structural
+        self.second_stage_selected_metabolites = run_selection(
+            same_db_models, self.structural_first_run_metabolites, "structural"
         )
 
     def set_configuration(

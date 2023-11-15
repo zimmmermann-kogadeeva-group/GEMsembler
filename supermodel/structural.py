@@ -4,12 +4,12 @@ import operator
 from copy import deepcopy
 import pandas as pd
 import cobra
-from collections import Counter
+from collections import Counter, defaultdict
 from .general import findKeysByValue
 from .selection import Selected, checkDBConsistency, checkFromOneFromMany
 
 
-class Structural(object):
+class StructuralR(object):
     def __init__(self, bigg_structural: dict, selected: Selected):
         comment = list(bigg_structural.values())[0]
         if list(bigg_structural.keys())[0] == "NOT_found" or comment.startswith(
@@ -77,12 +77,50 @@ class Structural(object):
                     self.suggestions["b_m"] = self.suggestions["b_m"] + comment.split(
                         "-"
                     )[4].split(" ")
+            elif len(bigg_structural) == 1 and comment.startswith(
+                (
+                    "Not_found_via_many_to_one_metabolites",
+                    "Potentially_found_but_no_confidence",
+                    "Not_all_metabolites_are_converted_but_important_for_many_original",
+                )
+            ):
+                if comment.startswith("Not_found_via_many_to_one_metabolites"):
+                    list_name = "not_fit"
+                else:
+                    list_name = "no_data"
+                self.comment = comment.split("-")[0]
+                self.suggestions = {
+                    "reaction": list(bigg_structural.keys())[0],
+                    "orig_m": [],
+                    "b_m": [],
+                }
+                if comment.split("-")[1].split(" ")[0] != "":
+                    self.suggestions["orig_m"] = self.suggestions[
+                        "orig_m"
+                    ] + comment.split("-")[1].split(" ")
+                    self.suggestions["b_m"] = self.suggestions["b_m"] + [
+                        list_name
+                    ] * len(comment.split("-")[1].split(" "))
+                if comment.split("-")[2].split(" ")[0] != "":
+                    self.suggestions["orig_m"] = self.suggestions[
+                        "orig_m"
+                    ] + comment.split("-")[2].split(" ")
+                    self.suggestions["b_m"] = self.suggestions["b_m"] + [
+                        list_name
+                    ] * len(comment.split("-")[2].split(" "))
             else:
                 self.suggestions = None
                 if len(bigg_structural) == 1:
                     self.comment = comment
                 else:
                     self.comment = f"Several result ids and comments: {' -NEW_COMMENT- '.join(list(bigg_structural.values()))}"
+
+
+class StructuralM(object):
+    def __init__(self, ids: list, comment: str, compartments: list):
+        self.structural = ids
+        self.compartments = compartments
+        self.comment = comment
 
 
 def getReaction(bigg_met1, bigg_met2, BiGG_network_r, comment):
@@ -418,22 +456,100 @@ def convertReactionViaNetworkStructure(
     elif (len(bigg_met1) + len(bigg_met1_from_many) == len(orig_met1)) & (
         len(bigg_met2) + len(bigg_met2_from_many) == len(orig_met2)
     ):
+        if len(bigg_met1) + len(bigg_met2) == 0:
+            comment = "Potentially_found_but_no_confidence"
+        else:
+            comment = "Potentially_found_via_many_to_one_metabolites"
         bigg_r = getReaction(
             list(bigg_met1.keys()) + list(bigg_met1_from_many.values()),
             list(bigg_met2.keys()) + list(bigg_met2_from_many.values()),
             BiGG_network_r,
-            f"Potentially_found_via_many_to_one_metabolites-"
+            f"{comment}-"
             f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met1_from_many.values()))}-"
             f"{' '.join(list(bigg_met2_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.values()))}",
         )
         if not bigg_r:
-            bigg_r = {"NOT_found": "Not_found_via_many_to_one_metabolites"}
+            bigg_r = {
+                "NOT_found": f"Not_found_via_many_to_one_metabolites-"
+                f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.keys()))}"
+            }
+    elif len(bigg_met1_from_many) + len(bigg_met2_from_many) > 0:
+        bigg_r = {
+            "NOT_found": f"Not_all_metabolites_are_converted_but_important_for_many_original-"
+            f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.keys()))}"
+        }
     else:
         bigg_r = {"NOT_found": "Not_all_metabolites_for_reaction_are_converted"}
     return bigg_r
 
 
+def runStructuralCheck(
+    react_checked: dict,
+    met_checked: dict,
+    model: cobra.core.model.Model,
+    bigg_network: dict,
+):
+    """ Checking reactions equations for models with no conversion need (with BiGG ids originally). Should be in BiGG
+    database if not exchange or biomass reaction. """
+    react_struct_checked = {}
+    for id_r, sel in react_checked.items():
+        bigg_met1 = [met1.id for met1 in model.reactions.get_by_id(id_r).reactants]
+        bigg_met2 = [met2.id for met2 in model.reactions.get_by_id(id_r).products]
+        bigg_met1_checked = []
+        bigg_met2_checked = []
+        for m1 in bigg_met1:
+            if (
+                met_checked[m1].to_one_id == True
+                and met_checked[m1].from_one_id == True
+            ):
+                bigg_met1_checked.append(met_checked[m1].highest_consistent[0])
+        for m2 in bigg_met2:
+            if (
+                met_checked[m2].to_one_id == True
+                and met_checked[m2].from_one_id == True
+            ):
+                bigg_met2_checked.append(met_checked[m2].highest_consistent[0])
+        bigg_r = getReaction(
+            bigg_met1_checked,
+            bigg_met2_checked,
+            bigg_network,
+            "checked_via_structural_reaction_equation",
+        )
+        if bigg_r:
+            react_struct_checked.update({id_r: StructuralR(bigg_r, sel)})
+        elif sel.highest_consistent:
+            react_struct_checked.update(
+                {
+                    id_r: StructuralR(
+                        {sel.highest_consistent[0]: "id_in_bigg_originally"}, sel
+                    )
+                }
+            )
+        elif (
+            (len(bigg_met1) == 1) & (len(bigg_met2) == 0)
+            | (len(bigg_met1) == 0) & (len(bigg_met2) == 1)
+        ) & (id_r.startswith("EX_")):
+            react_struct_checked.update(
+                {id_r: StructuralR({id_r: "not_found_but_exchange_reaction"}, sel)}
+            )
+        elif (len(bigg_met1) > 20) | (len(bigg_met2) > 20):
+            react_struct_checked.update(
+                {id_r: StructuralR({"Biomass": "growth_reaction"}, sel)}
+            )
+        else:
+            react_struct_checked.update(
+                {
+                    id_r: StructuralR(
+                        {"NOT_found": f"{id_r} not_pass_id_and_structural_checking"},
+                        sel,
+                    )
+                }
+            )
+    return react_struct_checked
+
+
 def runStructuralConversion(
+    model_db: str,
     first_stage_selected_r: dict,
     first_stage_selected_m: dict,
     model: cobra.core.model.Model,
@@ -441,25 +557,192 @@ def runStructuralConversion(
     models_periplasmic: bool,
 ):
     """ Running structural conversion for all reactions. Selection reactions that have only 1 id as result """
-    structural_conversion_r = {}
-    for orig_id, selected in first_stage_selected_r.items():
-        orig_met1 = [react.id for react in model.reactions.get_by_id(orig_id).reactants]
-        orig_met2 = [pro.id for pro in model.reactions.get_by_id(orig_id).products]
-        structural_bigg_id = convertReactionViaNetworkStructure(
-            orig_id,
-            orig_met1,
-            orig_met2,
-            first_stage_selected_m,
-            bigg_network,
-            models_periplasmic,
+    if model_db == "bigg":
+        structural_conversion_r = runStructuralCheck(
+            first_stage_selected_r, first_stage_selected_m, model, bigg_network
         )
-        structural_conversion_r.update(
-            {orig_id: Structural(structural_bigg_id, selected)}
-        )
-
+    else:
+        structural_conversion_r = {}
+        for orig_id, selected in first_stage_selected_r.items():
+            orig_met1 = [
+                react.id for react in model.reactions.get_by_id(orig_id).reactants
+            ]
+            orig_met2 = [pro.id for pro in model.reactions.get_by_id(orig_id).products]
+            if (len(orig_met1) > 20) | (len(orig_met2) > 20):
+                structural_bigg_id = {
+                    "Biomass": "No structural conversion since growth_reaction"
+                }
+            else:
+                structural_bigg_id = convertReactionViaNetworkStructure(
+                    orig_id,
+                    orig_met1,
+                    orig_met2,
+                    first_stage_selected_m,
+                    bigg_network,
+                    models_periplasmic,
+                )
+            structural_conversion_r.update(
+                {orig_id: StructuralR(structural_bigg_id, selected)}
+            )
     return structural_conversion_r
 
 
+def runSuggestionsMet(
+    model_db: str, structural_rs: dict, struct_rs_sel: dict, met_selected: dict,
+):
+    # model uses bigg originally so there was no structural conversion, only checking
+    if model_db == "bigg":
+        structural_met = {
+            orig_id: StructuralM(
+                sel.highest_consistent,
+                "No need for structural, because of bigg database",
+                sel.compartments,
+            )
+            for orig_id, sel in met_selected.items()
+            if sel.to_one_id == True and sel.from_one_id == True
+        }
+        sug_from_many = {}
+    # actually getting suggestions based on reactions that were converted 1-1 with reaction equation
+    else:
+        structural_met = {}
+        sug_to_many = defaultdict(list)
+        sug_from_many = defaultdict(list)
+        for r_old_id, r_sel in struct_rs_sel.items():
+            if (
+                r_sel.to_one_id == True
+                and r_sel.from_one_id == True
+                and structural_rs[r_old_id].comment.startswith(
+                    "Found_via_one_to_many_metabolites"
+                )
+            ):
+                for i in range(len(structural_rs[r_old_id].suggestions["orig_m"])):
+                    sug_to_many[
+                        structural_rs[r_old_id].suggestions["orig_m"][i]
+                    ].append(structural_rs[r_old_id].suggestions["b_m"][i])
+            elif structural_rs[r_old_id].comment.startswith(
+                (
+                    "Potentially_found_via_many_to_one_metabolites",
+                    "Not_found_via_many_to_one_metabolites",
+                    "Potentially_found_but_no_confidence",
+                    "Not_all_metabolites_are_converted_but_important_for_many_original",
+                )
+            ):
+                for ii in range(len(structural_rs[r_old_id].suggestions["orig_m"])):
+                    sug_from_many[
+                        structural_rs[r_old_id].suggestions["orig_m"][ii]
+                    ].append(structural_rs[r_old_id].suggestions["b_m"][ii])
+        sug_to_many = {k: v[0] for k, v in sug_to_many.items() if len(set(v)) == 1}
+        for m_orig_id, met_sel in met_selected.items():
+            if met_sel.to_one_id == True and met_sel.from_one_id == True:
+                structural_met.update(
+                    {
+                        m_orig_id: StructuralM(
+                            met_sel.highest_consistent,
+                            "Already 1-1 conversion",
+                            met_sel.compartments,
+                        )
+                    }
+                )
+            elif met_sel.to_one_id == False and met_sel.from_one_id == True:
+                if m_orig_id in sug_to_many.keys():
+                    structural_met.update(
+                        {
+                            m_orig_id: StructuralM(
+                                [sug_to_many[m_orig_id]],
+                                "Suggestion from one to many options",
+                                met_sel.compartments,
+                            )
+                        }
+                    )
+                else:
+                    structural_met.update(
+                        {
+                            m_orig_id: StructuralM(
+                                [],
+                                "No suggestion from one to many options",
+                                met_sel.compartments,
+                            )
+                        }
+                    )
+            elif met_sel.to_one_id == True and met_sel.from_one_id == False:
+                # checking how the same original id was converted in other models with different db
+                # no information about the id in models with other db
+                if not met_sel.in_other_models:
+                    in_others = False
+                else:
+                    # checking whether in models with other db the id is converted as 1-1 ([True, True])
+                    in_others = True
+                    for val in met_sel.in_other_models.values():
+                        if val != [True, True]:
+                            in_others = False
+                    # if the id is 1-1 in other models, checking whether other ids from the model, group that lead to n-1, are not 1-1 in models with other db
+                    if in_others:
+                        for oth_id in met_sel.from_many_other_ids:
+                            for othval in met_selected[oth_id].in_other_models.values():
+                                if othval == [True, True]:
+                                    in_others = False
+                if in_others:
+                    structural_met.update(
+                        {
+                            m_orig_id: StructuralM(
+                                met_sel.highest_consistent,
+                                "Suggestion from many original ids to one bigg based on unique conversion from other models",
+                                met_sel.compartments,
+                            )
+                        }
+                    )
+                # checking whether usage of conversion for one original ids from the group leads to better reaction equation conversion
+                else:
+                    in_r_eq = False
+                    if m_orig_id in sug_from_many.keys():
+                        if "not_fit" not in set(sug_from_many[m_orig_id]):
+                            for ot_id in met_sel.from_many_other_ids:
+                                if {"not_fit", "no_data"} >= set(sug_from_many[ot_id]):
+                                    in_r_eq = True
+                    if in_r_eq:
+                        structural_met.update(
+                            {
+                                m_orig_id: StructuralM(
+                                    met_sel.highest_consistent,
+                                    "Suggestion from many original ids to one bigg based on better reaction equation conversions for that original id in a group",
+                                    met_sel.compartments,
+                                )
+                            }
+                        )
+                    else:
+                        structural_met.update(
+                            {
+                                m_orig_id: StructuralM(
+                                    [],
+                                    "No suggestion from many original ids to one bigg",
+                                    met_sel.compartments,
+                                )
+                            }
+                        )
+            elif met_sel.to_one_id == False and met_sel.from_one_id == False:
+                structural_met.update(
+                    {
+                        m_orig_id: StructuralM(
+                            [],
+                            "No suggestion from many original ids to many bigg ids",
+                            met_sel.compartments,
+                        )
+                    }
+                )
+            else:
+                structural_met.update(
+                    {
+                        m_orig_id: StructuralM(
+                            [],
+                            "No suggestion from not converted",
+                            met_sel.compartments,
+                        )
+                    }
+                )
+    return structural_met, sug_from_many
+
+
+'''
 def getSuggestionForOneToManyMet(
     model_types: [str], structural_r_one_one: dict, structural_r_all: dict
 ):
@@ -569,9 +852,7 @@ def getSuggestionForManyToOneMet(
                 if n == 0:
                     found_group.update({orig_id: "met_not_struct"})
             occur = Counter(list(found_group.values()))
-            if (occur[1.0] == 1) & (
-                set(occur.keys()) <= set([1.0, 0.0, "met_not_struct"])
-            ):
+            if (occur[1.0] == 1) & (set(occur.keys()) <= {1.0, 0.0, "met_not_struct"}):
                 recommend = findKeysByValue(found_group, 1, operator.eq)[0]
                 if recommend not in many_to_one_suggestions.get(typ).keys():
                     many_to_one_suggestions.get(typ).update(
@@ -721,8 +1002,9 @@ def completeSuggestions(
                         }
                     )
     return complete_suggestions
+'''
 
-
+'''
 def runSuggestionsMet(
     model_types: [str],
     structural_r_info: dict,
@@ -806,56 +1088,4 @@ def runSuggestionsMet(
         "suggestions": [suggestions_one_many_m_sel, many_to_one_suggestions],
     }
     return output
-
-
-def runStructuralCheck(
-    react_checked: dict, model: cobra.core.model.Model, bigg_network: dict,
-):
-    """ Checking reactions equations for models with no conversion need (with BiGG ids originally). Should be in BiGG
-    database if not exchange or biomass reaction. """
-    react_struct_checked = {}
-    for id_r, sel in react_checked.items():
-        if sel.highest_consistent:
-            react_struct_checked.update(
-                {
-                    id_r: Structural(
-                        {sel.highest_consistent[0]: "id_in_bigg_originally"}, sel
-                    )
-                }
-            )
-        else:
-            bigg_met1 = [met1.id for met1 in model.reactions.get_by_id(id_r).reactants]
-            bigg_met2 = [met2.id for met2 in model.reactions.get_by_id(id_r).products]
-            bigg_r = getReaction(
-                bigg_met1,
-                bigg_met2,
-                bigg_network,
-                "found_structural_for_none_converted",
-            )
-            if bigg_r:
-                react_struct_checked.update({id_r: Structural(bigg_r, sel)})
-            else:
-                if (
-                    (len(bigg_met1) == 1) & (len(bigg_met2) == 0)
-                    | (len(bigg_met1) == 0) & (len(bigg_met2) == 1)
-                ) & (id_r.startswith("EX_")):
-                    react_struct_checked.update(
-                        {
-                            id_r: Structural(
-                                {id_r: "not_found_but_exchange_reaction"}, sel
-                            )
-                        }
-                    )
-                elif (len(bigg_met1) > 20) | (len(bigg_met2) > 20):
-                    react_struct_checked.update(
-                        {id_r: Structural({id_r: "growth_reaction"}, sel)}
-                    )
-                else:
-                    react_struct_checked.update(
-                        {
-                            id_r: Structural(
-                                {id_r: "not_pass_id_and_structural_checking"}, sel
-                            )
-                        }
-                    )
-    return react_struct_checked
+'''

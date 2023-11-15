@@ -108,13 +108,16 @@ def checkDBConsistency(
                 bd_ids = bd_ids + list(converted_model[model].keys())
             # looping per original id through all models
             for iid in list(set(bd_ids)):
+                # list for intersecting present ids from models with different db #[[b1, b2], [b1]]
                 bigg_ids = []
+                # dict connecting ids and models for making .in_other_models attr
                 bigg_ids_dict = {}
                 mod_present = []
                 for mod in models.keys():
                     if converted_model.get(mod).get(iid) is not None:
                         # collecting in models ids is present
                         mod_present.append(mod)
+                        # adding only not empty lists because intersecting #[[b1, b2], []] isn't reasonable
                         if getattr(converted_model.get(mod).get(iid), attr_to_check,):
                             bigg_ids.append(
                                 getattr(
@@ -124,6 +127,7 @@ def checkDBConsistency(
                             bigg_ids_dict[mod] = getattr(
                                 converted_model.get(mod).get(iid), attr_to_check
                             )
+                # if list for intersection is totally empty no intersection is needed
                 if not bigg_ids:
                     for pres in mod_present:
                         consistent[pres].update(
@@ -137,6 +141,7 @@ def checkDBConsistency(
                                 )
                             }
                         )
+                # intersecting result ids for the same original id from models with different db
                 else:
                     common_ids = list(set.intersection(*map(set, bigg_ids)))
                     for present in mod_present:
@@ -191,6 +196,11 @@ def run_selection(
     attr_to_check: str,
     replace_with_consistent=True,
 ):
+    """Wrapping function to run checking consistency in resulting bigg ids for the same original id but different models
+    with different DB. Then checking whether for particular model there is only one original id gives particular results
+    or there are several original ids with the same results. And checking how the same original id performs in different
+    models, can it give 1 to 1 conversion somewhere else.If there is a group of original ids with the same results,
+    connecting them together. """
     first_stage_selected = checkDBConsistency(
         same_db_models, previous_stage, attr_to_check, replace_with_consistent
     )
