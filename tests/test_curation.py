@@ -30,24 +30,20 @@ class TestCuration:
     def test_get_duplicated_reactions(self):
         # Check sizes of duplicated tables given agora model
         model = load_sbml_model("example/BU_agora.xml.gz")
-        struct_dup, gpr_dup = get_duplicated_reactions(model)
-        assert len(struct_dup) == 6
-        assert len(gpr_dup) == 0
+        dup = get_duplicated_reactions(model)
+        assert len(dup) == 6
 
         # Check sizes of duplicated tables given carveme model
         model = load_sbml_model("example/BU_carveme_hom.xml.gz")
-        struct_dup, gpr_dup = get_duplicated_reactions(model)
-        assert len(struct_dup) == 96
-        assert len(gpr_dup) == 32
+        dup = get_duplicated_reactions(model)
+        assert len(dup) == 96
 
         # Check sizes of duplicated tables given gapseq model
         model = load_sbml_model("example/BU_gapseq.xml.gz")
-        struct_dup, gpr_dup = get_duplicated_reactions(model)
-        assert len(struct_dup) == 78
-        assert len(gpr_dup) == 16
+        dup = get_duplicated_reactions(model)
+        assert len(dup) == 78
 
         # Check sizes of duplicated tables given modelseed model
         model = load_sbml_model("example/BU_modelSEED.sbml.gz")
-        struct_dup, gpr_dup = get_duplicated_reactions(model)
-        assert len(struct_dup) == 0
-        assert len(gpr_dup) == 0
+        dup = get_duplicated_reactions(model)
+        assert len(dup) == 0

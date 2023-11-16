@@ -92,10 +92,8 @@ def get_duplicated_reactions(model):
 
     Returns
     -------
-    tuple[DataFrame]
-        Two tables of duplicated reactions:
-        - duplicated reactions based on reactants and products
-        - duplicated reactions based on reactants, products and GPR
+    DataFrame : pandas.DataFrame
+        table of duplicated reactions based on reactants and products
     """
     # Create a table of information on reactions. Double list comprehension is
     # needed as sometimes two reactions are returned by `get_rows()` function
@@ -104,18 +102,8 @@ def get_duplicated_reactions(model):
         columns=["ID", "Reactants", "Products", "GPR"],
     )
 
-    struct_dup = (
+    return (
         data[data.duplicated(subset=["Reactants", "Products"], keep=False)]
         .sort_values(["Reactants", "Products"])
         .reset_index(drop=True)
     )
-
-    gpr_dup = (
-        struct_dup[
-            struct_dup.duplicated(subset=["Reactants", "Products", "GPR"], keep=False)
-        ]
-        .sort_values(["Reactants", "Products", "GPR"])
-        .reset_index(drop=True)
-    )
-
-    return struct_dup, gpr_dup

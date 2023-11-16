@@ -27,3 +27,6 @@ supermodel = "supermodel.__main__:main"
 addopts = [
     "--import-mode=importlib",
 ]
+filterwarnings = [
+    "ignore::UserWarning"
+]

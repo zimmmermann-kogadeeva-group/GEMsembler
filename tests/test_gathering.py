@@ -1,0 +1,91 @@
+from cobra.core.model import Model
+from supermodel import GatheredModels
+from supermodel.conversion import (
+    ConvCarveme,
+    ConvGapseq,
+    ConvModelseed,
+    ConvAgora,
+    ConvBase,
+)
+
+
+class TestGathering:
+    def test_gathered_models(self):
+        # Test GatheredModels init method
+        g = GatheredModels()
+
+        # Check configuration in GatheredModels object
+        conf = g.conf
+
+        assert "agora" in conf
+        assert conf.get("agora").get("remove_b") == False
+        assert conf.get("agora").get("db_name") == "weird_bigg"
+        assert conf.get("agora").get("wo_periplasmic") == True
+        assert type(conf.get("agora").get("conv_strategy")) is ConvAgora
+
+        assert "carveme" in conf
+        assert conf.get("carveme").get("remove_b") == False
+        assert conf.get("carveme").get("db_name") == "bigg"
+        assert conf.get("carveme").get("wo_periplasmic") == False
+        assert type(conf.get("carveme").get("conv_strategy")) is ConvCarveme
+
+        assert "gapseq" in conf
+        assert conf.get("gapseq").get("remove_b") == False
+        assert conf.get("gapseq").get("db_name") == "modelseed"
+        assert conf.get("gapseq").get("wo_periplasmic") == False
+        assert type(conf.get("gapseq").get("conv_strategy")) is ConvGapseq
+
+        assert "modelseed" in conf
+        assert conf.get("modelseed").get("remove_b") == True
+        assert conf.get("modelseed").get("db_name") == "modelseed"
+        assert conf.get("modelseed").get("wo_periplasmic") == True
+        assert type(conf.get("modelseed").get("conv_strategy")) is ConvModelseed
+
+        # Check models in GatheredModels object
+        assert g.models == {}
+
+        g.add_model("test_carveme", "example/BU_carveme_hom.xml.gz", "carveme")
+        assert "test_carveme" in g
+        assert g["test_carveme"]["path_to_model"] == "example/BU_carveme_hom.xml.gz"
+        assert g["test_carveme"]["model_type"] == "carveme"
+        model = g["test_carveme"]["preprocess_model"]
+        assert type(model) is Model
+        assert len(model.metabolites) == 1244
+        assert len(model.reactions) == 1849
+
+        g.add_model("test_agora", "example/BU_agora.xml.gz", "agora")
+        assert "test_agora" in g
+        assert g["test_agora"]["path_to_model"] == "example/BU_agora.xml.gz"
+        assert g["test_agora"]["model_type"] == "agora"
+        model = g["test_agora"]["preprocess_model"]
+        assert type(model) is Model
+        assert len(model.metabolites) == 1500
+        assert len(model.reactions) == 2418
+
+        g.add_model("test_modelseed", "example/BU_modelSEED.sbml.gz", "modelseed")
+        assert "test_modelseed" in g
+        assert g["test_modelseed"]["path_to_model"] == "example/BU_modelSEED.sbml.gz"
+        assert g["test_modelseed"]["model_type"] == "modelseed"
+        model = g["test_modelseed"]["preprocess_model"]
+        assert type(model) is Model
+        assert len(model.metabolites) == 1271
+        assert len(model.reactions) == 1161
+
+        g.add_model("test_gapseq", "example/BU_gapseq.xml.gz", "gapseq")
+        assert "test_gapseq" in g
+        assert g["test_gapseq"]["path_to_model"] == "example/BU_gapseq.xml.gz"
+        assert g["test_gapseq"]["model_type"] == "gapseq"
+        model = g["test_gapseq"]["preprocess_model"]
+        assert type(model) is Model
+        assert len(model.metabolites) == 1520
+        assert len(model.reactions) == 1891
+
+        same_db_models = g._get_same_db_models()
+        assert same_db_models["bigg"] == {"test_carveme": "carveme"}
+        assert same_db_models["weird_bigg"] == {"test_agora": "agora"}
+        assert same_db_models["modelseed"] == {
+            "test_modelseed": "modelseed",
+            "test_gapseq": "gapseq",
+        }
+        # TODO: finish the tests for gathered models
+        g.run()
