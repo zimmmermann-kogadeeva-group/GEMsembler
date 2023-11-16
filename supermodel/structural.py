@@ -457,17 +457,22 @@ def convertReactionViaNetworkStructure(
         len(bigg_met2) + len(bigg_met2_from_many) == len(orig_met2)
     ):
         if len(bigg_met1) + len(bigg_met2) == 0:
-            comment = "Potentially_found_but_no_confidence"
+            bigg_r = getReaction(
+                list(bigg_met1.keys()) + list(bigg_met1_from_many.values()),
+                list(bigg_met2.keys()) + list(bigg_met2_from_many.values()),
+                BiGG_network_r,
+                f"Potentially_found_but_no_confidence-"
+                f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.keys()))}",
+            )
         else:
-            comment = "Potentially_found_via_many_to_one_metabolites"
-        bigg_r = getReaction(
-            list(bigg_met1.keys()) + list(bigg_met1_from_many.values()),
-            list(bigg_met2.keys()) + list(bigg_met2_from_many.values()),
-            BiGG_network_r,
-            f"{comment}-"
-            f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met1_from_many.values()))}-"
-            f"{' '.join(list(bigg_met2_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.values()))}",
-        )
+            bigg_r = getReaction(
+                list(bigg_met1.keys()) + list(bigg_met1_from_many.values()),
+                list(bigg_met2.keys()) + list(bigg_met2_from_many.values()),
+                BiGG_network_r,
+                f"Potentially_found_via_many_to_one_metabolites-"
+                f"{' '.join(list(bigg_met1_from_many.keys()))}-{' '.join(list(bigg_met1_from_many.values()))}-"
+                f"{' '.join(list(bigg_met2_from_many.keys()))}-{' '.join(list(bigg_met2_from_many.values()))}",
+            )
         if not bigg_r:
             bigg_r = {
                 "NOT_found": f"Not_found_via_many_to_one_metabolites-"
@@ -695,10 +700,15 @@ def runSuggestionsMet(
                 else:
                     in_r_eq = False
                     if m_orig_id in sug_from_many.keys():
-                        if "not_fit" not in set(sug_from_many[m_orig_id]):
+                        if ("not_fit" not in set(sug_from_many[m_orig_id])) and (
+                            {"no_data"} != set(sug_from_many[m_orig_id])
+                        ):
+                            in_r_eq = True
                             for ot_id in met_sel.from_many_other_ids:
-                                if {"not_fit", "no_data"} >= set(sug_from_many[ot_id]):
-                                    in_r_eq = True
+                                if not {"not_fit", "no_data"} >= set(
+                                    sug_from_many[ot_id]
+                                ):
+                                    in_r_eq = False
                     if in_r_eq:
                         structural_met.update(
                             {
