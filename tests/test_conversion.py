@@ -1,5 +1,4 @@
 from supermodel import load_sbml_model
-
 from supermodel.conversion import (
     ConvAgora,
     ConvGapseq,
