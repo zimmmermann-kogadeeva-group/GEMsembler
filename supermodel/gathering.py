@@ -122,9 +122,11 @@ class GatheredModels:
         self.first_stage_selected_metabolites = None
         self.first_stage_selected_reactions = None
         self.structural_first_run_reactions = defaultdict(dict)
-        self.second_stage_selected_reactions = defaultdict(dict)
+        self.second_stage_selected_reactions = None
         self.structural_first_run_metabolites = defaultdict(dict)
-        self.second_stage_selected_metabolites = defaultdict(dict)
+        self.second_stage_selected_metabolites = None
+        self.structural_second_run_reactions = defaultdict(dict)
+        self.third_stage_selected_reactions = None
         self.many_to_one_sug = defaultdict(dict)
 
         # Check if assembly and final genome are present.
@@ -179,7 +181,7 @@ class GatheredModels:
                 self.first_stage_selected_metabolites[model_id],
                 self.__models__[model_id]["preprocess_model"],
                 bigg_network,
-                self.__conf__.get(model_type).get("wo_periplasmic"),
+                False,
             )
         # run second stage selection for first structural reactions
         self.second_stage_selected_reactions = run_selection(
@@ -193,7 +195,10 @@ class GatheredModels:
         for mod_id, rs_struct_sel in self.second_stage_selected_reactions.items():
             mod_type = self.__models__[mod_id]["model_type"]
             db_mod = self.__conf__.get(mod_type).get("db_name")
-            self.structural_first_run_metabolites[mod_id], self.many_to_one_sug[mod_id] = runSuggestionsMet(
+            (
+                self.structural_first_run_metabolites[mod_id],
+                self.many_to_one_sug[mod_id],
+            ) = runSuggestionsMet(
                 db_mod,
                 self.structural_first_run_reactions[mod_id],
                 rs_struct_sel,
@@ -202,6 +207,26 @@ class GatheredModels:
         # run second stage selection for suggestions for metabolites from structural
         self.second_stage_selected_metabolites = run_selection(
             same_db_models, self.structural_first_run_metabolites, "structural"
+        )
+
+        # run second structural conversion with suggestions for metabolites
+        for m_id, sec_sel in self.second_stage_selected_reactions.items():
+            model_type = self.__models__[m_id]["model_type"]
+            db_name = self.__conf__.get(model_type).get("db_name")
+            self.structural_second_run_reactions[m_id] = runStructuralConversion(
+                db_name,
+                sec_sel,
+                self.second_stage_selected_metabolites[m_id],
+                self.__models__[m_id]["preprocess_model"],
+                bigg_network,
+                self.__conf__.get(model_type).get("wo_periplasmic"),
+            )
+        # run third stage selection for first structural reactions
+        self.third_stage_selected_reactions = run_selection(
+            same_db_models,
+            self.structural_second_run_reactions,
+            "structural",
+            replace_with_consistent=False,
         )
 
     def set_configuration(

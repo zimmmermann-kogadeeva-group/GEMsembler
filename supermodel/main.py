@@ -4,56 +4,6 @@ from .gathering import GatheredModels
 if __name__ == "__main__":
     pass
 """       
-    # checking ids from models that supposed to be with BiGG but still may be old (or potentialy wrond but that i don't remember)
-    # allmet_checked, allmet_not_pass = conversion.runNoneConversionChecking(
-    #     models_NOTto_convert, curated_models, ConversionStrategies, "metabolites"
-    # )
-    # allreact_checked, allreact_not_pass = conversion.runNoneConversionChecking(
-    #     models_NOTto_convert, curated_models, ConversionStrategies, "reactions"
-    # )
-
-    # checking reaction equations for models with BiGG
-    allreact_checked_struct, allreact_not_pass_struct = structural.runStructuralCheck(
-        models_NOTto_convert,
-        allreact_checked,
-        allreact_not_pass,
-        curated_models,
-        bigg_db_network,
-    )
-
-    # converting reactions via reactions equations from BiGG database via metabolites that were converted 1-1 or 1-n and selecting ones that were converted with equations and were converted uniquely
-    structural_r_info, structural_r_sel = structural.runStructuralConversion(
-        models_to_convert,
-        allmet_selected.get("one_to_one"),
-        allmet_selected,
-        allreact_selected,
-        curated_models,
-        bigg_db_network,
-        models_wo_periplasmic,
-        allmet_selected.get("one_to_many"),
-    )
-    # checking consistency in reactions uniquely converted via equation for different models with same database
-    (
-        struct_r_consistent,
-        struct_r_consist,
-        struct_r_not_consist,
-    ) = selection.checkDBConsistency(
-        models_same_db, structural_r_sel, "reactions", write_files=False, do_stat=False
-    )
-    # selecting which consistent structural reactions are converted 1-1 and n-1
-    struct_r_uniq, struct_r_not_uniq = selection.checkFromOneFromMany(
-        models_to_convert, struct_r_consistent
-    )
-    # getting suggestions for 1-n metabolites from first run of structural conversion and tring to structural with n-1 metabolites. Get 1-1 metabolites plus suggestions
-    met_struct = structural.runSuggestionsMet(
-        models_to_convert,
-        structural_r_info,
-        struct_r_uniq,
-        allmet_selected,
-        models_same_db,
-        curated_models,
-        bigg_db_network,
-    )
     # running structural reaction conversion second time with update metabolites (1-1 plus suggestions)
     struct_final_r_info, struct_final_r_sel = structural.runStructuralConversion(
         models_to_convert,
