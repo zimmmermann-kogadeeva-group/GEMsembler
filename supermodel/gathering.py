@@ -151,7 +151,7 @@ class GatheredModels:
             return deepcopy(self.__conf.get(model_type))
 
     def get_model_attrs(self, model_id=None):
-        if key is None:
+        if model_id is None:
             return deepcopy(self.__models)
         else:
             return deepcopy(self.__models.get(model_id))
