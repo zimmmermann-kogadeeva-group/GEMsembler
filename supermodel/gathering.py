@@ -141,8 +141,20 @@ class GatheredModels:
     def __contains__(self, item):
         return item in self.__models
 
-    def __getitem__(self, key):
-        return deepcopy(self.__models.get(key))
+    def __len__(self):
+        return len(self.__models)
+
+    def get_conf(self, model_type=None):
+        if model_type is None:
+            return deepcopy(self.__conf)
+        else:
+            return deepcopy(self.__conf.get(model_type))
+
+    def get_model_attrs(self, model_id=None):
+        if key is None:
+            return deepcopy(self.__models)
+        else:
+            return deepcopy(self.__models.get(model_id))
 
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
@@ -253,11 +265,3 @@ class GatheredModels:
         self.__models[model_id]["duplicated_reactions"] = get_duplicated_reactions(
             model
         )
-
-    @property
-    def models(self):
-        return deepcopy(self.__models)
-
-    @property
-    def conf(self):
-        return deepcopy(self.__conf)

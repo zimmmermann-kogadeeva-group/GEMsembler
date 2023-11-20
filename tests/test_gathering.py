@@ -15,7 +15,7 @@ class TestGathering:
         g = GatheredModels()
 
         # Check configuration in GatheredModels object
-        conf = g.conf
+        conf = g.get_conf()
 
         assert "agora" in conf
         assert conf.get("agora").get("remove_b") == False
@@ -42,40 +42,44 @@ class TestGathering:
         assert type(conf.get("modelseed").get("conv_strategy")) is ConvModelseed
 
         # Check models in GatheredModels object
-        assert g.models == {}
+        assert len(g) == 0
 
         g.add_model("test_carveme", "example/BU_carveme_hom.xml.gz", "carveme")
         assert "test_carveme" in g
-        assert g["test_carveme"]["path_to_model"] == "example/BU_carveme_hom.xml.gz"
-        assert g["test_carveme"]["model_type"] == "carveme"
-        model = g["test_carveme"]["preprocess_model"]
+        model_attrs = g.get_model_attrs("test_carveme")
+        assert model_attrs["path_to_model"] == "example/BU_carveme_hom.xml.gz"
+        assert model_attrs["model_type"] == "carveme"
+        model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1244
         assert len(model.reactions) == 1849
 
         g.add_model("test_agora", "example/BU_agora.xml.gz", "agora")
         assert "test_agora" in g
-        assert g["test_agora"]["path_to_model"] == "example/BU_agora.xml.gz"
-        assert g["test_agora"]["model_type"] == "agora"
-        model = g["test_agora"]["preprocess_model"]
+        model_attrs = g.get_model_attrs("test_agora")
+        assert model_attrs["path_to_model"] == "example/BU_agora.xml.gz"
+        assert model_attrs["model_type"] == "agora"
+        model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1500
         assert len(model.reactions) == 2418
 
         g.add_model("test_modelseed", "example/BU_modelSEED.sbml.gz", "modelseed")
         assert "test_modelseed" in g
-        assert g["test_modelseed"]["path_to_model"] == "example/BU_modelSEED.sbml.gz"
-        assert g["test_modelseed"]["model_type"] == "modelseed"
-        model = g["test_modelseed"]["preprocess_model"]
+        model_attrs = g.get_model_attrs("test_modelseed")
+        assert model_attrs["path_to_model"] == "example/BU_modelSEED.sbml.gz"
+        assert model_attrs["model_type"] == "modelseed"
+        model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1271
         assert len(model.reactions) == 1161
 
         g.add_model("test_gapseq", "example/BU_gapseq.xml.gz", "gapseq")
         assert "test_gapseq" in g
-        assert g["test_gapseq"]["path_to_model"] == "example/BU_gapseq.xml.gz"
-        assert g["test_gapseq"]["model_type"] == "gapseq"
-        model = g["test_gapseq"]["preprocess_model"]
+        model_attrs = g.get_model_attrs("test_gapseq")
+        assert model_attrs["path_to_model"] == "example/BU_gapseq.xml.gz"
+        assert model_attrs["model_type"] == "gapseq"
+        model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1520
         assert len(model.reactions) == 1891
