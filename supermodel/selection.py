@@ -1,5 +1,3 @@
-import copy
-import pandas as pd
 from collections import defaultdict
 
 
@@ -212,6 +210,8 @@ def run_selection(
     return first_stage_selected
 
 
+'''
+
 def runNotSelectedMet(model_types: [str], final_obj: dict, selected: dict):
     """ Getting finally not selected metabolites"""
     not_selected = {}
@@ -287,3 +287,5 @@ def runNotSelectedR(
                     else:
                         not_selected.get(typ).update({i: r_info.get(typ).get(i)[0]})
     return not_selected
+
+'''

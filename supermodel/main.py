@@ -4,32 +4,7 @@ from .gathering import GatheredModels
 if __name__ == "__main__":
     pass
 """       
-    # running structural reaction conversion second time with update metabolites (1-1 plus suggestions)
-    struct_final_r_info, struct_final_r_sel = structural.runStructuralConversion(
-        models_to_convert,
-        met_struct.get("one_one_sugg_met"),
-        allmet_selected,
-        allreact_selected,
-        curated_models,
-        bigg_db_network,
-        models_wo_periplasmic,
-    )
-    # checking consistency in 2d run of reactions uniquely converted via equation for different models with same database
-    (
-        struct_final_r_consistent,
-        struct_final_r_consist,
-        struct_final_r_not_consist,
-    ) = selection.checkDBConsistency(
-        models_same_db,
-        struct_final_r_sel,
-        "reactions",
-        write_files=False,
-        do_stat=False,
-    )
-    # selecting which consistent structural reactions from run 2 are converted 1-1 and n-1
-    struct_final_r_uniq, struct_final_r_not_uniq = selection.checkFromOneFromMany(
-        models_to_convert, struct_final_r_consistent
-    )
+
     # getting metabolites and reactions that became preiplasmic for models without periplasmic compartment originally
     periplasmic_m, periplasmic_r = structural.getSuggestionPeriplasmic(
         models_wo_periplasmic,

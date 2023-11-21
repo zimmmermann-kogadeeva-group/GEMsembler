@@ -1,17 +1,13 @@
-from collections import Counter, defaultdict
+from collections import defaultdict
 from copy import deepcopy
 import logging
-import operator
 from pathlib import Path
 import pickle
-import sys
 import warnings
-
 from cobra.io import read_sbml_model
-
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .curation import remove_b_type_exchange, get_duplicated_reactions
-from .general import findKeysByValue
+from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
 from .dbs import get_bigg_network
@@ -128,6 +124,8 @@ class GatheredModels:
         self.structural_second_run_reactions = defaultdict(dict)
         self.third_stage_selected_reactions = None
         self.many_to_one_sug = defaultdict(dict)
+        self.periplasmic_metabolites = defaultdict(dict)
+        self.periplasmic_reactions = defaultdict(dict)
 
         # Check if assembly and final genome are present.
         # If not, throw a warning.
@@ -192,17 +190,17 @@ class GatheredModels:
         )
 
         # get suggestions from structural reactions for metabolites
-        for mod_id, rs_struct_sel in self.second_stage_selected_reactions.items():
-            mod_type = self.__models__[mod_id]["model_type"]
-            db_mod = self.__conf__.get(mod_type).get("db_name")
+        for model_id, rs_struct_sel in self.second_stage_selected_reactions.items():
+            model_type = self.__models__[model_id]["model_type"]
+            db_mod = self.__conf__.get(model_type).get("db_name")
             (
-                self.structural_first_run_metabolites[mod_id],
-                self.many_to_one_sug[mod_id],
+                self.structural_first_run_metabolites[model_id],
+                self.many_to_one_sug[model_id],
             ) = runSuggestionsMet(
                 db_mod,
-                self.structural_first_run_reactions[mod_id],
+                self.structural_first_run_reactions[model_id],
                 rs_struct_sel,
-                self.first_stage_selected_metabolites[mod_id],
+                self.first_stage_selected_metabolites[model_id],
             )
         # run second stage selection for suggestions for metabolites from structural
         self.second_stage_selected_metabolites = run_selection(
@@ -210,14 +208,14 @@ class GatheredModels:
         )
 
         # run second structural conversion with suggestions for metabolites
-        for m_id, sec_sel in self.second_stage_selected_reactions.items():
-            model_type = self.__models__[m_id]["model_type"]
+        for model_id, sec_sel in self.second_stage_selected_reactions.items():
+            model_type = self.__models__[model_id]["model_type"]
             db_name = self.__conf__.get(model_type).get("db_name")
-            self.structural_second_run_reactions[m_id] = runStructuralConversion(
+            self.structural_second_run_reactions[model_id] = runStructuralConversion(
                 db_name,
                 sec_sel,
-                self.second_stage_selected_metabolites[m_id],
-                self.__models__[m_id]["preprocess_model"],
+                self.second_stage_selected_metabolites[model_id],
+                self.__models__[model_id]["preprocess_model"],
                 bigg_network,
                 self.__conf__.get(model_type).get("wo_periplasmic"),
             )
@@ -228,6 +226,27 @@ class GatheredModels:
             "structural",
             replace_with_consistent=False,
         )
+
+        # introducing periplasmic compartment for models, that don't have it originally
+        for model_id, th_sel in self.third_stage_selected_reactions.items():
+            if self.__conf__.get(self.__models__[model_id]["model_type"]).get(
+                "wo_periplasmic"
+            ):
+                (
+                    self.periplasmic_metabolites[model_id],
+                    self.periplasmic_reactions[model_id],
+                ) = getSuggestionPeriplasmic(
+                    th_sel,
+                    self.structural_second_run_reactions[model_id],
+                    self.second_stage_selected_metabolites[model_id],
+                    self.__models__[model_id]["preprocess_model"],
+                    bigg_network,
+                )
+            else:
+                (
+                    self.periplasmic_metabolites[model_id],
+                    self.periplasmic_reactions[model_id],
+                ) = ({}, {})
 
     def set_configuration(
         self,
