@@ -41,7 +41,7 @@ def remove_b_type_exchange(model: cobra.core.model.Model,) -> cobra.core.model.M
     return model
 
 
-def get_rows(reaction: cobra.core.Reaction):
+def get_rows(reaction: cobra.core.Reaction, do_not_care_about_directions=True):
     """
     Returns a list of row(s) to build a table of reaction information (id,
     products, reactants, and gene reaction rule). Two reactions are returned
@@ -52,6 +52,14 @@ def get_rows(reaction: cobra.core.Reaction):
     # Get all reactants and products and convert the resulting list to a string
     reactants = " ".join(sorted([x.id for x in reaction.reactants]))
     products = " ".join(sorted([x.id for x in reaction.products]))
+
+    # Temporary solution not directions into account, so it is the same as structural
+    # TODO: change to option bellow with directionality in bigg network dict
+    if do_not_care_about_directions:
+        return [
+            [reaction.id, reactants, products, reaction.gene_reaction_rule],
+            [reaction.id, products, reactants, reaction.gene_reaction_rule],
+        ]
 
     # Depending on the flux lower and upper bounds return products and reactants
     # in specific order.

@@ -7,14 +7,61 @@ from general import is_float
 
 
 def checkNTorAA(path_fasta: str):
-    """Check whether fasta file is nt or aa. Codes are taken from  https://web.cas.org/help/BLAST/topics/codes.htm"""
-    nt_letters = ["A", "C", "G", "T", "U", "R", "Y", "K", "M", "S", "W", "B", "D", "H", "V", "N", "-"]
-    aa_letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
-                  "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "*", "-"]
-    aa_specific = list(set(aa_letters)-set(nt_letters))
+    """Check whether fasta file is nt or aa.
+    Codes are taken from  https://web.cas.org/help/BLAST/topics/codes.htm"""
+    nt_letters = [
+        "A",
+        "C",
+        "G",
+        "T",
+        "U",
+        "R",
+        "Y",
+        "K",
+        "M",
+        "S",
+        "W",
+        "B",
+        "D",
+        "H",
+        "V",
+        "N",
+        "-",
+    ]
+    aa_letters = [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "*",
+        "-",
+    ]
+    aa_specific = list(set(aa_letters) - set(nt_letters))
     with open(path_fasta) as fasta_file:
         file_lines = fasta_file.readlines()
-    sequence = ''
+    sequence = ""
     for line in file_lines:
         if not line.startswith(">"):
             sequence = sequence + line.strip()
@@ -60,13 +107,13 @@ def getGenome(ncbi_genome_name: str):
     return genomes
 
 
-def getGenesGapseq(gapseq_genes_name: str, gapseq_model: Model, genomes: dict):
-    gene_gapseq_fasta = open(gapseq_genes_name, "w")
+def getGenesGapseq(output_gapseq_genes_name: str, gapseq_model: Model, genomes: dict):
+    gene_gapseq_fasta = open(output_gapseq_genes_name, "w")
     for gene in gapseq_model.genes:
         gene_gapseq_fasta.write(">" + gene.id + "\n")
         start = gene.id.split("_")[-2]
         end = gene.id.split("_")[-1]
-        genomeid = gene.id.removeprefix("gp_").removesuffix("_"+start+"_"+end)
+        genomeid = gene.id.removeprefix("gp_").removesuffix("_" + start + "_" + end)
         genomeid = ".".join(genomeid.rsplit("_", 1))
         start = int(start)
         end = int(end)
@@ -77,8 +124,14 @@ def getGenesGapseq(gapseq_genes_name: str, gapseq_model: Model, genomes: dict):
     gene_gapseq_fasta.close()
 
 
-def getLocusTagGenes(ncbi_cds_name:str, ncbi_protein_name: str, feature_table_name:str,
-                     out_nt_fasta: str, out_aa_fasta: str, do_old_locus_tag=False):
+def getLocusTagGenes(
+    ncbi_cds_name: str,
+    ncbi_protein_name: str,
+    feature_table_name: str,
+    out_nt_fasta: str,
+    out_aa_fasta: str,
+    do_old_locus_tag=False,
+):
     feature_table = pd.read_csv(feature_table_name, sep="\t")
     with open(ncbi_cds_name, "r") as cds:
         cds_lines = cds.readlines()
@@ -87,7 +140,10 @@ def getLocusTagGenes(ncbi_cds_name:str, ncbi_protein_name: str, feature_table_na
         if cdsl.startswith(">"):
             new_locus_tag = cdsl.split("[locus_tag=")[1].split("]")[0]
             if do_old_locus_tag:
-                attr = feature_table[(feature_table["locus_tag"]==new_locus_tag) & (feature_table["# feature"]=="gene")]["attributes"]
+                attr = feature_table[
+                    (feature_table["locus_tag"] == new_locus_tag)
+                    & (feature_table["# feature"] == "gene")
+                ]["attributes"]
                 if attr.empty:
                     old_locus_tag = new_locus_tag
                 elif type(attr.values[0]) != str:
@@ -98,7 +154,7 @@ def getLocusTagGenes(ncbi_cds_name:str, ncbi_protein_name: str, feature_table_na
                     old_locus_tag = attr.values[0].split("old_locus_tag=")[1]
                 out_nt.write(">" + old_locus_tag + "\n")
             else:
-                out_nt.write(">"+new_locus_tag+"\n")
+                out_nt.write(">" + new_locus_tag + "\n")
         else:
             out_nt.write(cdsl)
     out_nt.close()
@@ -108,13 +164,15 @@ def getLocusTagGenes(ncbi_cds_name:str, ncbi_protein_name: str, feature_table_na
     for protl in proteins_lines:
         if protl.startswith(">"):
             pp_id = protl.split(" ")[0][1:]
-            pnew_locus_tag = \
-                feature_table[(feature_table["product_accession"] == pp_id) & (feature_table["# feature"] == "CDS")][
-                    "locus_tag"].values[0]
+            pnew_locus_tag = feature_table[
+                (feature_table["product_accession"] == pp_id)
+                & (feature_table["# feature"] == "CDS")
+            ]["locus_tag"].values[0]
             if do_old_locus_tag:
-                attr = \
-                feature_table[(feature_table["locus_tag"] == pnew_locus_tag) & (feature_table["# feature"] == "gene")][
-                    "attributes"]
+                attr = feature_table[
+                    (feature_table["locus_tag"] == pnew_locus_tag)
+                    & (feature_table["# feature"] == "gene")
+                ]["attributes"]
                 if attr.empty:
                     pold_locus_tag = pnew_locus_tag
                 elif type(attr.values[0]) != str:
@@ -131,44 +189,67 @@ def getLocusTagGenes(ncbi_cds_name:str, ncbi_protein_name: str, feature_table_na
     out_aa.close()
 
 
-
-def runGenesConversion(model_type: [str], all_models: dict, input_genomes_names: dict, gapseq_genes_names:dict, ncbi_cds_name:str, ncbi_protein_name: str, feature_table_name:str,
-                     out_nt_fasta: str, out_aa_fasta: str, do_old_locus_tag=False):
+def runGenesConversion(
+    model_type: [str],
+    all_models: dict,
+    input_genomes_names: dict,
+    gapseq_genes_names: dict,
+    ncbi_cds_name: str,
+    ncbi_protein_name: str,
+    feature_table_name: str,
+    out_nt_fasta: str,
+    out_aa_fasta: str,
+    do_old_locus_tag=True,
+):
     os.chdir("../Data/")
-    getLocusTagGenes(ncbi_cds_name, ncbi_protein_name, feature_table_name, out_nt_fasta, out_aa_fasta, do_old_locus_tag)
-    os.system(f"makeblastdb -in {out_nt_fasta} -out ncbi_cds -dbtype nucl -title 'ncbi_cds' -parse_seqids")
-    os.system(f"makeblastdb -in {out_aa_fasta} -out ncbi_proteins -dbtype prot -title 'ncbi_proteins' -parse_seqids")
+    getLocusTagGenes(
+        ncbi_cds_name,
+        ncbi_protein_name,
+        feature_table_name,
+        out_nt_fasta,
+        out_aa_fasta,
+        do_old_locus_tag,
+    )
+    os.system(
+        f"makeblastdb -in {out_nt_fasta} -out ncbi_cds -dbtype nucl -title 'ncbi_cds' -parse_seqids"
+    )
+    os.system(
+        f"makeblastdb -in {out_aa_fasta} -out ncbi_proteins -dbtype prot -title 'ncbi_proteins' -parse_seqids"
+    )
     for typ in model_type:
         if typ == "gapseq":
             genomes = getGenome(input_genomes_names.get(typ))
             getGenesGapseq(gapseq_genes_names.get(typ), all_models.get(typ), genomes)
             os.system(
-                f"blastn -query {gapseq_genes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv")
+                f"blastn -query {gapseq_genes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
+            )
         elif typ == "agora":
             os.system(
-                f"blastn -query {input_genomes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv")
+                f"blastn -query {input_genomes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
+            )
         else:
             os.system(
-                f"blastp -query {input_genomes_names.get(typ)} -db ncbi_proteins -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv")
+                f"blastp -query {input_genomes_names.get(typ)} -db ncbi_proteins -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
+            )
 
 
 def makeNewGPR(gpr: str, g_id_convert: dict):
     new_gpr = gpr
     mix_gpr = gpr
     for old_id, new_id in g_id_convert.items():
-        new_gpr = re.sub(rf'\b{old_id}\b', new_id, new_gpr)
+        new_gpr = re.sub(rf"\b{old_id}\b", new_id, new_gpr)
         if new_id != "not_found":
-            mix_gpr = re.sub(rf'\b{old_id}\b', new_id, mix_gpr)
+            mix_gpr = re.sub(rf"\b{old_id}\b", new_id, mix_gpr)
             globals()[new_id] = symbols(new_id)
         else:
-            old_if_formated = "g_" + old_id.replace('.', "_")
-            mix_gpr = re.sub(rf'\b{old_id}\b', old_if_formated, mix_gpr)
+            old_if_formated = "g_" + old_id.replace(".", "_")
+            mix_gpr = re.sub(rf"\b{old_id}\b", old_if_formated, mix_gpr)
             globals()[old_if_formated] = symbols(old_if_formated)
-    new_gpr= re.sub(r'\bnot_found\b', "1", new_gpr)
-    new_gpr = re.sub(r'\bor\b', "+", new_gpr)
-    new_gpr = re.sub(r'\band\b', "*", new_gpr)
-    mix_gpr = re.sub(r'\bor\b', "+", mix_gpr)
-    mix_gpr = re.sub(r'\band\b', "*", mix_gpr)
+    new_gpr = re.sub(r"\bnot_found\b", "1", new_gpr)
+    new_gpr = re.sub(r"\bor\b", "+", new_gpr)
+    new_gpr = re.sub(r"\band\b", "*", new_gpr)
+    mix_gpr = re.sub(r"\bor\b", "+", mix_gpr)
+    mix_gpr = re.sub(r"\band\b", "*", mix_gpr)
     equation = sympify(new_gpr)
     equation_expanded = expand(equation)
     equation_mix = sympify(mix_gpr)
@@ -178,7 +259,7 @@ def makeNewGPR(gpr: str, g_id_convert: dict):
     else:
         new_gpr_expanded = str(equation_expanded).split(" + ")
         for i in range(len(new_gpr_expanded)):
-            genes_and =[]
+            genes_and = []
             for g in new_gpr_expanded[i].split("*"):
                 if g and (not is_float(g)):
                     genes_and.append(g)
