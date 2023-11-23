@@ -5,55 +5,12 @@ if __name__ == "__main__":
     pass
 """       
 
-    # getting metabolites and reactions that became preiplasmic for models without periplasmic compartment originally
-    periplasmic_m, periplasmic_r = structural.getSuggestionPeriplasmic(
-        models_wo_periplasmic,
-        struct_final_r_uniq,
-        struct_final_r_info,
-        bigg_db_network,
-        curated_models,
-    )
-    # getting in standart format final metabolites and reactions for supermodel creation (converted)
-    final_r = deepcopy(struct_final_r_uniq)
-    final_r_not_uniq = {}
-    for (
-        typ
-    ) in (
-        models_to_convert
-    ):  # adding n-1 (duplicated) reactions structural reactions if they are indeed originaly duplicated in models
-        true_dupl = list(
-            set(struct_final_r_not_uniq.get(typ).keys())
-            & set(duplicated_reactions.get(typ)[0]["ID"].tolist())
-        )
-        if true_dupl:
-            final_r.get(typ).update(
-                {td: struct_final_r_not_uniq.get(typ).get(td) for td in true_dupl}
-            )
-        false_dupl = list(
-            set(struct_final_r_not_uniq.get(typ).keys())
-            - set(duplicated_reactions.get(typ)[0]["ID"].tolist())
-        )
-        if false_dupl:
-            final_r_not_uniq.update(
-                {
-                    typ: {
-                        fd: struct_final_r_not_uniq.get(typ).get(fd)
-                        for fd in false_dupl
-                    }
-                }
-            )
+
     # getting in standard format not selected for not converted in supermodel
     final_m_not_sel = selection.runNotSelectedMet(
         models_to_convert, met_struct, allmet_selected
     )
-    final_r_not_sel = selection.runNotSelectedR(
-        models_to_convert,
-        final_r,
-        struct_final_r_not_consist,
-        final_r_not_uniq,
-        struct_final_r_info,
-        curated_models,
-    )
+  
     final_m = deepcopy(met_struct.get("one_one_sugg_met"))
     additional_p_m = {}
     # dealing with periplasmic metabolites: replacing if final and creating additional periplasmic metabolites if original metabolite works with boths compartments

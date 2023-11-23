@@ -248,6 +248,83 @@ class GatheredModels:
                     self.periplasmic_reactions[model_id],
                 ) = ({}, {})
 
+    def get_input_dictionaries(self):
+        final_r_sel = defaultdict(dict)
+        final_r_not_sel = defaultdict(dict)
+        final_m_sel = defaultdict(dict)
+        final_m_not_sel = defaultdict(dict)
+        periplasmic_m = defaultdict(dict)
+        for model_id in self.__models__.keys():
+            for orig_r_id, sel_r in self.third_stage_selected_reactions[
+                model_id
+            ].items():
+                if (sel_r.to_one_id == True and sel_r.from_one_id == True) or (
+                    sel_r.to_one_id == True
+                    and sel_r.from_one_id == False
+                    and orig_r_id
+                    in self.__models__[model_id]["duplicated_reactions"]["ID"].tolist()
+                ):
+                    final_r_sel[model_id].update(
+                        {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
+                    )
+                else:
+                    final_r_not_sel[model_id].update(
+                        {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
+                    )
+                if (
+                    len(
+                        self.__models__[model_id]["preprocess_model"]
+                        .reactions.get_by_id(orig_r_id)
+                        .reactants
+                    )
+                    > 24
+                ):
+                    final_r_not_sel[model_id].update(
+                        {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
+                    )
+            for orig_m_id, sel_m in self.second_stage_selected_metabolites[
+                model_id
+            ].items():
+                if orig_m_id in self.periplasmic_metabolites[model_id]:
+                    if self.periplasmic_metabolites[model_id][orig_m_id].replace:
+                        final_m_sel[model_id].update(
+                            {
+                                orig_m_id: [
+                                    ["p"],
+                                    self.periplasmic_metabolites[model_id][
+                                        orig_m_id
+                                    ].bigg_p,
+                                ]
+                            }
+                        )
+                    else:
+                        final_m_sel[model_id].update(
+                            {orig_m_id: [sel_m.compartments, sel_m.highest_consistent]}
+                        )
+                        periplasmic_m[model_id].update(
+                            {
+                                orig_m_id: [
+                                    ["p"],
+                                    self.periplasmic_metabolites[model_id][
+                                        orig_m_id
+                                    ].bigg_p,
+                                ]
+                            }
+                        )
+                else:
+                    if sel_m.to_one_id == True and sel_m.from_one_id == True:
+                        final_m_sel[model_id].update(
+                            {orig_m_id: [sel_m.compartments, sel_m.highest_consistent]}
+                        )
+                    else:
+                        final_m_not_sel[model_id].update(
+                            {orig_m_id: [sel_m.compartments, sel_m.highest_consistent]}
+                        )
+        return final_m_sel, final_m_not_sel, final_r_sel, final_r_not_sel, periplasmic_m
+
+    def assemble_supermodel(self):
+        pass
+
     def set_configuration(
         self,
         model_type: str,
