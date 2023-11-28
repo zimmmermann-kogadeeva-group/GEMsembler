@@ -1,12 +1,17 @@
 import re
+import warnings
+from pathlib import Path
+
 from cobra import Model
 import pandas as pd
 import os
 from sympy import symbols, sympify, expand
-from general import is_float
+from .general import is_float
+import ncbi_genome_download as ngd
+import gzip
 
 
-def checkNTorAA(path_fasta: str):
+def check_nt_or_aa(path_fasta: str):
     """Check whether fasta file is nt or aa.
     Codes are taken from  https://web.cas.org/help/BLAST/topics/codes.htm"""
     nt_letters = [
@@ -72,24 +77,7 @@ def checkNTorAA(path_fasta: str):
     return aa_status
 
 
-def checkGeneIDs(path_fasta: str, model: Model):
-    gene_ids = [g.id for g in model.genes]
-    with open(path_fasta) as fasta_file:
-        file_lines = fasta_file.readlines()
-    ids_intersect = []
-    for line in file_lines:
-        if line.startswith(">"):
-            id_seq = line.split()[0][1:]
-            if id_seq in gene_ids:
-                ids_intersect.append(id_seq)
-    if ids_intersect:
-        ids_same = True
-    else:
-        ids_same = False
-    return ids_same
-
-
-def getGenome(ncbi_genome_name: str):
+def get_genome(ncbi_genome_name: str):
     genomedata = open(ncbi_genome_name, "r")
     genome_lines = genomedata.readlines()
     genomedata.close()
@@ -107,8 +95,20 @@ def getGenome(ncbi_genome_name: str):
     return genomes
 
 
-def getGenesGapseq(output_gapseq_genes_name: str, gapseq_model: Model, genomes: dict):
-    gene_gapseq_fasta = open(output_gapseq_genes_name, "w")
+def get_genes_gapseq(
+    output_gene_folder: str,
+    input_gapseq_genome_name: str,
+    gapseq_model: Model,
+    model_type: str,
+    model_id: str,
+):
+    genomes = get_genome(input_gapseq_genome_name)
+    head, tail = os.path.split(input_gapseq_genome_name)
+    output_genes_name_gapseq = Path(
+        output_gene_folder,
+        f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa",
+    )
+    gene_gapseq_fasta = open(output_genes_name_gapseq, "w")
     for gene in gapseq_model.genes:
         gene_gapseq_fasta.write(">" + gene.id + "\n")
         start = gene.id.split("_")[-2]
@@ -122,115 +122,144 @@ def getGenesGapseq(output_gapseq_genes_name: str, gapseq_model: Model, genomes: 
         else:
             gene_gapseq_fasta.write(genomes.get(genomeid)[end:start] + "\n")
     gene_gapseq_fasta.close()
+    aa_status = check_nt_or_aa(output_genes_name_gapseq)
+    return output_genes_name_gapseq, aa_status
 
 
-def getLocusTagGenes(
+def get_genes_not_gapseq(
+    output_gene_folder: str,
+    input_genes_name: str,
+    model: Model,
+    model_type: str,
+    model_id: str,
+):
+    with open(input_genes_name, "r") as input_fasta:
+        lines = input_fasta.readlines()
+    head, tail = os.path.split(input_genes_name)
+    output_genes_name = os.path.join(
+        output_gene_folder,
+        f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa",
+    )
+    genes_fasta = open(output_genes_name, "w")
+    new_id = ""
+    for line in lines:
+        if line.startswith(">"):
+            if new_id != "":
+                if new_id in model.genes:
+                    genes_fasta.write(">" + new_id + "\n")
+                    genes_fasta.write(gene)
+            old_id = line.strip().split(" ")[0][1:]
+            if model_type == "carveme":
+                new_id = "_".join(old_id.rsplit(".", 1))
+            elif model_type == "agora":
+                new_id = old_id.removeprefix("fig|")
+            elif model_type == "modelseed":
+                new_id = old_id
+            else:
+                new_id = old_id
+            gene = ""
+        else:
+            gene = gene + line
+    genes_fasta.close()
+    aa_status = check_nt_or_aa(output_genes_name)
+    return output_genes_name, aa_status
+
+
+def get_locus_tag_genes(
     ncbi_cds_name: str,
     ncbi_protein_name: str,
     feature_table_name: str,
     out_nt_fasta: str,
     out_aa_fasta: str,
-    do_old_locus_tag=False,
+    do_old_locus_tag: bool,
 ):
-    feature_table = pd.read_csv(feature_table_name, sep="\t")
-    with open(ncbi_cds_name, "r") as cds:
-        cds_lines = cds.readlines()
+    feature_table = pd.read_csv(feature_table_name, sep="\t", compression="gzip")
     out_nt = open(out_nt_fasta, "w")
-    for cdsl in cds_lines:
-        if cdsl.startswith(">"):
-            new_locus_tag = cdsl.split("[locus_tag=")[1].split("]")[0]
-            if do_old_locus_tag:
-                attr = feature_table[
-                    (feature_table["locus_tag"] == new_locus_tag)
-                    & (feature_table["# feature"] == "gene")
-                ]["attributes"]
-                if attr.empty:
-                    old_locus_tag = new_locus_tag
-                elif type(attr.values[0]) != str:
-                    old_locus_tag = new_locus_tag
-                elif "old_locus_tag" not in attr.values[0]:
-                    old_locus_tag = new_locus_tag
+    with gzip.open(ncbi_cds_name, "rt") as cds:
+        for cdsl in cds:
+            if cdsl.startswith(">"):
+                new_locus_tag = cdsl.split("[locus_tag=")[1].split("]")[0]
+                if do_old_locus_tag:
+                    attr = feature_table[
+                        (feature_table["locus_tag"] == new_locus_tag)
+                        & (feature_table["# feature"] == "gene")
+                    ]["attributes"]
+                    if attr.empty:
+                        old_locus_tag = new_locus_tag
+                    elif type(attr.values[0]) != str:
+                        old_locus_tag = new_locus_tag
+                    elif "old_locus_tag" not in attr.values[0]:
+                        old_locus_tag = new_locus_tag
+                    else:
+                        old_locus_tag = attr.values[0].split("old_locus_tag=")[1]
+                    out_nt.write(">" + old_locus_tag + "\n")
                 else:
-                    old_locus_tag = attr.values[0].split("old_locus_tag=")[1]
-                out_nt.write(">" + old_locus_tag + "\n")
+                    out_nt.write(">" + new_locus_tag + "\n")
             else:
-                out_nt.write(">" + new_locus_tag + "\n")
-        else:
-            out_nt.write(cdsl)
+                out_nt.write(cdsl)
     out_nt.close()
-    with open(ncbi_protein_name, "r") as proteins:
-        proteins_lines = proteins.readlines()
     out_aa = open(out_aa_fasta, "w")
-    for protl in proteins_lines:
-        if protl.startswith(">"):
-            pp_id = protl.split(" ")[0][1:]
-            pnew_locus_tag = feature_table[
-                (feature_table["product_accession"] == pp_id)
-                & (feature_table["# feature"] == "CDS")
-            ]["locus_tag"].values[0]
-            if do_old_locus_tag:
-                attr = feature_table[
-                    (feature_table["locus_tag"] == pnew_locus_tag)
-                    & (feature_table["# feature"] == "gene")
-                ]["attributes"]
-                if attr.empty:
-                    pold_locus_tag = pnew_locus_tag
-                elif type(attr.values[0]) != str:
-                    pold_locus_tag = pnew_locus_tag
-                elif "old_locus_tag" not in attr.values[0]:
-                    pold_locus_tag = pnew_locus_tag
+    with gzip.open(ncbi_protein_name, "rt") as proteins:
+        for protl in proteins:
+            if protl.startswith(">"):
+                pp_id = protl.split(" ")[0][1:]
+                pnew_locus_tag = feature_table[
+                    (feature_table["product_accession"] == pp_id)
+                    & (feature_table["# feature"] == "CDS")
+                ]["locus_tag"].values[0]
+                if do_old_locus_tag:
+                    attr = feature_table[
+                        (feature_table["locus_tag"] == pnew_locus_tag)
+                        & (feature_table["# feature"] == "gene")
+                    ]["attributes"]
+                    if attr.empty:
+                        pold_locus_tag = pnew_locus_tag
+                    elif type(attr.values[0]) != str:
+                        pold_locus_tag = pnew_locus_tag
+                    elif "old_locus_tag" not in attr.values[0]:
+                        pold_locus_tag = pnew_locus_tag
+                    else:
+                        pold_locus_tag = attr.values[0].split("old_locus_tag=")[1]
+                    out_aa.write(">" + pold_locus_tag + "\n")
                 else:
-                    pold_locus_tag = attr.values[0].split("old_locus_tag=")[1]
-                out_aa.write(">" + pold_locus_tag + "\n")
+                    out_aa.write(">" + pnew_locus_tag + "\n")
             else:
-                out_aa.write(">" + pnew_locus_tag + "\n")
-        else:
-            out_aa.write(protl)
+                out_aa.write(protl)
     out_aa.close()
 
 
-def runGenesConversion(
-    model_type: [str],
-    all_models: dict,
-    input_genomes_names: dict,
-    gapseq_genes_names: dict,
-    ncbi_cds_name: str,
-    ncbi_protein_name: str,
-    feature_table_name: str,
-    out_nt_fasta: str,
-    out_aa_fasta: str,
-    do_old_locus_tag=True,
-):
-    os.chdir("../Data/")
-    getLocusTagGenes(
-        ncbi_cds_name,
-        ncbi_protein_name,
-        feature_table_name,
-        out_nt_fasta,
-        out_aa_fasta,
-        do_old_locus_tag,
+def get_final_fasta_with_ncbi_assemble(output_folder: str, assembly_id: str):
+    gene_path = Path(output_folder, "tmp_gene_conversion")
+    path = Path(gene_path, "ncbi_assembly")
+    Path(path).mkdir(exist_ok=True)
+    ngd.download(
+        assembly_accessions=assembly_id,
+        output=path,
+        file_formats="cds-fasta,protein-fasta,features",
+        flat_output=True,
     )
-    os.system(
-        f"makeblastdb -in {out_nt_fasta} -out ncbi_cds -dbtype nucl -title 'ncbi_cds' -parse_seqids"
+    cds_faa = ""
+    prot_faa = ""
+    feat = ""
+    for file in os.listdir(path):
+        if file.endswith("_cds_from_genomic.fna.gz"):
+            cds_faa = os.path.join(path, file)
+        if file.endswith("_protein.faa.gz"):
+            prot_faa = os.path.join(path, file)
+        if file.endswith("_feature_table.txt.gz"):
+            feat = os.path.join(path, file)
+    if not cds_faa:
+        warnings.warn("\nWarning! CDS fasta file is not found")
+    if not prot_faa:
+        warnings.warn("\nWarning! Protein fasta file is not found")
+    if not feat:
+        warnings.warn("\nWarning! Feature table is not found")
+    final_nt_faa = os.path.join(output_folder, f"final_nt_{assembly_id}.faa")
+    final_aa_faa = os.path.join(output_folder, f"final_aa_{assembly_id}.faa")
+    get_locus_tag_genes(
+        cds_faa, prot_faa, feat, final_nt_faa, final_aa_faa, do_old_locus_tag=True
     )
-    os.system(
-        f"makeblastdb -in {out_aa_fasta} -out ncbi_proteins -dbtype prot -title 'ncbi_proteins' -parse_seqids"
-    )
-    for typ in model_type:
-        if typ == "gapseq":
-            genomes = getGenome(input_genomes_names.get(typ))
-            getGenesGapseq(gapseq_genes_names.get(typ), all_models.get(typ), genomes)
-            os.system(
-                f"blastn -query {gapseq_genes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
-            )
-        elif typ == "agora":
-            os.system(
-                f"blastn -query {input_genomes_names.get(typ)} -db ncbi_cds -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
-            )
-        else:
-            os.system(
-                f"blastp -query {input_genomes_names.get(typ)} -db ncbi_proteins -max_target_seqs 1 -outfmt '6' -out {typ}_blast.tsv"
-            )
+    return final_nt_faa, final_aa_faa
 
 
 def makeNewGPR(gpr: str, g_id_convert: dict):

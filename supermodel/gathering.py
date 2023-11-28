@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from copy import deepcopy
 import logging
@@ -11,6 +12,11 @@ from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
 from .dbs import get_bigg_network
+from .genes import (
+    get_final_fasta_with_ncbi_assemble,
+    get_genes_gapseq,
+    get_genes_not_gapseq,
+)
 
 
 class LoggerContext:
@@ -74,12 +80,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        assembly_id=None,
-        path_final_genome_nt=None,
-        path_final_genome_aa=None,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -92,24 +93,28 @@ class GatheredModels:
                 "db_name": "bigg",
                 "wo_periplasmic": False,
                 "conv_strategy": ConvCarveme(),
+                "genome_model_strategy": get_genes_not_gapseq,
             },
             "gapseq": {
                 "remove_b": False,
                 "db_name": "modelseed",
                 "wo_periplasmic": False,
                 "conv_strategy": ConvGapseq(),
+                "genome_model_strategy": get_genes_gapseq,
             },
             "modelseed": {
                 "remove_b": True,
                 "db_name": "modelseed",
                 "wo_periplasmic": True,
                 "conv_strategy": ConvModelseed(),
+                "genome_model_strategy": get_genes_not_gapseq,
             },
             "agora": {
                 "remove_b": False,
                 "db_name": "weird_bigg",
                 "wo_periplasmic": True,
                 "conv_strategy": ConvAgora(),
+                "genome_model_strategy": get_genes_not_gapseq,
             },
         }
         self.__models__ = {}
@@ -126,19 +131,6 @@ class GatheredModels:
         self.many_to_one_sug = defaultdict(dict)
         self.periplasmic_metabolites = defaultdict(dict)
         self.periplasmic_reactions = defaultdict(dict)
-
-        # Check if assembly and final genome are present.
-        # If not, throw a warning.
-        if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
-            warnings.warn(
-                "\nWarning! No final genome for gene conversion is provided. "
-                "Gene conversion will not be performed.\nIf you want to "
-                "convert genes, please provide either assembly id or custom "
-                "fasta files (nt/aa/both), \nto which genes must be converted."
-            )
-            convert_genes = False
-        else:
-            convert_genes = True
 
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
@@ -322,8 +314,87 @@ class GatheredModels:
                         )
         return final_m_sel, final_m_not_sel, final_r_sel, final_r_not_sel, periplasmic_m
 
-    def assemble_supermodel(self):
-        pass
+    def assemble_supermodel(
+        self,
+        output_folder: str,
+        assembly_id=None,
+        path_final_genome_nt=None,
+        path_final_genome_aa=None,
+    ):
+
+        # Check if assembly and final genome are present.
+        # If not, throw a warning.
+        if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
+            warnings.warn(
+                "\nWarning! No final genome for gene conversion is provided. "
+                "Gene conversion will not be performed.\nIf you want to "
+                "convert genes, please provide either assembly id or custom "
+                "fasta files (nt/aa/both), \nto which genes must be converted."
+            )
+        elif assembly_id and (path_final_genome_nt or path_final_genome_aa):
+            warnings.warn(
+                "\nWarning! Both assembly and user final genome for gene conversion are provided. "
+                "Gene conversion will not be performed.\nIf you want to "
+                "convert genes, please provide one of both either assembly id or custom "
+                "fasta files (nt/aa/both), to which genes must be converted."
+            )
+        else:
+            gene_path = Path(output_folder, "tmp_gene_conversion")
+            Path(gene_path).mkdir(exist_ok=True)
+            db_path = Path(gene_path, "blast_db")
+            Path(db_path).mkdir(exist_ok=True)
+            if assembly_id:
+                (
+                    path_final_genome_nt,
+                    path_final_genome_aa,
+                ) = get_final_fasta_with_ncbi_assemble(output_folder, assembly_id)
+            if path_final_genome_nt is not None:
+                print(path_final_genome_nt)
+                os.system(
+                    f"makeblastdb -in {path_final_genome_nt} -out "
+                    f"{Path(db_path, 'nt_db')} -dbtype nucl"
+                    f" -title 'nt_db' -parse_seqids"
+                )
+            if path_final_genome_aa is not None:
+                print(path_final_genome_aa)
+                os.system(
+                    f"makeblastdb -in {path_final_genome_aa} -out "
+                    f"{Path(db_path, 'aa_db')} -dbtype"
+                    f" prot -title 'aa_db' -parse_seqids"
+                )
+            for model_id, model_data in self.__models__.items():
+                out_blast_file = Path(gene_path, model_id + "_blast.tsv")
+                model_gene_file, aa_status = self.__conf__[model_data["model_type"]][
+                    "genome_model_strategy"
+                ](
+                    gene_path,
+                    model_data["path_to_genome"],
+                    model_data["preprocess_model"],
+                    model_data["model_type"],
+                    model_id,
+                )
+                blast_command = ""
+                db_name = ""
+                if aa_status and path_final_genome_aa is not None:
+                    blast_command = "blastp"
+                    db_name = "'aa_db'"
+                elif aa_status and path_final_genome_nt is not None:
+                    blast_command = "tblastn"
+                    db_name = "'nt_db'"
+                elif not aa_status and path_final_genome_nt is not None:
+                    blast_command = "blastn"
+                    db_name = "'nt_db'"
+                elif not aa_status and path_final_genome_aa is not None:
+                    blast_command = "blastx"
+                    db_name = "'aa_db'"
+                if blast_command == "" or db_name == "":
+                    warnings.warn("\nWarning! Something wrong with aa/nt in files/DB")
+                else:
+                    os.system(
+                        f"{blast_command} -query {model_gene_file} "
+                        f"-db {Path(db_path, db_name)} "
+                        f"-max_target_seqs 1 -outfmt '6' -out {out_blast_file}"
+                    )
 
     def set_configuration(
         self,
@@ -332,6 +403,7 @@ class GatheredModels:
         db_name: str,
         wo_periplasmic: bool,
         conv_strategy,
+        genome_model_strategy,
         **kwargs,
     ):
         assert isinstance(conv_strategy, ConvBase)
@@ -342,6 +414,7 @@ class GatheredModels:
             "db_name": db_name,
             "wo_periplasmic": wo_periplasmic,
             "conv_strategy": conv_strategy,
+            "genome_model_strategy": genome_model_strategy,
             **kwargs,
         }
 
