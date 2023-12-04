@@ -269,7 +269,7 @@ class ConvAgora(ConvBase):
 
         return Converted(
             check_db=self.__bigg_r__,
-            compartment=reaction.compartments,
+            compartment=list(reaction.compartments),
             main=conv_main,
             addit=conv_addit,
             pattern=conv_pattern,

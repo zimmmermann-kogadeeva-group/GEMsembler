@@ -1,6 +1,6 @@
 import re
 import warnings
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 from cobra import Model
 import pandas as pd
@@ -11,7 +11,7 @@ import ncbi_genome_download as ngd
 import gzip
 
 
-def check_nt_or_aa(path_fasta: str):
+def check_nt_or_aa(path_fasta: PosixPath):
     """Check whether fasta file is nt or aa.
     Codes are taken from  https://web.cas.org/help/BLAST/topics/codes.htm"""
     nt_letters = [
@@ -96,7 +96,7 @@ def get_genome(ncbi_genome_name: str):
 
 
 def get_genes_gapseq(
-    output_gene_folder: str,
+    output_gene_folder: PosixPath,
     input_gapseq_genome_name: str,
     gapseq_model: Model,
     model_type: str,
@@ -104,9 +104,9 @@ def get_genes_gapseq(
 ):
     genomes = get_genome(input_gapseq_genome_name)
     head, tail = os.path.split(input_gapseq_genome_name)
-    output_genes_name_gapseq = Path(
-        output_gene_folder,
-        f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa",
+    output_genes_name_gapseq = (
+        output_gene_folder
+        / f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa"
     )
     gene_gapseq_fasta = open(output_genes_name_gapseq, "w")
     for gene in gapseq_model.genes:
@@ -127,8 +127,8 @@ def get_genes_gapseq(
 
 
 def get_genes_not_gapseq(
-    output_gene_folder: str,
-    input_genes_name: str,
+    output_gene_folder: PosixPath,
+    input_genes_name: PosixPath,
     model: Model,
     model_type: str,
     model_id: str,
@@ -136,9 +136,9 @@ def get_genes_not_gapseq(
     with open(input_genes_name, "r") as input_fasta:
         lines = input_fasta.readlines()
     head, tail = os.path.split(input_genes_name)
-    output_genes_name = os.path.join(
-        output_gene_folder,
-        f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa",
+    output_genes_name = (
+        output_gene_folder
+        / f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa"
     )
     genes_fasta = open(output_genes_name, "w")
     new_id = ""
@@ -228,10 +228,10 @@ def get_locus_tag_genes(
     out_aa.close()
 
 
-def get_final_fasta_with_ncbi_assemble(output_folder: str, assembly_id: str):
-    gene_path = Path(output_folder, "tmp_gene_conversion")
-    path = Path(gene_path, "ncbi_assembly")
-    Path(path).mkdir(exist_ok=True)
+def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: str):
+    gene_path = output_folder / "tmp_gene_conversion"
+    path = gene_path / "ncbi_assembly"
+    path.mkdir(exist_ok=True)
     ngd.download(
         assembly_accessions=assembly_id,
         output=path,
