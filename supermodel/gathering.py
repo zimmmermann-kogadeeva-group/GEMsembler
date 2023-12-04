@@ -4,7 +4,10 @@ from copy import deepcopy
 import logging
 from pathlib import Path
 import pickle
+import sys
+from typing import Type
 import warnings
+
 from cobra.io import read_sbml_model
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .curation import remove_b_type_exchange, get_duplicated_reactions
@@ -80,14 +83,23 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
             for p in Path("~/.gemsembler/").expanduser().iterdir():
                 p.unlink()
 
-        self.__conf__ = {
+        self.__conf = {
+            "agora": {
+                "remove_b": False,
+                "db_name": "weird_bigg",
+                "wo_periplasmic": True,
+                "conv_strategy": ConvAgora(),
+                "genome_model_strategy": get_genes_not_gapseq,
+            },
             "carveme": {
                 "remove_b": False,
                 "db_name": "bigg",
@@ -109,15 +121,9 @@ class GatheredModels:
                 "conv_strategy": ConvModelseed(),
                 "genome_model_strategy": get_genes_not_gapseq,
             },
-            "agora": {
-                "remove_b": False,
-                "db_name": "weird_bigg",
-                "wo_periplasmic": True,
-                "conv_strategy": ConvAgora(),
-                "genome_model_strategy": get_genes_not_gapseq,
-            },
         }
-        self.__models__ = {}
+
+        self.__models = {}
         self.converted_metabolites = defaultdict(dict)
         self.converted_reactions = defaultdict(dict)
         self.first_stage_selected_metabolites = None
@@ -132,18 +138,36 @@ class GatheredModels:
         self.periplasmic_metabolites = defaultdict(dict)
         self.periplasmic_reactions = defaultdict(dict)
 
+    def __contains__(self, item):
+        return item in self.__models
+
+    def __len__(self):
+        return len(self.__models)
+
+    def get_conf(self, model_type=None):
+        if model_type is None:
+            return deepcopy(self.__conf)
+        else:
+            return deepcopy(self.__conf.get(model_type))
+
+    def get_model_attrs(self, model_id=None):
+        if model_id is None:
+            return deepcopy(self.__models)
+        else:
+            return deepcopy(self.__models.get(model_id))
+
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
-        for model_id, model_attrs in self.__models__.items():
+        for model_id, model_attrs in self.__models.items():
             model_type = model_attrs["model_type"]
-            db_name = self.__conf__.get(model_type).get("db_name")
+            db_name = self.__conf.get(model_type).get("db_name")
             same_db_models[db_name][model_id] = model_type
         return same_db_models
 
     def run(self):
         # run conversion
-        for model_id, model_attrs in self.__models__.items():
-            conv = self.__conf__.get(model_attrs["model_type"]).get("conv_strategy")
+        for model_id, model_attrs in self.__models.items():
+            conv = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
             converted_model = conv.convert_model(model_attrs["preprocess_model"])
 
             self.converted_metabolites[model_id] = converted_model["metabolites"]
@@ -163,13 +187,13 @@ class GatheredModels:
         # run first structural conversion
         bigg_network = get_bigg_network()
         for model_id, first_sel in self.first_stage_selected_reactions.items():
-            model_type = self.__models__[model_id]["model_type"]
-            db_name = self.__conf__.get(model_type).get("db_name")
+            model_type = self.__models[model_id]["model_type"]
+            db_name = self.__conf.get(model_type).get("db_name")
             self.structural_first_run_reactions[model_id] = runStructuralConversion(
                 db_name,
                 first_sel,
                 self.first_stage_selected_metabolites[model_id],
-                self.__models__[model_id]["preprocess_model"],
+                self.__models[model_id]["preprocess_model"],
                 bigg_network,
                 False,
             )
@@ -183,8 +207,8 @@ class GatheredModels:
 
         # get suggestions from structural reactions for metabolites
         for model_id, rs_struct_sel in self.second_stage_selected_reactions.items():
-            model_type = self.__models__[model_id]["model_type"]
-            db_mod = self.__conf__.get(model_type).get("db_name")
+            model_type = self.__models[model_id]["model_type"]
+            db_mod = self.__conf.get(model_type).get("db_name")
             (
                 self.structural_first_run_metabolites[model_id],
                 self.many_to_one_sug[model_id],
@@ -201,15 +225,15 @@ class GatheredModels:
 
         # run second structural conversion with suggestions for metabolites
         for model_id, sec_sel in self.second_stage_selected_reactions.items():
-            model_type = self.__models__[model_id]["model_type"]
-            db_name = self.__conf__.get(model_type).get("db_name")
+            model_type = self.__models[model_id]["model_type"]
+            db_name = self.__conf.get(model_type).get("db_name")
             self.structural_second_run_reactions[model_id] = runStructuralConversion(
                 db_name,
                 sec_sel,
                 self.second_stage_selected_metabolites[model_id],
-                self.__models__[model_id]["preprocess_model"],
+                self.__models[model_id]["preprocess_model"],
                 bigg_network,
-                self.__conf__.get(model_type).get("wo_periplasmic"),
+                self.__conf.get(model_type).get("wo_periplasmic"),
             )
         # run third stage selection for first structural reactions
         self.third_stage_selected_reactions = run_selection(
@@ -221,7 +245,7 @@ class GatheredModels:
 
         # introducing periplasmic compartment for models, that don't have it originally
         for model_id, th_sel in self.third_stage_selected_reactions.items():
-            if self.__conf__.get(self.__models__[model_id]["model_type"]).get(
+            if self.__conf.get(self.__models[model_id]["model_type"]).get(
                 "wo_periplasmic"
             ):
                 (
@@ -231,7 +255,7 @@ class GatheredModels:
                     th_sel,
                     self.structural_second_run_reactions[model_id],
                     self.second_stage_selected_metabolites[model_id],
-                    self.__models__[model_id]["preprocess_model"],
+                    self.__models[model_id]["preprocess_model"],
                     bigg_network,
                 )
             else:
@@ -246,7 +270,7 @@ class GatheredModels:
         final_m_sel = defaultdict(dict)
         final_m_not_sel = defaultdict(dict)
         periplasmic_m = defaultdict(dict)
-        for model_id in self.__models__.keys():
+        for model_id in self.__models.keys():
             for orig_r_id, sel_r in self.third_stage_selected_reactions[
                 model_id
             ].items():
@@ -254,7 +278,7 @@ class GatheredModels:
                     sel_r.to_one_id == True
                     and sel_r.from_one_id == False
                     and orig_r_id
-                    in self.__models__[model_id]["duplicated_reactions"]["ID"].tolist()
+                    in self.__models[model_id]["duplicated_reactions"]["ID"].tolist()
                 ):
                     final_r_sel[model_id].update(
                         {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
@@ -265,7 +289,7 @@ class GatheredModels:
                     )
                 if (
                     len(
-                        self.__models__[model_id]["preprocess_model"]
+                        self.__models[model_id]["preprocess_model"]
                         .reactions.get_by_id(orig_r_id)
                         .reactants
                     )
@@ -321,7 +345,6 @@ class GatheredModels:
         path_final_genome_nt=None,
         path_final_genome_aa=None,
     ):
-
         # Check if assembly and final genome are present.
         # If not, throw a warning.
         if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
@@ -362,9 +385,9 @@ class GatheredModels:
                     f"{Path(db_path, 'aa_db')} -dbtype"
                     f" prot -title 'aa_db' -parse_seqids"
                 )
-            for model_id, model_data in self.__models__.items():
+            for model_id, model_data in self.__models.items():
                 out_blast_file = Path(gene_path, model_id + "_blast.tsv")
-                model_gene_file, aa_status = self.__conf__[model_data["model_type"]][
+                model_gene_file, aa_status = self.__conf[model_data["model_type"]][
                     "genome_model_strategy"
                 ](
                     gene_path,
@@ -409,7 +432,7 @@ class GatheredModels:
         assert isinstance(conv_strategy, ConvBase)
 
         # TODO: add checks on conf input arg
-        self.__conf__[model_type] = {
+        self.__conf[model_type] = {
             "remove_b": remove_b,
             "db_name": db_name,
             "wo_periplasmic": wo_periplasmic,
@@ -428,14 +451,13 @@ class GatheredModels:
         show_logs: bool = False,
     ):
         # Run checks on model_id and model_type
-        # TODO: check with conversion dictionaries
-        assert model_id not in self.__models__, f"model_id {model_id} already used"
-        assert model_type in self.__conf__, f"Missing configuration for {model_type}"
+        assert model_id not in self.__models, f"model_id {model_id} already used"
+        assert model_type in self.__conf, f"Missing configuration for {model_type}"
 
         model = load_sbml_model(path_to_model, cache, show_logs)
 
         # Populate the internal data
-        self.__models__[model_id] = {
+        self.__models[model_id] = {
             "original_model": deepcopy(model),
             "path_to_model": path_to_model,
             "model_type": model_type,
@@ -443,9 +465,12 @@ class GatheredModels:
         }
 
         # If model_type requires it, remove `_b` extensions
-        if self.__conf__.get(model_type).get("remove_b"):
+        if self.__conf.get(model_type).get("remove_b"):
             model = remove_b_type_exchange(model)
-        self.__models__[model_id]["preprocess_model"] = model
 
-        dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
-        self.__models__[model_id]["duplicated_reactions"] = dupl_r
+        self.__models[model_id]["preprocess_model"] = model
+
+        # Record duplicated reactions
+        self.__models[model_id]["duplicated_reactions"] = get_duplicated_reactions(
+            model
+        )

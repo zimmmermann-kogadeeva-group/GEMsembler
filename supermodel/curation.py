@@ -1,13 +1,28 @@
 import cobra
+from copy import deepcopy
 import pandas as pd
 
 
-def remove_b_type_exchange(model: cobra.core.model.Model,) -> cobra.core.model.Model:
+def remove_b_type_exchange(
+    model: cobra.core.model.Model,
+) -> cobra.core.model.Model:
     """
-    Removing boundary metabolites / exchange reactions with _b at the end if
+    Removes boundary metabolites / exchange reactions with _b at the end if
     another (_e) compartment exist. Replacing _b with normal compartment if id
     with normal compartment doesn't exist separately.
+
+    Parameters
+    ----------
+    model : cobra.core.model.Model
+        model from which metabolites and reactions in `b` comparment will be
+        removed. Input model will be unchanged.
+
+    Returns
+    -------
+    cobra.core.model.Model
+        Model without metabolites/reactions in `b` compartments
     """
+    model = deepcopy(model)
 
     # Rename metabolites ending with "_b" and if new id of a given metabolite
     # is already in the list of metabolites, then remove it
@@ -78,9 +93,15 @@ def get_rows(reaction: cobra.core.Reaction, do_not_care_about_directions=True):
 
 def get_duplicated_reactions(model):
     """
-    Returns two tables of duplicated reactions:
-    - duplicated reactions based on reactants and products
-    - duplicated reactions based on reactants, products and GPR
+    Parameters
+    ----------
+    model : cobra.core.model.Model
+        a cobra model
+
+    Returns
+    -------
+    DataFrame : pandas.DataFrame
+        table of duplicated reactions based on reactants and products
     """
     # Create a table of information on reactions. Double list comprehension is
     # needed as sometimes two reactions are returned by `get_rows()` function
@@ -89,11 +110,8 @@ def get_duplicated_reactions(model):
         columns=["ID", "Reactants", "Products", "GPR"],
     )
 
-    struct_duplicated = data[
-        data.duplicated(subset=["Reactants", "Products"], keep=False)
-    ].sort_values(["Reactants", "Products"])
-
-    gpr_duplicated = data[
-        data.duplicated(subset=["Reactants", "Products", "GPR"], keep=False)
-    ].sort_values(["Reactants", "Products", "GPR"])
-    return struct_duplicated, gpr_duplicated
+    return (
+        data[data.duplicated(subset=["Reactants", "Products"], keep=False)]
+        .sort_values(["Reactants", "Products"])
+        .reset_index(drop=True)
+    )
