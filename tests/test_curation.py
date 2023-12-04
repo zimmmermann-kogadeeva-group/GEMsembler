@@ -31,17 +31,17 @@ class TestCuration:
         # Check sizes of duplicated tables given agora model
         model = load_sbml_model("example/BU_agora.xml.gz")
         dup = get_duplicated_reactions(model)
-        assert len(dup) == 6
+        assert len(dup) == 20
 
         # Check sizes of duplicated tables given carveme model
         model = load_sbml_model("example/BU_carveme_hom.xml.gz")
         dup = get_duplicated_reactions(model)
-        assert len(dup) == 96
+        assert len(dup) == 204
 
         # Check sizes of duplicated tables given gapseq model
         model = load_sbml_model("example/BU_gapseq.xml.gz")
         dup = get_duplicated_reactions(model)
-        assert len(dup) == 78
+        assert len(dup) == 110
 
         # Check sizes of duplicated tables given modelseed model
         model = load_sbml_model("example/BU_modelSEED.sbml.gz")
