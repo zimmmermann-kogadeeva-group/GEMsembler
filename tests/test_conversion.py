@@ -36,7 +36,7 @@ class TestConversion:
         conv_reac = conv.convert_reaction(reac)
 
         # Check the converion of the reaction
-        assert conv_reac.compartments == {"c", "e"}
+        assert set(conv_reac.compartments) == {"c", "e"}
         assert conv_reac.highest == ["ADNt2"]
         assert conv_reac.level == "main"
         assert conv_reac.annot_and_main == []
