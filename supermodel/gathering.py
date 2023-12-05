@@ -134,6 +134,24 @@ class GatheredModels:
         self.periplasmic_metabolites = defaultdict(dict)
         self.periplasmic_reactions = defaultdict(dict)
 
+    def __contains__(self, item):
+        return item in self.__models
+
+    def __len__(self):
+        return len(self.__models)
+
+    def get_conf(self, model_type=None):
+        if model_type is None:
+            return deepcopy(self.__conf)
+        else:
+            return deepcopy(self.__conf.get(model_type))
+
+    def get_model_attrs(self, model_id=None):
+        if model_id is None:
+            return deepcopy(self.__models)
+        else:
+            return deepcopy(self.__models.get(model_id))
+
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
         for model_id, model_attrs in self.__models.items():
