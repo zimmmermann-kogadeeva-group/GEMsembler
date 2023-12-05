@@ -7,11 +7,12 @@ import pickle
 import warnings
 from cobra.io import read_sbml_model
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
+from .creation import SetofNewMetabolites, SetofNewReactions, SetofNewGenes, SuperModel
 from .curation import remove_b_type_exchange, get_duplicated_reactions
 from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
-from .dbs import get_bigg_network
+from .dbs import get_bigg_network, download_db
 from .genes import (
     get_final_fasta_with_ncbi_assemble,
     get_genes_gapseq,
@@ -80,9 +81,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -350,6 +349,7 @@ class GatheredModels:
                 "convert genes, please provide either assembly id or custom "
                 "fasta files (nt/aa/both), \nto which genes must be converted."
             )
+            gene_path = None
         elif assembly_id and (path_final_genome_nt or path_final_genome_aa):
             warnings.warn(
                 "\nWarning! Both assembly and user final genome for gene conversion are provided. "
@@ -357,11 +357,13 @@ class GatheredModels:
                 "convert genes, please provide one of both either assembly id or custom "
                 "fasta files (nt/aa/both), to which genes must be converted."
             )
+            gene_path = None
         else:
-            gene_path = Path(output_folder, "tmp_gene_conversion")
-            Path(gene_path).mkdir(exist_ok=True)
-            db_path = Path(gene_path, "blast_db")
-            Path(db_path).mkdir(exist_ok=True)
+            output_folder = Path(output_folder)
+            gene_path = output_folder / "tmp_gene_conversion"
+            gene_path.mkdir(exist_ok=True)
+            db_path = gene_path / "blast_db"
+            db_path.mkdir(exist_ok=True)
             if assembly_id:
                 (
                     path_final_genome_nt,
@@ -414,6 +416,53 @@ class GatheredModels:
                         f"-db {Path(db_path, db_name)} "
                         f"-max_target_seqs 1 -outfmt '6' -out {out_blast_file}"
                     )
+        # Get final tables to create new objects
+        (
+            final_m_sel,
+            final_m_not_sel,
+            final_r_sel,
+            final_r_not_sel,
+            periplasmic_m,
+            periplasmic_r,
+        ) = self.get_input_dictionaries()
+        # Creating new objects as supermodel elements
+        metabolites = SetofNewMetabolites(
+            final_m_sel, final_m_not_sel, list(self.__models.keys()), periplasmic_m
+        )
+        bigg_data_m = download_db(
+            "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
+            "bigg_models_metabolites.txt.gz",
+        )
+        metabolites.setMetaboliteAttributes(bigg_data_m)
+        reactions = SetofNewReactions(
+            final_r_sel, final_r_not_sel, list(self.__models.keys())
+        )
+        bigg_data_r = download_db(
+            "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
+            "bigg_models_reactions.txt.gz",
+        )
+        reactions.setReactionAttributes(bigg_data_r)
+        genes = SetofNewGenes(self.__models, gene_path)
+        m_go_old_new, m_go_new_old = metabolites.makeForwardBackward(
+            self.__models, final_m_sel, "metabolites", periplasmic_m,
+        )
+        r_go_old_new, r_go_new_old = reactions.makeForwardBackward(
+            self.__models, final_r_sel, "reactions"
+        )
+        supermodel = SuperModel(
+            metabolites,
+            reactions,
+            genes,
+            m_go_new_old,
+            m_go_old_new,
+            r_go_new_old,
+            r_go_old_new,
+            self.__models,
+            periplasmic_m,
+            periplasmic_r,
+            gene_path,
+        )
+        return supermodel
 
     def set_configuration(
         self,
@@ -428,7 +477,7 @@ class GatheredModels:
         assert isinstance(conv_strategy, ConvBase)
 
         # TODO: add checks on conf input arg
-        self.__conf__[model_type] = {
+        self.__conf[model_type] = {
             "remove_b": remove_b,
             "db_name": db_name,
             "wo_periplasmic": wo_periplasmic,
@@ -448,13 +497,13 @@ class GatheredModels:
     ):
         # Run checks on model_id and model_type
         # TODO: check with conversion dictionaries
-        assert model_id not in self.__models__, f"model_id {model_id} already used"
-        assert model_type in self.__conf__, f"Missing configuration for {model_type}"
+        assert model_id not in self.__models, f"model_id {model_id} already used"
+        assert model_type in self.__conf, f"Missing configuration for {model_type}"
 
         model = load_sbml_model(path_to_model, cache, show_logs)
 
         # Populate the internal data
-        self.__models__[model_id] = {
+        self.__models[model_id] = {
             "original_model": deepcopy(model),
             "path_to_model": path_to_model,
             "model_type": model_type,
@@ -462,9 +511,9 @@ class GatheredModels:
         }
 
         # If model_type requires it, remove `_b` extensions
-        if self.__conf__.get(model_type).get("remove_b"):
+        if self.__conf.get(model_type).get("remove_b"):
             model = remove_b_type_exchange(model)
-        self.__models__[model_id]["preprocess_model"] = model
+        self.__models[model_id]["preprocess_model"] = model
 
-        dupl_r, dupl_r_gpr = get_duplicated_reactions(model)
-        self.__models__[model_id]["duplicated_reactions"] = dupl_r
+        dupl_r = get_duplicated_reactions(model)
+        self.__models[model_id]["duplicated_reactions"] = dupl_r
