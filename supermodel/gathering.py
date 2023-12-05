@@ -146,11 +146,13 @@ class GatheredModels:
         else:
             return deepcopy(self.__conf.get(model_type))
 
-    def get_model_attrs(self, model_id=None):
-        if model_id is None:
-            return deepcopy(self.__models)
-        else:
+    def get_model_attrs(self, model_id=None, attr=None):
+        if model_id is not None and attr is not None:
+            return deepcopy(self.__models.get(model_id).get(attr))
+        elif model_id is not None:
             return deepcopy(self.__models.get(model_id))
+        else:
+            return deepcopy(self.__models)
 
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
