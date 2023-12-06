@@ -3,8 +3,9 @@ import operator
 from collections import Counter
 import numpy
 from scipy.stats import mode
-from creation import SuperModel, NewObject, SetofNewReactions, SetofNewMetabolites
-from general import findKeysByValue
+from .general import findKeysByValue
+
+# from .creation import SuperModel, NewObject, SetofNewReactions, SetofNewMetabolites
 
 
 def getCoreConnections(
@@ -174,10 +175,7 @@ def getCoreGPR(
 
 
 def getCore(
-    supermodel: SuperModel,
-    core_size: int,
-    compare_operator: operator,
-    and_as_solid: bool,
+    supermodel, core_size: int, compare_operator: operator, and_as_solid: bool,
 ):
     """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
      sources). Getting supermodel union of all sources. """
@@ -254,9 +252,7 @@ def getCore(
                 getattr(supermodel.reactions, coreN).update({react.id: react})
 
 
-def getDifConnections(
-    connections: dict, sourceIn: [str], sourceNotIn: [str]
-) -> [NewObject]:
+def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]):
     """ Getting connections (reactants/products/ for reaction or reactions for metabolites or genes for reactions and vv)
      that are present in "sourceIn" list of sources = original models and not present in "sourceNotIn"
      list of sources = original models. """
@@ -310,9 +306,7 @@ def getSomeCoefficients(
     return coefficients
 
 
-def getDifGPR(
-    gprs: dict, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool
-) -> [NewObject]:
+def getDifGPR(gprs: dict, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool):
     """ Getting logical (or) parts of gene_reaction_rules (...and...)or(...) that are present in "sourceIn"
     list of sources = original models and not present in "sourceNotIn" list of sources = original models.
     While whether consider genes in (...and..) as solid thing is controlled by binary variable. """
@@ -390,11 +384,7 @@ def getDifGPR(
 
 
 def getDifference(
-    supermodel: SuperModel,
-    sourceIn: [str],
-    sourceNotIn: [str],
-    and_as_solid: bool,
-    Nletter=1,
+    supermodel, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool, Nletter=1,
 ):
     """ Getting metabolites and reactions that are present in "sourceIn" list of sources = original models
     and not present in "sourceNotIn" list of sources = original models. """
@@ -471,7 +461,7 @@ def getDifference(
             getattr(supermodel.reactions, name).update({react.id: react})
 
 
-def getVennSegments(supermodel: SuperModel, and_as_solid: bool, Nletter=1):
+def getVennSegments(supermodel, and_as_solid: bool, Nletter=1):
     """ Getting metabolites and reactions networks for each Venn segment in Venn diagram. """
     combinations = []
     for i in range(1, len(supermodel.sources)):
@@ -483,7 +473,7 @@ def getVennSegments(supermodel: SuperModel, and_as_solid: bool, Nletter=1):
 
 
 def runComparison(
-    supermodel: SuperModel,
+    supermodel,
     run_all=True,
     core_size=None,
     compare_operator=None,

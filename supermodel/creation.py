@@ -7,6 +7,13 @@ from zipfile import Path
 
 from future.moves import itertools
 
+from .comparison import (
+    getCoreConnections,
+    getCoreGPR,
+    getCoreLowerBounds,
+    getCoreCoefficients,
+    getCoreUpperBounds,
+)
 from .general import findKeysByValue
 from .genes import makeNewGPR, uniteGPR
 import pandas as pd
@@ -321,7 +328,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
 
-    def findReactions(
+    def __find_reactions(
         self,
         metabolite: NewObject,
         m_go_new_old: dict,
@@ -371,7 +378,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 if new_r:
                     metabolite.reactions[model_id] = list(set(new_r))
 
-    def findMetabolites(
+    def __find_metabolites(
         self,
         reaction: NewObject,
         r_go_new_old: dict,
@@ -524,7 +531,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 {new_mets[0]: koef}
                             )
 
-    def findGenes(
+    def __find_genes(
         self,
         all_models_data: dict,
         r_go_old_new: dict,
@@ -601,7 +608,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         united_gpr = uniteGPR(new_gpr_unite_r)
                         reaction.gene_reaction_rule.get(model_id).append(united_gpr)
 
-    def findConnections(
+    def __find_connections(
         self,
         m_go_new_old: dict,
         m_go_old_new: dict,
@@ -614,18 +621,18 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     ):
         model_ids = list(all_models_data.keys())
         for met in self.metabolites.assembly_conv.values():
-            self.findReactions(
+            self.__find_reactions(
                 met, m_go_new_old, r_go_old_new, model_ids, periplasmic_r, periplasmic_m
             )
         for r in self.reactions.assembly_conv.values():
-            self.findMetabolites(
+            self.__find_metabolites(
                 r, r_go_new_old, m_go_old_new, model_ids, periplasmic_r
             )
-        self.findGenes(
+        self.__find_genes(
             all_models_data, r_go_old_new, r_go_new_old, model_ids, gene_folder
         )
 
-    def getAdditionalAttributes(
+    def __get_additional_attributes(
         self, model_ids: [str], m_go_new_old: dict, r_go_new_old: dict
     ):
         for met in self.metabolites.assembly_conv.values():
@@ -650,40 +657,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     r.upper_bound.get(mod_id).append(upp_b)
                     r.subsystem.get(mod_id).append("#or#".join(subsys))
 
-    def __init__(
-        self,
-        metabolites: SetofNewMetabolites,
-        reactions: SetofNewReactions,
-        genes: SetofNewGenes,
-        m_go_new_old: dict,
-        m_go_old_new: dict,
-        r_go_new_old: dict,
-        r_go_old_new: dict,
-        all_models_data: dict,
-        periplasmic_r: dict,
-        additional_periplasmic_m: dict,
-        gene_folder,
-    ):
-        self.metabolites = metabolites
-        self.reactions = reactions
-        self.genes = genes
-        self.sources = list(all_models_data.keys())
-        self.findConnections(
-            m_go_new_old,
-            m_go_old_new,
-            r_go_new_old,
-            r_go_old_new,
-            all_models_data,
-            periplasmic_r,
-            additional_periplasmic_m,
-            gene_folder,
-        )
-        self.getAdditionalAttributes(self.sources, m_go_new_old, r_go_new_old)
-        # supermodel.addBiomass(
-        #     model_type, m_go_old_new, all_models, final_r_not_sel, final_m_not_sel
-        # )
-
-    def swapReactantsAndProducts(self, r: NewObject, sources_to_swap: list):
+    def __swapReactantsAndProducts(self, r: NewObject, sources_to_swap: list):
         for s in sources_to_swap:
             a = r.reactants.get(s)
             b = r.products.get(s)
@@ -696,7 +670,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             for met, koef in r.metabolites.get(s).items():
                 r.metabolites.get(s)[met] = koef * -1
 
-    def runSwitchedMetabolites(self):
+    def __runSwitchedMetabolites(self):
         for r in self.reactions.assembly_conv.values():
             ex = False
             react_in = r.reactants[r.in_models["models_list"][0]]
@@ -733,7 +707,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         source_to_swap = list(
                             set(r.in_models["models_list"]) - set(consist[0])
                         )
-                        self.swapReactantsAndProducts(r, source_to_swap)
+                        self.__swapReactantsAndProducts(r, source_to_swap)
                     elif len(consist) == 2:
                         lb1 = 0
                         lb2 = 0
@@ -751,7 +725,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                             swap = consist[0]
                         if swap:
                             # "Case 2: boundary"
-                            self.swapReactantsAndProducts(r, swap)
+                            self.__swapReactantsAndProducts(r, swap)
                         else:
                             # "Case 3: Nothing sort"
                             sel = sorted(r.in_models["models_list"])[0]
@@ -762,7 +736,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                     & set(r.reactants.get(sel))
                                 ):
                                     not_sel.append(tmp)
-                            self.swapReactantsAndProducts(r, not_sel)
+                            self.__swapReactantsAndProducts(r, not_sel)
                     # Maybe remove, since len(consist) is expected to be only 1 or 2
                     else:
                         print("Can enter consist more 2")
@@ -774,4 +748,77 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 set(r.reactants.get(tmp)) & set(r.reactants.get(sel))
                             ):
                                 not_sel.append(tmp)
-                        self.swapReactantsAndProducts(r, not_sel)
+                        self.__swapReactantsAndProducts(r, not_sel)
+
+    def __assemble_attributes(self, and_as_solid: bool):
+        for met in self.metabolites.assembly_conv.values():
+            ass_r = getCoreConnections(met.reactions, 1, operator.ge, self.sources)
+            met.reactions.update({"assembly": ass_r})
+        for gene in self.genes.assembly_conv.values():
+            ass_rg = getCoreConnections(gene.reactions, 1, operator.ge, self.sources)
+            gene.reactions.update({"assembly": ass_rg})
+        for react in self.reactions.assembly_conv.values():
+            ass_reactants = getCoreConnections(
+                react.reactants, 1, operator.ge, self.sources
+            )
+            ass_products = getCoreConnections(
+                react.products, 1, operator.ge, self.sources
+            )
+            ass_genes = getCoreConnections(react.genes, 1, operator.ge, self.sources)
+            ass_gpr = getCoreGPR(
+                react.gene_reaction_rule, 1, operator.ge, self.sources, and_as_solid,
+            )
+            ass_lower_bound = getCoreLowerBounds(
+                react.lower_bound, 1, react.in_models["models_list"]
+            )
+            ass_upper_bound = getCoreUpperBounds(
+                react.upper_bound, 1, react.in_models["models_list"]
+            )
+            react.reactants.update({"assembly": ass_reactants})
+            react.products.update({"assembly": ass_products})
+            react.genes.update({"assembly": ass_genes})
+            react.gene_reaction_rule.update({"assembly": ass_gpr})
+            react.lower_bound.update({"assembly": ass_lower_bound})
+            react.upper_bound.update({"assembly": ass_upper_bound})
+            core_metabolites = getCoreCoefficients(
+                react.metabolites,
+                react.reactants,
+                react.products,
+                "assembly",
+                1,
+                react.in_models["models_list"],
+            )
+            react.metabolites.update({"assembly": core_metabolites})
+
+    def __init__(
+        self,
+        metabolites: SetofNewMetabolites,
+        reactions: SetofNewReactions,
+        genes: SetofNewGenes,
+        m_go_new_old: dict,
+        m_go_old_new: dict,
+        r_go_new_old: dict,
+        r_go_old_new: dict,
+        all_models_data: dict,
+        periplasmic_r: dict,
+        additional_periplasmic_m: dict,
+        gene_folder,
+        and_as_solid: bool,
+    ):
+        self.metabolites = metabolites
+        self.reactions = reactions
+        self.genes = genes
+        self.sources = list(all_models_data.keys())
+        self.__find_connections(
+            m_go_new_old,
+            m_go_old_new,
+            r_go_new_old,
+            r_go_old_new,
+            all_models_data,
+            periplasmic_r,
+            additional_periplasmic_m,
+            gene_folder,
+        )
+        self.__get_additional_attributes(self.sources, m_go_new_old, r_go_new_old)
+        self.__runSwitchedMetabolites()
+        self.__assemble_attributes(and_as_solid)

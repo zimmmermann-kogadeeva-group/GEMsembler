@@ -1,10 +1,8 @@
 import itertools
-from itertools import groupby, combinations
-import operator
+from itertools import combinations
 from copy import deepcopy
 import cobra
-from collections import Counter, defaultdict
-from .general import findKeysByValue
+from collections import defaultdict
 from .selection import Selected
 
 

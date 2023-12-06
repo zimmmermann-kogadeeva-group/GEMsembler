@@ -358,6 +358,7 @@ class GatheredModels:
         assembly_id=None,
         path_final_genome_nt=None,
         path_final_genome_aa=None,
+        and_as_solid=False,
     ):
 
         # Check if assembly and final genome are present.
@@ -481,8 +482,8 @@ class GatheredModels:
             periplasmic_m,
             periplasmic_r,
             gene_path,
+            and_as_solid,
         )
-        supermodel.runSwitchedMetabolites()
         return supermodel
 
     def set_configuration(
