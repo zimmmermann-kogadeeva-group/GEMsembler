@@ -130,7 +130,7 @@ class TestConversion:
         assert conv_reac.annot_and_main == ["HSDxi"]
         assert conv_reac.annot == []
         assert conv_reac.main == []
-        assert set(conv_reac.addit) == set(["HSDH_h", "HSDH_m"])
+        assert set(conv_reac.addit) == {"HSDH_h", "HSDH_m"}
         assert conv_reac.pattern == []
         assert conv_reac.no_conv == []
 

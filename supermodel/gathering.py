@@ -482,6 +482,7 @@ class GatheredModels:
             periplasmic_r,
             gene_path,
         )
+        supermodel.runSwitchedMetabolites()
         return supermodel
 
     def set_configuration(

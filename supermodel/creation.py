@@ -1,7 +1,13 @@
+import operator
 import warnings
 from collections import defaultdict
+from math import ceil
 from pathlib import PosixPath
 from zipfile import Path
+
+from future.moves import itertools
+
+from .general import findKeysByValue
 from .genes import makeNewGPR, uniteGPR
 import pandas as pd
 
@@ -677,187 +683,95 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         #     model_type, m_go_old_new, all_models, final_r_not_sel, final_m_not_sel
         # )
 
-    # def addBiomass(
-    #     self,
-    #     types: [str],
-    #     m_goOldNew: dict,
-    #     all_models: dict,
-    #     final_r_not_sel: dict,
-    #     final_m_not_sel: dict,
-    # ):
-    #     new_biomass = None
-    #     for typ in types:
-    #         for r in all_models.get(typ).reactions:
-    #             if len(r.reactants) > 24:
-    #                 if not new_biomass:
-    #                     new_biomass = NewObject(
-    #                         "Biomass",
-    #                         r.id,
-    #                         final_r_not_sel.get(typ).get(r.id)[0],
-    #                         typ,
-    #                         types,
-    #                         {},
-    #                     )
-    #                     new_biomass.name = "Biomass"
-    #                     new_biomass.reaction = ""
-    #                     new_biomass.reactants = {typ: []}
-    #                     new_biomass.products = {typ: []}
-    #                     new_biomass.metabolites = {typ: {}}
-    #                     new_biomass.genes = {typ: []}
-    #                     new_biomass.gene_reaction_rule = {typ: []}
-    #                     new_biomass.lower_bound = {typ: [r.lower_bound]}
-    #                     new_biomass.upper_bound = {typ: [r.upper_bound]}
-    #                     new_biomass.subsystem = {typ: [r.subsystem]}
-    #                     nc_biomass = NewObject(
-    #                         "Biomass",
-    #                         r.id,
-    #                         final_r_not_sel.get(typ).get(r.id)[0],
-    #                         typ,
-    #                         types,
-    #                         {},
-    #                     )
-    #                     nc_biomass.name = "Biomass"
-    #                     nc_biomass.reaction = ""
-    #                     nc_biomass.reactants = {typ: []}
-    #                     nc_biomass.products = {typ: []}
-    #                     nc_biomass.metabolites = {typ: {}}
-    #                     nc_biomass.genes = {typ: []}
-    #                     nc_biomass.gene_reaction_rule = {typ: []}
-    #                     nc_biomass.lower_bound = {typ: [r.lower_bound]}
-    #                     nc_biomass.upper_bound = {typ: [r.upper_bound]}
-    #                     nc_biomass.subsystem = {typ: [r.subsystem]}
-    #                 else:
-    #                     new_biomass.updateNewObject(
-    #                         r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ
-    #                     )
-    #                     new_biomass.reactants.update({typ: []})
-    #                     new_biomass.products.update({typ: []})
-    #                     new_biomass.metabolites.update({typ: {}})
-    #                     new_biomass.genes.update({typ: []})
-    #                     new_biomass.gene_reaction_rule.update({typ: []})
-    #                     new_biomass.lower_bound.update({typ: [r.lower_bound]})
-    #                     new_biomass.upper_bound.update({typ: [r.upper_bound]})
-    #                     new_biomass.subsystem.update({typ: [r.subsystem]})
-    #                     nc_biomass.updateNewObject(
-    #                         r.id, final_r_not_sel.get(typ).get(r.id)[0], {}, typ
-    #                     )
-    #                     nc_biomass.reactants.update({typ: []})
-    #                     nc_biomass.products.update({typ: []})
-    #                     nc_biomass.metabolites.update({typ: {}})
-    #                     nc_biomass.genes.update({typ: []})
-    #                     nc_biomass.gene_reaction_rule.update({typ: []})
-    #                     nc_biomass.lower_bound.update({typ: [r.lower_bound]})
-    #                     nc_biomass.upper_bound.update({typ: [r.upper_bound]})
-    #                     nc_biomass.subsystem.update({typ: [r.subsystem]})
-    #                 biomass_react = [mr.id for mr in r.reactants]
-    #                 for reactant in biomass_react:
-    #                     new_reactants = m_goOldNew.get(typ).get(reactant)
-    #                     if new_reactants:
-    #                         new_biomass.reactants.get(typ).append(new_reactants[0])
-    #                         new_biomass.metabolites.get(typ).update(
-    #                             {
-    #                                 new_reactants[0]: r.metabolites.get(
-    #                                     all_models.get(typ).metabolites.get_by_id(
-    #                                         reactant
-    #                                     )
-    #                                 )
-    #                             }
-    #                         )
-    #                         new_reactants[0].reactions.get(typ).append(new_biomass)
-    #                     else:
-    #                         if not final_m_not_sel.get(typ).get(reactant)[1]:
-    #                             nc_biomass.reactants.get(typ).append(
-    #                                 self.metabolites.notconverted.get(reactant)
-    #                             )
-    #                             nc_biomass.metabolites.get(typ).update(
-    #                                 {
-    #                                     self.metabolites.notconverted.get(
-    #                                         reactant
-    #                                     ): r.metabolites.get(
-    #                                         all_models.get(typ).metabolites.get_by_id(
-    #                                             reactant
-    #                                         )
-    #                                     )
-    #                                 }
-    #                             )
-    #                             self.metabolites.notconverted.get(
-    #                                 reactant
-    #                             ).reactions.get(typ).append(nc_biomass)
-    #                         else:
-    #                             for bigg_reactant in final_m_not_sel.get(typ).get(
-    #                                 reactant
-    #                             )[1]:
-    #                                 nc_biomass.reactants.get(typ).append(
-    #                                     self.metabolites.notconverted.get(bigg_reactant)
-    #                                 )
-    #                                 nc_biomass.metabolites.get(typ).update(
-    #                                     {
-    #                                         self.metabolites.notconverted.get(
-    #                                             bigg_reactant
-    #                                         ): r.metabolites.get(
-    #                                             all_models.get(
-    #                                                 typ
-    #                                             ).metabolites.get_by_id(reactant)
-    #                                         )
-    #                                     }
-    #                                 )
-    #                                 self.metabolites.notconverted.get(
-    #                                     bigg_reactant
-    #                                 ).reactions.get(typ).append(nc_biomass)
-    #                 biomass_pro = [mp.id for mp in r.products]
-    #                 for product in biomass_pro:
-    #                     new_products = m_goOldNew.get(typ).get(product)
-    #                     if new_products:
-    #                         new_biomass.products.get(typ).append(new_products[0])
-    #                         new_biomass.metabolites.get(typ).update(
-    #                             {
-    #                                 new_products[0]: r.metabolites.get(
-    #                                     all_models.get(typ).metabolites.get_by_id(
-    #                                         product
-    #                                     )
-    #                                 )
-    #                             }
-    #                         )
-    #                         new_products[0].reactions.get(typ).append(new_biomass)
-    #                     else:
-    #                         if not final_m_not_sel.get(typ).get(product)[1]:
-    #                             nc_biomass.products.get(typ).append(
-    #                                 self.metabolites.notconverted.get(product)
-    #                             )
-    #                             nc_biomass.metabolites.get(typ).update(
-    #                                 {
-    #                                     self.metabolites.notconverted.get(
-    #                                         product
-    #                                     ): r.metabolites.get(
-    #                                         all_models.get(typ).metabolites.get_by_id(
-    #                                             product
-    #                                         )
-    #                                     )
-    #                                 }
-    #                             )
-    #                             self.metabolites.notconverted.get(
-    #                                 product
-    #                             ).reactions.get(typ).append(nc_biomass)
-    #                         else:
-    #                             for bigg_product in final_m_not_sel.get(typ).get(
-    #                                 product
-    #                             )[1]:
-    #                                 nc_biomass.products.get(typ).append(
-    #                                     self.metabolites.notconverted.get(bigg_product)
-    #                                 )
-    #                                 nc_biomass.metabolites.get(typ).update(
-    #                                     {
-    #                                         self.metabolites.notconverted.get(
-    #                                             bigg_product
-    #                                         ): r.metabolites.get(
-    #                                             all_models.get(
-    #                                                 typ
-    #                                             ).metabolites.get_by_id(product)
-    #                                         )
-    #                                     }
-    #                                 )
-    #                                 self.metabolites.notconverted.get(
-    #                                     bigg_product
-    #                                 ).reactions.get(typ).append(nc_biomass)
-    #     self.reactions.converted.update({"Biomass": new_biomass})
-    #     self.reactions.notconverted.update({"Biomass": nc_biomass})
+    def swapReactantsAndProducts(self, r: NewObject, sources_to_swap: list):
+        for s in sources_to_swap:
+            a = r.reactants.get(s)
+            b = r.products.get(s)
+            r.reactants[s] = b
+            r.products[s] = a
+            aa = r.lower_bound.get(s)[0] * -1
+            bb = r.upper_bound.get(s)[0] * -1
+            r.lower_bound[s] = [bb]
+            r.upper_bound[s] = [aa]
+            for met, koef in r.metabolites.get(s).items():
+                r.metabolites.get(s)[met] = koef * -1
+
+    def runSwitchedMetabolites(self):
+        for r in self.reactions.assembly_conv.values():
+            ex = False
+            react_in = r.reactants[r.in_models["models_list"][0]]
+            pro_in = r.products[r.in_models["models_list"][0]]
+            for tmp in r.in_models["models_list"]:
+                react_in = list(set(react_in) and set(r.reactants.get(tmp)))
+                pro_in = list(set(pro_in) and set(r.products.get(tmp)))
+                if (not r.reactants.get(tmp)) | (not r.products.get(tmp)):
+                    ex = True
+            if not ex:
+                if (not react_in) | (not pro_in):
+                    # if r.in_models["models_amount"] % 2 != 0:
+                    for i in range(
+                        r.in_models["models_amount"] - 1,
+                        ceil(r.in_models["models_amount"] / 2),
+                        -1,
+                    ):
+                        combinations = list(
+                            itertools.combinations(r.in_models["models_list"], i)
+                        )
+                        consist = []
+                        for comb in combinations:
+                            react_in_comb = r.reactants[comb[0]]
+                            for c in comb:
+                                react_in_comb = list(
+                                    set(react_in_comb) and set(r.reactants.get(c))
+                                )
+                            if react_in_comb:
+                                consist.append(comb)
+                        if consist:
+                            break
+                    if len(consist) == 1:
+                        # "Case 1: majority"
+                        source_to_swap = list(
+                            set(r.in_models["models_list"]) - set(consist[0])
+                        )
+                        self.swapReactantsAndProducts(r, source_to_swap)
+                    elif len(consist) == 2:
+                        lb1 = 0
+                        lb2 = 0
+                        for tmp in r.in_models["models_list"]:
+                            if tmp in consist[0]:
+                                if r.lower_bound.get(tmp)[0] < lb1:
+                                    lb1 = r.lower_bound.get(tmp)[0]
+                            if tmp in consist[1]:
+                                if r.lower_bound.get(tmp)[0] < lb2:
+                                    lb2 = r.lower_bound.get(tmp)[0]
+                        swap = None
+                        if (lb1 >= 0) & (lb2 < 0):
+                            swap = consist[1]
+                        if (lb1 < 0) & (lb2 >= 0):
+                            swap = consist[0]
+                        if swap:
+                            # "Case 2: boundary"
+                            self.swapReactantsAndProducts(r, swap)
+                        else:
+                            # "Case 3: Nothing sort"
+                            sel = sorted(r.in_models["models_list"])[0]
+                            not_sel = []
+                            for tmp in sorted(r.in_models["models_list"])[1:]:
+                                if not (
+                                    set(r.reactants.get(tmp))
+                                    & set(r.reactants.get(sel))
+                                ):
+                                    not_sel.append(tmp)
+                            self.swapReactantsAndProducts(r, not_sel)
+                    # Maybe remove, since len(consist) is expected to be only 1 or 2
+                    else:
+                        print("Can enter consist more 2")
+                        # "Case 3: Nothing sort"
+                        sel = sorted(r.in_models["models_list"])[0]
+                        not_sel = []
+                        for tmp in sorted(r.in_models["models_list"])[1:]:
+                            if not (
+                                set(r.reactants.get(tmp)) & set(r.reactants.get(sel))
+                            ):
+                                not_sel.append(tmp)
+                        self.swapReactantsAndProducts(r, not_sel)
