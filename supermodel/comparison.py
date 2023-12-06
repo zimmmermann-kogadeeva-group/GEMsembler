@@ -1,17 +1,17 @@
 import itertools
 import operator
+import sys
 from collections import Counter
 import numpy
 from scipy.stats import mode
 from .general import findKeysByValue
 
-# from .creation import SuperModel, NewObject, SetofNewReactions, SetofNewMetabolites
-
 
 def getCoreConnections(
-    connections: dict, core_size: int, compare_operator: operator, sources: [str]
+        connections: dict, core_size: int, compare_operator: operator, sources: [str]
 ) -> [str]:
-    """ Getting connections (reactants/products/ for reaction or reactions for metabolites or genes for reactions and vv)
+    """ Getting connections (reactants/products/ for reaction or reactions for
+    metabolites or genes for reactions and vv)
      that are present in more than core_size sources = original models. """
     all_connections = []
     for s in sources:
@@ -59,17 +59,21 @@ def getCoreLowerBounds(bounds: dict, core_size: int, sources: [str]) -> [str]:
 
 
 def getCoreCoefficients(
-    metabolites: dict,
-    reactants: dict,
-    products: dict,
-    core_name: str,
-    core_size: int,
-    sources: [str],
+        metabolites: dict,
+        reactants: dict,
+        products: dict,
+        core_name: str,
+        core_size: int,
+        sources: [str],
+        search_in_comparison=True
 ) -> dict:
     """ Getting core coefficients for metabolites via average of all possible modes of core_size number sources """
     core_metabolites = {}
     if len(sources) >= core_size:
         combinations = list(itertools.combinations(sources, core_size))
+        if search_in_comparison:
+            reactants = reactants["comparison"]
+            products = products["comparison"]
         for rea in reactants.get(core_name):
             k_mean = []
             for combination in combinations:
@@ -96,15 +100,16 @@ def getCoreCoefficients(
 
 
 def getCoreGPR(
-    gprs: dict,
-    core_size: int,
-    compare_operator: operator,
-    sources: [str],
-    and_as_solid: bool,
+        gprs: dict,
+        core_size: int,
+        compare_operator: operator,
+        sources: [str],
+        and_as_solid: bool,
 ) -> [str]:
-    """ Getting logical (or) parts of gene_reaction_rules (...and...)or(...) for reaction that are present in more then
-     core_size sources = original models. While whether consider genes in (...and..) as solid thing is controlled
-     by binary variable"""
+    """ Getting logical (or) parts of gene_reaction_rules (...and...)or(...)
+    for reaction that are present in more than core_size sources = original models.
+    While whether consider genes in (...and...) as solid thing is controlled
+    by binary variable"""
     if not and_as_solid:
         s_comb = []
         if compare_operator == operator.ge:
@@ -175,7 +180,7 @@ def getCoreGPR(
 
 
 def getCore(
-    supermodel, core_size: int, compare_operator: operator, and_as_solid: bool,
+        supermodel, core_size: int, compare_operator: operator, and_as_solid: bool,
 ):
     """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
      sources). Getting supermodel union of all sources. """
@@ -188,30 +193,21 @@ def getCore(
             "Comparison operator is not supported. Has to be operator.ge (>=) or operator.eq (==)"
         )
         return
-    for met in supermodel.metabolites.converted.values():
-        tmp_models = findKeysByValue(met.sources, 1, operator.ge)
+    for met in supermodel.metabolites.assembly_conv.values():
         core_r = getCoreConnections(
             met.reactions, core_size, compare_operator, supermodel.sources
         )
-        met.reactions.update({coreN: core_r})
-        if compare_operator(len(tmp_models), core_size):
-            if core_size == 1:
-                supermodel.metabolites.converted.update({met.id: met})
-            else:
-                getattr(supermodel.metabolites, coreN).update({met.id: met})
-    for gene in supermodel.genes.converted.values():
-        tmp_models = findKeysByValue(gene.sources, 1, operator.ge)
+        met.reactions["comparison"].update({coreN: core_r})
+        if compare_operator(met.in_models["models_amount"], core_size):
+            supermodel.metabolites.comparison[coreN].update({met.id: met})
+    for gene in supermodel.genes.assembly_conv.values():
         core_rg = getCoreConnections(
             gene.reactions, core_size, compare_operator, supermodel.sources
         )
-        gene.reactions.update({coreN: core_rg})
-        if compare_operator(len(tmp_models), core_size):
-            if core_size == 1:
-                supermodel.genes.converted.update({gene.id: gene})
-            else:
-                getattr(supermodel.genes, coreN).update({gene.id: gene})
-    for react in supermodel.reactions.converted.values():
-        tmp_models = findKeysByValue(react.sources, 1, operator.ge)
+        gene.reactions["comparison"].update({coreN: core_rg})
+        if compare_operator(gene.in_models["models_amount"], core_size):
+            supermodel.genes.comparison[coreN].update({gene.id: gene})
+    for react in supermodel.reactions.assembly_conv.values():
         core_reactants = getCoreConnections(
             react.reactants, core_size, compare_operator, supermodel.sources
         )
@@ -228,28 +224,29 @@ def getCore(
             supermodel.sources,
             and_as_solid,
         )
-        core_lower_bound = getCoreLowerBounds(react.lower_bound, core_size, tmp_models)
-        core_upper_bound = getCoreUpperBounds(react.upper_bound, core_size, tmp_models)
-        react.reactants.update({coreN: core_reactants})
-        react.products.update({coreN: core_products})
-        react.genes.update({coreN: core_genes})
-        react.gene_reaction_rule.update({coreN: core_gpr})
-        react.lower_bound.update({coreN: core_lower_bound})
-        react.upper_bound.update({coreN: core_upper_bound})
+        core_lower_bound = getCoreLowerBounds(
+            react.lower_bound, core_size, react.in_models["models_list"]
+        )
+        core_upper_bound = getCoreUpperBounds(
+            react.upper_bound, core_size, react.in_models["models_list"]
+        )
+        react.reactants["comparison"].update({coreN: core_reactants})
+        react.products["comparison"].update({coreN: core_products})
+        react.genes["comparison"].update({coreN: core_genes})
+        react.gene_reaction_rule["comparison"].update({coreN: core_gpr})
+        react.lower_bound["comparison"].update({coreN: core_lower_bound})
+        react.upper_bound["comparison"].update({coreN: core_upper_bound})
         core_metabolites = getCoreCoefficients(
             react.metabolites,
             react.reactants,
             react.products,
             coreN,
             core_size,
-            tmp_models,
+            react.in_models["models_list"],
         )
-        react.metabolites.update({coreN: core_metabolites})
-        if compare_operator(len(tmp_models), core_size):
-            if core_size == 1:
-                supermodel.reactions.converted.update({react.id: react})
-            else:
-                getattr(supermodel.reactions, coreN).update({react.id: react})
+        react.metabolites["comparison"].update({coreN: core_metabolites})
+        if compare_operator(react.in_models["models_amount"], core_size):
+            supermodel.reactions.comparison[coreN].update({react.id: react})
 
 
 def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]):
@@ -286,7 +283,7 @@ def getSomeBound(bounds: dict, bounds_type: str, sourceIn: [str]):
 
 
 def getSomeCoefficients(
-    metabolites: dict, reactants: dict, products: dict, name: str, sourceIn: [str]
+        metabolites: dict, reactants: dict, products: dict, name: str, sourceIn: [str]
 ):
     """ Getting coefficients mode of metabolites from sourceIn """
     coefficients = {}
@@ -309,7 +306,7 @@ def getSomeCoefficients(
 def getDifGPR(gprs: dict, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool):
     """ Getting logical (or) parts of gene_reaction_rules (...and...)or(...) that are present in "sourceIn"
     list of sources = original models and not present in "sourceNotIn" list of sources = original models.
-    While whether consider genes in (...and..) as solid thing is controlled by binary variable. """
+    While whether consider genes in (...and...) as solid thing is controlled by binary variable. """
     if not and_as_solid:
         ands_selected = []
         original_ands = []
@@ -384,46 +381,44 @@ def getDifGPR(gprs: dict, sourceIn: [str], sourceNotIn: [str], and_as_solid: boo
 
 
 def getDifference(
-    supermodel, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool, Nletter=1,
+        supermodel, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool, nletter: int,
 ):
-    """ Getting metabolites and reactions that are present in "sourceIn" list of sources = original models
+    """ Getting metabolites and reactions that are present in "sourceIn"
+    list of sources = original models
     and not present in "sourceNotIn" list of sources = original models. """
     if sourceIn:
         name = "Yes_"
-        for sI in sourceIn:
-            name = name + sI[:Nletter]
+        for sI in sorted(sourceIn):
+            name = name + sI[:nletter]
         if sourceNotIn:
             name = name + "_No_"
-            for sNI in sourceNotIn:
-                name = name + sNI[:Nletter]
+            for sNI in sorted(sourceNotIn):
+                name = name + sNI[:nletter]
     else:
         name = "No_"
         for sNI in sourceNotIn:
-            name = name + sNI[:Nletter]
-    setattr(supermodel.metabolites, name, {})
-    setattr(supermodel.reactions, name, {})
-    setattr(supermodel.genes, name, {})
-    for met in supermodel.metabolites.converted.values():
+            name = name + sNI[:nletter]
+    for met in supermodel.metabolites.assembly_conv.values():
         sm_present = findKeysByValue(met.sources, 1, operator.ge)
         sm_absent = findKeysByValue(met.sources, 0, operator.eq)
         if sourceIn:
             dif_r = getDifConnections(met.reactions, sourceIn, sourceNotIn)
         else:
             dif_r = getDifConnections(met.reactions, sm_present, sourceNotIn)
-        met.reactions.update({name: dif_r})
+        met.reactions["comparison"].update({name: dif_r})
         if (set(sourceIn) <= set(sm_present)) & (set(sourceNotIn) <= set(sm_absent)):
-            getattr(supermodel.metabolites, name).update({met.id: met})
-    for gene in supermodel.genes.converted.values():
+            supermodel.metabolites.comparison[name].update({met.id: met})
+    for gene in supermodel.genes.assembly_conv.values():
         sg_present = findKeysByValue(gene.sources, 1, operator.ge)
         sg_absent = findKeysByValue(gene.sources, 0, operator.eq)
         if sourceIn:
             dif_rg = getDifConnections(gene.reactions, sourceIn, sourceNotIn)
         else:
             dif_rg = getDifConnections(gene.reactions, sg_present, sourceNotIn)
-        gene.reactions.update({name: dif_rg})
+        gene.reactions["comparison"].update({name: dif_rg})
         if (set(sourceIn) <= set(sg_present)) & (set(sourceNotIn) <= set(sg_absent)):
-            getattr(supermodel.genes, name).update({gene.id: gene})
-    for react in supermodel.reactions.converted.values():
+            supermodel.genes.comparison[name].update({gene.id: gene})
+    for react in supermodel.reactions.assembly_conv.values():
         sr_present = findKeysByValue(react.sources, 1, operator.ge)
         sr_absent = findKeysByValue(react.sources, 0, operator.eq)
         if sourceIn:
@@ -450,164 +445,81 @@ def getDifference(
             sI_metabolites = getSomeCoefficients(
                 react.metabolites, react.reactants, react.products, name, sr_present
             )
-        react.reactants.update({name: dif_reactants})
-        react.products.update({name: dif_products})
-        react.genes.update({name: dif_genes})
-        react.gene_reaction_rule.update({name: dif_gpr})
-        react.lower_bound.update({name: sI_lower_bound})
-        react.upper_bound.update({name: sI_upper_bound})
-        react.metabolites.update({name: sI_metabolites})
+        react.reactants["comparison"].update({name: dif_reactants})
+        react.products["comparison"].update({name: dif_products})
+        react.genes["comparison"].update({name: dif_genes})
+        react.gene_reaction_rule["comparison"].update({name: dif_gpr})
+        react.lower_bound["comparison"].update({name: sI_lower_bound})
+        react.upper_bound["comparison"].update({name: sI_upper_bound})
+        react.metabolites["comparison"].update({name: sI_metabolites})
         if (set(sourceIn) <= set(sr_present)) & (set(sourceNotIn) <= set(sr_absent)):
-            getattr(supermodel.reactions, name).update({react.id: react})
+            supermodel.reactions.comparison[name].update({react.id: react})
 
 
-def getVennSegments(supermodel, and_as_solid: bool, Nletter=1):
-    """ Getting metabolites and reactions networks for each Venn segment in Venn diagram. """
+def get_short_name_len(sources: list) -> int:
+    for i in range(len(max(sources, key=len)) + 1):
+        short = []
+        for source in sources:
+            short.append(source[:i])
+        if len(set(short)) == len(sources):
+            return i
+
+
+def at_least_in(supermodel, number_of_model: int, and_as_solid=False):
+    if type(number_of_model) != int or number_of_model < 1 or number_of_model > len(
+            supermodel.sources):
+        sys.exit("Number to check does not fit the number of models")
+    elif number_of_model == 1:
+        sys.exit("Features in at least 1 model are already found in assembly")
+    else:
+        getCore(supermodel, number_of_model, operator.ge, and_as_solid)
+
+
+def exactly_in(supermodel, number_of_model: int, and_as_solid=False):
+    if type(number_of_model) != int or number_of_model < 1 or number_of_model > len(
+            supermodel.sources):
+        sys.exit("Number to check does not fit the number of models")
+    else:
+        getCore(supermodel, number_of_model, operator.eq, and_as_solid)
+
+
+def present(supermodel, yes=None, no=None, short_name_len=None, and_as_solid=False):
+    if yes is None and no is None:
+        sys.exit("Both models present and models not present are not provided.\n"
+                 "Please provide at least one of the list")
+    elif (yes is not None and type(yes) != list) or (
+            no is not None and type(no) != list):
+        sys.exit("Present or not present models are in wrong type. \n"
+                 "Please provide lists")
+    else:
+        if yes is None:
+            yes = []
+        if no is None:
+            no = []
+        wrong_yes = set(yes) - set(supermodel.sources)
+        wrong_no = set(no) - set(supermodel.sources)
+        if wrong_yes or wrong_no:
+            sys.exit("Some of input models are not in supermodel. \n"
+                     "Please check the input ids")
+        else:
+            if short_name_len is None:
+                short_name_len = get_short_name_len(supermodel.sources)
+            getDifference(supermodel, yes, no, and_as_solid, short_name_len)
+
+
+def get_venn_segments(supermodel, short_name_len=None, and_as_solid=False):
+    """ Getting metabolites and reactions networks for each Venn segment in Venn
+    diagram."""
+    if short_name_len is None:
+        short_name_len = get_short_name_len(supermodel.sources)
     combinations = []
     for i in range(1, len(supermodel.sources)):
         combinations.extend(itertools.combinations(supermodel.sources, i))
     for combo in combinations:
-        sYes = sorted(list(combo))
-        sNo = sorted((list(set(supermodel.sources) - set(combo))))
-        getDifference(supermodel, sYes, sNo, and_as_solid, Nletter)
+        yes = sorted(list(combo))
+        no = sorted((list(set(supermodel.sources) - set(combo))))
+        getDifference(supermodel, yes, no, and_as_solid, short_name_len)
 
 
-def runComparison(
-    supermodel,
-    run_all=True,
-    core_size=None,
-    compare_operator=None,
-    and_as_solid=False,
-    sYes=None,
-    sNo=None,
-    union_size=1,
-    Nletter=1,
-):
-    if run_all:
-        for source in supermodel.sources:
-            setattr(supermodel.metabolites, source, {})
-            setattr(supermodel.reactions, source, {})
-            setattr(supermodel.genes, source, {})
-        for met in supermodel.metabolites.converted.values():
-            tmp_models = findKeysByValue(met.sources, 1, operator.ge)
-            if len(tmp_models) == len(supermodel.sources):
-                name = "core" + str(len(supermodel.sources))
-            else:
-                name = (
-                    "Yes_"
-                    + "".join([sI[:Nletter] for sI in sorted(tmp_models)])
-                    + "_No_"
-                    + "".join(
-                        [
-                            sNI[:Nletter]
-                            for sNI in sorted(
-                                list(set(supermodel.sources) - set(tmp_models))
-                            )
-                        ]
-                    )
-                )
-            setattr(
-                met,
-                "stat_notes",
-                {
-                    "all_sources": tmp_models,
-                    "number_sources": len(tmp_models),
-                    "name_sources": name,
-                },
-            )
-            for tmp_source in tmp_models:
-                getattr(supermodel.metabolites, tmp_source).update({met.id: met})
-        for r in supermodel.reactions.converted.values():
-            tmp_models = findKeysByValue(r.sources, 1, operator.ge)
-            if len(tmp_models) == len(supermodel.sources):
-                name = "core" + str(len(supermodel.sources))
-            else:
-                name = (
-                    "Yes_"
-                    + "".join([sI[:Nletter] for sI in sorted(tmp_models)])
-                    + "_No_"
-                    + "".join(
-                        [
-                            sNI[:Nletter]
-                            for sNI in sorted(
-                                list(set(supermodel.sources) - set(tmp_models))
-                            )
-                        ]
-                    )
-                )
-            setattr(
-                r,
-                "stat_notes",
-                {
-                    "all_sources": tmp_models,
-                    "number_sources": len(tmp_models),
-                    "name_sources": name,
-                },
-            )
-            for tmp_source in tmp_models:
-                getattr(supermodel.reactions, tmp_source).update({r.id: r})
-        for g in supermodel.genes.converted.values():
-            tmp_models = findKeysByValue(g.sources, 1, operator.ge)
-            if len(tmp_models) == len(supermodel.sources):
-                name = "core" + str(len(supermodel.sources))
-            else:
-                name = (
-                    "Yes_"
-                    + "".join([sI[:Nletter] for sI in sorted(tmp_models)])
-                    + "_No_"
-                    + "".join(
-                        [
-                            sNI[:Nletter]
-                            for sNI in sorted(
-                                list(set(supermodel.sources) - set(tmp_models))
-                            )
-                        ]
-                    )
-                )
-            setattr(
-                g,
-                "stat_notes",
-                {
-                    "all_sources": tmp_models,
-                    "number_sources": len(tmp_models),
-                    "name_sources": name,
-                },
-            )
-            for tmp_source in tmp_models:
-                getattr(supermodel.genes, tmp_source).update({g.id: g})
-        core_size = len(supermodel.sources)
-        compare_operator = operator.ge
-        coreN = "core" + str(core_size)
-        setattr(supermodel.metabolites, coreN, {})
-        setattr(supermodel.reactions, coreN, {})
-        setattr(supermodel.genes, coreN, {})
-        getCore(supermodel, core_size, compare_operator, and_as_solid)
-        getCore(supermodel, union_size, compare_operator, and_as_solid)
-        getVennSegments(supermodel, and_as_solid, Nletter)
-        # getSwitchedMetabolites(supermodel, Nletter)
-        getCore(supermodel, core_size, compare_operator, and_as_solid)
-        getCore(supermodel, union_size, compare_operator, and_as_solid)
-        getVennSegments(supermodel, and_as_solid, Nletter)
-    else:
-        if core_size:
-            if not compare_operator:
-                compare_operator = operator.ge
-            if compare_operator == operator.ge:
-                coreN = "core" + str(core_size)
-            elif compare_operator == operator.eq:
-                coreN = "In" + str(core_size)
-            else:
-                print(
-                    "Comparison operator is not supported. Has to be operator.ge (>=) or operator.eq (==)"
-                )
-                return
-            setattr(supermodel.metabolites, coreN, {})
-            setattr(supermodel.reactions, coreN, {})
-            setattr(supermodel.genes, coreN, {})
-            getCore(supermodel, core_size, compare_operator, and_as_solid)
-        if sYes or sNo:
-            if not sNo:
-                sNo = []
-            elif not sYes:
-                sYes = []
-            getDifference(supermodel, sYes, sNo, and_as_solid, Nletter)
+def get_intersection(supermodel, and_as_solid=False):
+    getCore(supermodel, len(supermodel.sources), operator.ge, and_as_solid)

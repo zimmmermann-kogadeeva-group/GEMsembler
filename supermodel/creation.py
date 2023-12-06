@@ -3,10 +3,7 @@ import warnings
 from collections import defaultdict
 from math import ceil
 from pathlib import PosixPath
-from zipfile import Path
-
 from future.moves import itertools
-
 from .comparison import (
     getCoreConnections,
     getCoreGPR,
@@ -14,7 +11,6 @@ from .comparison import (
     getCoreCoefficients,
     getCoreUpperBounds,
 )
-from .general import findKeysByValue
 from .genes import makeNewGPR, uniteGPR
 import pandas as pd
 
@@ -23,12 +19,12 @@ class NewObject:
     """ New object class - one metabolite or reaction for supermodel. """
 
     def __init__(
-        self,
-        new_id: str,
-        old_id: str,
-        compartments: [str],
-        source: str,
-        possible_sources: [str],
+            self,
+            new_id: str,
+            old_id: str,
+            compartments: [str],
+            source: str,
+            possible_sources: [str],
     ):
         self.id = new_id
         self.compartments = {"assembly": compartments}
@@ -46,7 +42,7 @@ class NewObject:
                 self.annotation.update({ps: []})
 
     def updateNewObject(
-        self, id_to_update: str, compart_to_update: [str], source: str,
+            self, id_to_update: str, compart_to_update: [str], source: str,
     ):
         self.sources.update({source: self.sources.get(source) + 1})
         if source not in self.in_models["models_list"]:
@@ -63,7 +59,7 @@ class NewObject:
 
 class SetofNewObjects:
     """ Setting dictionaries for all metabolites or reactions:
-    selected for supermodel - self.converted and not selected - self.notconverted. """
+    selected for supermodel - self.assembly_conv and not selected - self.notconverted. """
 
     def addNewObjs(self, selected: dict, where_to_add: str, model_ids: list):
         for mod_id in model_ids:
@@ -81,7 +77,7 @@ class SetofNewObjects:
                             getattr(self, where_to_add).update({new_id: new})
 
     def makeSetofNew(
-        self, selected: dict, not_selected: dict, model_ids, additional,
+            self, selected: dict, not_selected: dict, model_ids, additional,
     ):
         self.addNewObjs(selected, "assembly_conv", model_ids)
         if additional:
@@ -94,7 +90,7 @@ class SetofNewObjects:
         )  # TODO connect not_converted for really not converted only with old id
 
     def __init__(
-        self, selected: dict, not_selected: dict, model_ids: [str], additional=None,
+            self, selected: dict, not_selected: dict, model_ids: [str], additional=None,
     ):
         self.assembly_conv = {}
         self.assembly_mix = {}
@@ -103,11 +99,11 @@ class SetofNewObjects:
         self.makeSetofNew(selected, not_selected, model_ids, additional)
 
     def makeForwardBackward(
-        self,
-        all_models: dict,
-        selected: dict,
-        obj_type: "metabolites" or "reactions",
-        additional=None,
+            self,
+            all_models: dict,
+            selected: dict,
+            obj_type: "metabolites" or "reactions",
+            additional=None,
     ):
         """ Creating dictionaries linking metabolites/reactions:
         NewObject in supermodel with old original ID and OldObject in original models with new ID in supermodel """
@@ -156,9 +152,9 @@ class SetofNewMetabolites(SetofNewObjects):
                 else:
                     name = "Not converted"
                 obj.name = name
-                base_keys = list(obj.sources.keys()) + ["assembly", "comparison"]
-                obj.reactions = {k: [] for k in base_keys}
-                obj.formula = {k: [] for k in base_keys}
+                obj.reactions = {k: [] for k in obj.sources.keys()}
+                obj.reactions.update({"assembly": [], "comparison": {}})
+                obj.formula = {k: [] for k in obj.sources.keys()}
 
 
 class SetofNewReactions(SetofNewObjects):
@@ -188,18 +184,24 @@ class SetofNewReactions(SetofNewObjects):
                     equation = None
                 obj.name = name
                 obj.reaction = equation
-                base_keys = list(obj.sources.keys()) + ["assembly", "comparison"]
+                base_keys = list(obj.sources.keys()) + ["assembly"]
                 obj.reactants = {k: [] for k in base_keys}
+                obj.reactants.update({"comparison": {}})
                 obj.products = {k: [] for k in base_keys}
-                obj.metabolites = {k: {} for k in base_keys}
+                obj.products.update({"comparison": {}})
+                obj.metabolites = {k: {} for k in base_keys + ["comparison"]}
                 obj.lower_bound = {k: [] for k in base_keys}
+                obj.lower_bound.update({"comparison": {}})
                 obj.upper_bound = {k: [] for k in base_keys}
-                obj.subsystem = {k: [] for k in base_keys}
+                obj.upper_bound.update({"comparison": {}})
+                obj.subsystem = {k: [] for k in list(obj.sources.keys())}
                 obj.genes = {k: [] for k in base_keys}
+                obj.genes.update({"comparison": {}})
                 obj.gene_reaction_rule = {k: [] for k in base_keys}
                 obj.gene_reaction_rule.update(
                     {k + "_mixed": [] for k in obj.sources.keys()}
                 )
+                obj.gene_reaction_rule.update({"comparison": {}})
 
 
 class NewGene(object):
@@ -210,7 +212,7 @@ class NewGene(object):
         self.sources = {}
         self.in_models = {"models_amount": 1, "models_list": [source]}
         self.annotation = {}
-        self.reactions = {"assembly": [], "comparison": []}
+        self.reactions = {"assembly": [], "comparison": {}}
         for ps in possible_sources:
             self.reactions.update({ps: []})
             if ps == source:
@@ -329,13 +331,13 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     reactants/products/reactions as values.  """
 
     def __find_reactions(
-        self,
-        metabolite: NewObject,
-        m_go_new_old: dict,
-        r_go_old_new: dict,
-        model_ids: [str],
-        periplasmic_r: dict,
-        periplasmic_m: dict,
+            self,
+            metabolite: NewObject,
+            m_go_new_old: dict,
+            r_go_old_new: dict,
+            model_ids: [str],
+            periplasmic_r: dict,
+            periplasmic_m: dict,
     ):
         for model_id in model_ids:
             old_mets = m_go_new_old.get(metabolite.id).get(model_id)
@@ -347,8 +349,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                             for reaction in old_met.reactions:
                                 if r_go_old_new.get(model_id).get(reaction.id):
                                     if (metabolite.id.endswith("_p")) & (
-                                        reaction.id
-                                        in list(periplasmic_r.get(model_id).keys())
+                                            reaction.id
+                                            in list(periplasmic_r.get(model_id).keys())
                                     ):
                                         new_r.append(
                                             r_go_old_new.get(model_id).get(reaction.id)[
@@ -356,8 +358,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                             ]
                                         )
                                     elif (not metabolite.id.endswith("_p")) & (
-                                        reaction.id
-                                        not in list(periplasmic_r.get(model_id).keys())
+                                            reaction.id
+                                            not in list(
+                                        periplasmic_r.get(model_id).keys())
                                     ):
                                         new_r.append(
                                             r_go_old_new.get(model_id).get(reaction.id)[
@@ -379,12 +382,12 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     metabolite.reactions[model_id] = list(set(new_r))
 
     def __find_metabolites(
-        self,
-        reaction: NewObject,
-        r_go_new_old: dict,
-        m_go_old_new: dict,
-        model_ids: [str],
-        periplasmic_r: dict,
+            self,
+            reaction: NewObject,
+            r_go_new_old: dict,
+            m_go_old_new: dict,
+            model_ids: [str],
+            periplasmic_r: dict,
     ):
         for model_id in model_ids:
             old_react = r_go_new_old.get(reaction.id).get(model_id)
@@ -404,19 +407,19 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 elif len(new_reactants) > 1:
                                     for new_reactant in new_reactants:
                                         if (new_reactant.id.endswith("_p")) & (
-                                            reactant.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                reactant.id
+                                                in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.reactants.get(model_id).append(
                                                 new_reactant
                                             )
                                         if (not new_reactant.id.endswith("_p")) & (
-                                            reactant.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                reactant.id
+                                                not in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.reactants.get(model_id).append(
                                                 new_reactant
@@ -431,19 +434,19 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 elif len(new_products) > 1:
                                     for new_product in new_products:
                                         if (new_product.id.endswith("_p")) & (
-                                            product.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                product.id
+                                                in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.products.get(model_id).append(
                                                 new_product
                                             )
                                         if (not new_product.id.endswith("_p")) & (
-                                            product.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                product.id
+                                                not in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.products.get(model_id).append(
                                                 new_product
@@ -458,19 +461,19 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 elif len(new_mets) > 1:
                                     for new_met in new_mets:
                                         if (new_met.id.endswith("_p")) & (
-                                            met.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                met.id
+                                                in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.metabolites.get(model_id).update(
                                                 {new_met: koef}
                                             )
                                         if (not new_met.id.endswith("_p")) & (
-                                            met.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
+                                                met.id
+                                                not in periplasmic_r.get(model_id)
+                                                        .get(old_react[0].id)
+                                                        .keys()
                                         ):
                                             reaction.metabolites.get(model_id).update(
                                                 {new_met: koef}
@@ -532,12 +535,12 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                             )
 
     def __find_genes(
-        self,
-        all_models_data: dict,
-        r_go_old_new: dict,
-        r_go_new_old: dict,
-        model_ids: [str],
-        gene_folder: PosixPath,
+            self,
+            all_models_data: dict,
+            r_go_old_new: dict,
+            r_go_new_old: dict,
+            model_ids: [str],
+            gene_folder: PosixPath,
     ):
         for model_id in model_ids:
             blast_file = gene_folder / (model_id + "_blast.tsv")
@@ -581,11 +584,11 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                             for oldrg in oldr.genes:
                                 attr_new = conversion_table[
                                     conversion_table["old_id"] == oldrg.id
-                                ]["new_id"]
+                                    ]["new_id"]
                                 if not attr_new.empty:
                                     new_g_id = attr_new.values[0]
                                     if self.genes.assembly_conv.get(
-                                        new_g_id
+                                            new_g_id
                                     ) not in reaction.genes.get(model_id):
                                         reaction.genes.get(model_id).append(
                                             self.genes.assembly_conv.get(new_g_id)
@@ -609,15 +612,15 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         reaction.gene_reaction_rule.get(model_id).append(united_gpr)
 
     def __find_connections(
-        self,
-        m_go_new_old: dict,
-        m_go_old_new: dict,
-        r_go_new_old: dict,
-        r_go_old_new: dict,
-        all_models_data: dict,
-        periplasmic_r: dict,
-        periplasmic_m: dict,
-        gene_folder: PosixPath,
+            self,
+            m_go_new_old: dict,
+            m_go_old_new: dict,
+            r_go_new_old: dict,
+            r_go_old_new: dict,
+            all_models_data: dict,
+            periplasmic_r: dict,
+            periplasmic_m: dict,
+            gene_folder: PosixPath,
     ):
         model_ids = list(all_models_data.keys())
         for met in self.metabolites.assembly_conv.values():
@@ -633,7 +636,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         )
 
     def __get_additional_attributes(
-        self, model_ids: [str], m_go_new_old: dict, r_go_new_old: dict
+            self, model_ids: [str], m_go_new_old: dict, r_go_new_old: dict
     ):
         for met in self.metabolites.assembly_conv.values():
             for model_id in model_ids:
@@ -684,9 +687,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 if (not react_in) | (not pro_in):
                     # if r.in_models["models_amount"] % 2 != 0:
                     for i in range(
-                        r.in_models["models_amount"] - 1,
-                        ceil(r.in_models["models_amount"] / 2),
-                        -1,
+                            r.in_models["models_amount"] - 1,
+                            ceil(r.in_models["models_amount"] / 2),
+                            -1,
                     ):
                         combinations = list(
                             itertools.combinations(r.in_models["models_list"], i)
@@ -732,8 +735,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                             not_sel = []
                             for tmp in sorted(r.in_models["models_list"])[1:]:
                                 if not (
-                                    set(r.reactants.get(tmp))
-                                    & set(r.reactants.get(sel))
+                                        set(r.reactants.get(tmp))
+                                        & set(r.reactants.get(sel))
                                 ):
                                     not_sel.append(tmp)
                             self.__swapReactantsAndProducts(r, not_sel)
@@ -745,7 +748,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         not_sel = []
                         for tmp in sorted(r.in_models["models_list"])[1:]:
                             if not (
-                                set(r.reactants.get(tmp)) & set(r.reactants.get(sel))
+                                    set(r.reactants.get(tmp)) & set(
+                                r.reactants.get(sel))
                             ):
                                 not_sel.append(tmp)
                         self.__swapReactantsAndProducts(r, not_sel)
@@ -787,23 +791,24 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 "assembly",
                 1,
                 react.in_models["models_list"],
+                search_in_comparison=False
             )
             react.metabolites.update({"assembly": core_metabolites})
 
     def __init__(
-        self,
-        metabolites: SetofNewMetabolites,
-        reactions: SetofNewReactions,
-        genes: SetofNewGenes,
-        m_go_new_old: dict,
-        m_go_old_new: dict,
-        r_go_new_old: dict,
-        r_go_old_new: dict,
-        all_models_data: dict,
-        periplasmic_r: dict,
-        additional_periplasmic_m: dict,
-        gene_folder,
-        and_as_solid: bool,
+            self,
+            metabolites: SetofNewMetabolites,
+            reactions: SetofNewReactions,
+            genes: SetofNewGenes,
+            m_go_new_old: dict,
+            m_go_old_new: dict,
+            r_go_new_old: dict,
+            r_go_old_new: dict,
+            all_models_data: dict,
+            periplasmic_r: dict,
+            additional_periplasmic_m: dict,
+            gene_folder,
+            and_as_solid: bool,
     ):
         self.metabolites = metabolites
         self.reactions = reactions
