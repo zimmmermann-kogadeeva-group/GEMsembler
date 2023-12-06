@@ -14,7 +14,7 @@ dependencies = [
     "cobra",
     "pandas",
     "numpy",
-    "scipy",s
+    "scipy",
     "ncbi-genome-download",
 ]
 
