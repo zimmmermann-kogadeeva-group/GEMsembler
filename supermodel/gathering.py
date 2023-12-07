@@ -454,7 +454,7 @@ class GatheredModels:
             "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
             "bigg_models_metabolites.txt.gz",
         )
-        metabolites.setMetaboliteAttributes(bigg_data_m)
+        metabolites._setMetaboliteAttributes(bigg_data_m)
         reactions = SetofNewReactions(
             final_r_sel, final_r_not_sel, list(self.__models.keys())
         )
@@ -462,12 +462,12 @@ class GatheredModels:
             "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
             "bigg_models_reactions.txt.gz",
         )
-        reactions.setReactionAttributes(bigg_data_r)
+        reactions._setReactionAttributes(bigg_data_r)
         genes = SetofNewGenes(self.__models, gene_path)
-        m_go_old_new, m_go_new_old = metabolites.makeForwardBackward(
+        m_go_old_new, m_go_new_old = metabolites._makeForwardBackward(
             self.__models, final_m_sel, "metabolites", periplasmic_m,
         )
-        r_go_old_new, r_go_new_old = reactions.makeForwardBackward(
+        r_go_old_new, r_go_new_old = reactions._makeForwardBackward(
             self.__models, final_r_sel, "reactions"
         )
         supermodel = SuperModel(

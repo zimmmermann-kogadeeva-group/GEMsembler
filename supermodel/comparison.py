@@ -65,15 +65,11 @@ def getCoreCoefficients(
     core_name: str,
     core_size: int,
     sources: [str],
-    search_in_comparison=True,
 ) -> dict:
     """ Getting core coefficients for metabolites via average of all possible modes of core_size number sources """
     core_metabolites = {}
     if len(sources) >= core_size:
         combinations = list(itertools.combinations(sources, core_size))
-        if search_in_comparison:
-            reactants = reactants["comparison"]
-            products = products["comparison"]
         for rea in reactants.get(core_name):
             k_mean = []
             for combination in combinations:
@@ -193,21 +189,21 @@ def getCore(
             "Comparison operator is not supported. Has to be operator.ge (>=) or operator.eq (==)"
         )
         return
-    for met in supermodel.metabolites.assembly_conv.values():
+    for met in supermodel.metabolites.assembly.values():
         core_r = getCoreConnections(
             met.reactions, core_size, compare_operator, supermodel.sources
         )
         met.reactions["comparison"].update({coreN: core_r})
         if compare_operator(met.in_models["models_amount"], core_size):
             supermodel.metabolites.comparison[coreN].update({met.id: met})
-    for gene in supermodel.genes.assembly_conv.values():
+    for gene in supermodel.genes.assembly.values():
         core_rg = getCoreConnections(
             gene.reactions, core_size, compare_operator, supermodel.sources
         )
         gene.reactions["comparison"].update({coreN: core_rg})
         if compare_operator(gene.in_models["models_amount"], core_size):
             supermodel.genes.comparison[coreN].update({gene.id: gene})
-    for react in supermodel.reactions.assembly_conv.values():
+    for react in supermodel.reactions.assembly.values():
         core_reactants = getCoreConnections(
             react.reactants, core_size, compare_operator, supermodel.sources
         )
@@ -238,8 +234,8 @@ def getCore(
         react.upper_bound["comparison"].update({coreN: core_upper_bound})
         core_metabolites = getCoreCoefficients(
             react.metabolites,
-            react.reactants,
-            react.products,
+            react.reactants["comparison"],
+            react.products["comparison"],
             coreN,
             core_size,
             react.in_models["models_list"],
@@ -398,7 +394,7 @@ def getDifference(
         name = "No_"
         for sNI in sourceNotIn:
             name = name + sNI[:nletter]
-    for met in supermodel.metabolites.assembly_conv.values():
+    for met in supermodel.metabolites.assembly.values():
         sm_present = findKeysByValue(met.sources, 1, operator.ge)
         sm_absent = findKeysByValue(met.sources, 0, operator.eq)
         if sourceIn:
@@ -408,7 +404,7 @@ def getDifference(
         met.reactions["comparison"].update({name: dif_r})
         if (set(sourceIn) <= set(sm_present)) & (set(sourceNotIn) <= set(sm_absent)):
             supermodel.metabolites.comparison[name].update({met.id: met})
-    for gene in supermodel.genes.assembly_conv.values():
+    for gene in supermodel.genes.assembly.values():
         sg_present = findKeysByValue(gene.sources, 1, operator.ge)
         sg_absent = findKeysByValue(gene.sources, 0, operator.eq)
         if sourceIn:
@@ -418,7 +414,7 @@ def getDifference(
         gene.reactions["comparison"].update({name: dif_rg})
         if (set(sourceIn) <= set(sg_present)) & (set(sourceNotIn) <= set(sg_absent)):
             supermodel.genes.comparison[name].update({gene.id: gene})
-    for react in supermodel.reactions.assembly_conv.values():
+    for react in supermodel.reactions.assembly.values():
         sr_present = findKeysByValue(react.sources, 1, operator.ge)
         sr_absent = findKeysByValue(react.sources, 0, operator.eq)
         if sourceIn:

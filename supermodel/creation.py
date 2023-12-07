@@ -1,8 +1,12 @@
 import operator
+import sys
 import warnings
 from collections import defaultdict
 from math import ceil
+from os.path import exists
 from pathlib import PosixPath
+
+import dill
 from future.moves import itertools
 from .comparison import (
     getCoreConnections,
@@ -43,7 +47,7 @@ class NewObject:
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
 
-    def updateNewObject(
+    def _updateNewObject(
         self, id_to_update: str, compart_to_update: [str], source: str,
     ):
         self.sources.update({source: self.sources.get(source) + 1})
@@ -61,9 +65,9 @@ class NewObject:
 
 class SetofNewObjects:
     """ Setting dictionaries for all metabolites or reactions:
-    selected for supermodel - self.assembly_conv and not selected - self.notconverted. """
+    selected for supermodel - self.assembly and not selected - self.notconverted. """
 
-    def addNewObjs(self, selected: dict, where_to_add: str, model_ids: list):
+    def __addNewObjs(self, selected: dict, where_to_add: str, model_ids: list):
         for mod_id in model_ids:
             if mod_id in list(selected.keys()):
                 objects = selected.get(mod_id)
@@ -71,36 +75,38 @@ class SetofNewObjects:
                     for new_id in objects[key][1]:
                         comp = objects[key][0]
                         if new_id in getattr(self, where_to_add).keys():
-                            getattr(self, where_to_add).get(new_id).updateNewObject(
+                            getattr(self, where_to_add).get(new_id)._updateNewObject(
                                 key, comp, mod_id
                             )
                         else:
                             new = NewObject(new_id, key, comp, mod_id, model_ids)
                             getattr(self, where_to_add).update({new_id: new})
 
-    def makeSetofNew(
+    def __makeSetofNew(
         self, selected: dict, not_selected: dict, model_ids, additional,
     ):
-        self.addNewObjs(selected, "assembly_conv", model_ids)
+        self.__addNewObjs(selected, "assembly", model_ids)
         if additional:
-            self.addNewObjs(additional, "assembly_conv", model_ids)
-        for new_id, new_obj in self.assembly_conv.items():
+            self.__addNewObjs(additional, "assembly", model_ids)
+        for new_id, new_obj in self.assembly.items():
             for model_id in new_obj.in_models["models_list"]:
-                self.comparison[model_id].update({new_id: new_obj})
-        self.addNewObjs(
+                getattr(self, model_id).update({new_id: new_obj})
+        self.__addNewObjs(
             not_selected, "notconverted", model_ids
         )  # TODO connect not_converted for really not converted only with old id
 
     def __init__(
         self, selected: dict, not_selected: dict, model_ids: [str], additional=None,
     ):
-        self.assembly_conv = {}
+        self.assembly = {}
+        for source in selected.keys():
+            setattr(self, source, {})
         self.assembly_mix = {}
         self.comparison = defaultdict(dict)
         self.notconverted = {}
-        self.makeSetofNew(selected, not_selected, model_ids, additional)
+        self.__makeSetofNew(selected, not_selected, model_ids, additional)
 
-    def makeForwardBackward(
+    def _makeForwardBackward(
         self,
         all_models: dict,
         selected: dict,
@@ -114,17 +120,17 @@ class SetofNewObjects:
         model_ids = list(selected.keys())
         for model_id in model_ids:
             for key, value in selected.get(model_id).items():
-                new_obj = [self.assembly_conv.get(value[1][0])]
+                new_obj = [self.assembly.get(value[1][0])]
                 if additional:
                     if model_id in list(additional.keys()):
                         if key in list(additional.get(model_id).keys()):
                             new_obj.append(
-                                self.assembly_conv.get(
+                                self.assembly.get(
                                     additional.get(model_id).get(key)[1][0]
                                 )
                             )
                 go_old_new[model_id].update({key: new_obj})
-        for k, v in self.assembly_conv.items():
+        for k, v in self.assembly.items():
             for mod_id in v.in_models["models_list"]:
                 old_ids = v.annotation[mod_id]
                 old_obj = [
@@ -140,11 +146,11 @@ class SetofNewObjects:
 class SetofNewMetabolites(SetofNewObjects):
     """ Metabolites class that add name and blank reaction attribute to metabolite """
 
-    def setMetaboliteAttributes(self, database_info: pd.core.frame.DataFrame):
-        attrib = ["assembly_conv", "notconverted"]
+    def _setMetaboliteAttributes(self, database_info: pd.core.frame.DataFrame):
+        attrib = ["assembly", "notconverted"]
         for a in attrib:
             for obj in getattr(self, a).values():
-                if a == "assembly_conv":
+                if a == "assembly":
                     id_noc = (
                         obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
                     )
@@ -162,11 +168,11 @@ class SetofNewMetabolites(SetofNewObjects):
 class SetofNewReactions(SetofNewObjects):
     """ Reactions class that add name, reaction equation and blank reactants/products attributes to reaction """
 
-    def setReactionAttributes(self, database_info: pd.core.frame.DataFrame):
-        attrib = ["assembly_conv", "notconverted"]
+    def _setReactionAttributes(self, database_info: pd.core.frame.DataFrame):
+        attrib = ["assembly", "notconverted"]
         for a in attrib:
             for obj in getattr(self, a).values():
-                if a == "assembly_conv":
+                if a == "assembly":
                     id_noc = obj.id.replace("sink_", "DM_")
                     name = database_info[database_info["bigg_id"] == id_noc]["name"]
                     if (not name.empty) and (not name.isnull().values.any()):
@@ -224,7 +230,7 @@ class NewGene(object):
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
 
-    def updateNewGene(self, id_to_update: str, source: str):
+    def _updateNewGene(self, id_to_update: str, source: str):
         self.sources.update({source: self.sources.get(source) + 1})
         if source not in self.in_models["models_list"]:
             self.in_models["models_amount"] = self.in_models["models_amount"] + 1
@@ -235,7 +241,7 @@ class NewGene(object):
 class SetofNewGenes(object):
     """ Setting dictionaries for all genes selected for supermodel - self.converted and not selected - self.notconverted. """
 
-    def addNewGenes_conv(self, all_models_data: dict, gene_folder: PosixPath):
+    def __addNewGenes_conv(self, all_models_data: dict, gene_folder: PosixPath):
         for model_id in list(all_models_data.keys()):
             blast_file = gene_folder / (model_id + "_blast.tsv")
             try:
@@ -246,14 +252,14 @@ class SetofNewGenes(object):
                     "\nOld gene will be used"
                 )
                 for gene in all_models_data[model_id]["preprocess_model"].genes:
-                    if gene.id in self.assembly_conv.keys():
-                        self.assembly_conv.get(gene.id).updateNewGene(gene.id, model_id)
+                    if gene.id in self.assembly.keys():
+                        self.assembly.get(gene.id)._updateNewGene(gene.id, model_id)
                     else:
                         new_gene = NewGene(
                             gene.id, gene.id, model_id, list(all_models_data.keys())
                         )
-                        self.assembly_conv.update({gene.id: new_gene})
-                        self.comparison[model_id].update({gene.id: new_gene})
+                        self.assembly.update({gene.id: new_gene})
+                        getattr(self, model_id).update({gene.id: new_gene})
             else:
                 conversion_table.columns = [
                     "old_id",
@@ -296,35 +302,35 @@ class SetofNewGenes(object):
                             self.notconverted.update({gene.id: new_gene})
                     else:
                         new_id = attr.values[0]
-                        if new_id in self.assembly_conv.keys():
-                            self.assembly_conv.get(new_id).updateNewGene(
-                                gene.id, model_id
-                            )
+                        if new_id in self.assembly.keys():
+                            self.assembly.get(new_id)._updateNewGene(gene.id, model_id)
                         else:
                             new_gene = NewGene(
                                 new_id, gene.id, model_id, list(all_models_data.keys())
                             )
-                            self.assembly_conv.update({new_id: new_gene})
-                            self.comparison[model_id].update({new_id: new_gene})
+                            self.assembly.update({new_id: new_gene})
+                            getattr(self, model_id).update({new_id: new_gene})
 
     def __init__(self, all_models_data: dict, gene_folder):
-        self.assembly_conv = {}
+        self.assembly = {}
+        for source in list(all_models_data.keys()):
+            setattr(self, source, {})
         self.assembly_mix = {}
         self.comparison = defaultdict(dict)
         self.notconverted = {}
         if gene_folder is not None:
-            self.addNewGenes_conv(all_models_data, gene_folder)
+            self.__addNewGenes_conv(all_models_data, gene_folder)
         else:
             for model_id in list(all_models_data.keys()):
                 for gene in all_models_data.get(model_id).genes:
-                    if gene.id in self.assembly_conv.keys():
-                        self.assembly_conv.get(gene.id).updateNewGene(gene.id, model_id)
+                    if gene.id in self.assembly.keys():
+                        self.assembly.get(gene.id)._updateNewGene(gene.id, model_id)
                     else:
                         new_gene = NewGene(
                             gene.id, gene.id, model_id, list(all_models_data.keys())
                         )
-                        self.assembly_conv.update({gene.id: new_gene})
-                        self.comparison[model_id].update({gene.id: new_gene})
+                        self.assembly.update({gene.id: new_gene})
+                        getattr(self, model_id).update({gene.id: new_gene})
 
 
 class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic metabolites for models without periplasmic compartments
@@ -560,7 +566,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 "10",
                 "11",
             ]
-            for gene in self.genes.assembly_conv.values():
+            for gene in self.genes.assembly.values():
                 if model_id in gene.in_models["models_list"]:
                     old_g_ids = gene.annotation.get(model_id)
                     for old_g_id in old_g_ids:
@@ -575,7 +581,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 for new_r in r_go_old_new.get(model_id).get(r_id):
                                     if new_r not in gene.reactions.get(model_id):
                                         gene.reactions.get(model_id).append(new_r)
-            for reaction in self.reactions.assembly_conv.values():
+            for reaction in self.reactions.assembly.values():
                 old_rs = r_go_new_old.get(reaction.id).get(model_id)
                 if old_rs:
                     new_gpr_unite_r = []
@@ -588,11 +594,11 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 ]["new_id"]
                                 if not attr_new.empty:
                                     new_g_id = attr_new.values[0]
-                                    if self.genes.assembly_conv.get(
+                                    if self.genes.assembly.get(
                                         new_g_id
                                     ) not in reaction.genes.get(model_id):
                                         reaction.genes.get(model_id).append(
-                                            self.genes.assembly_conv.get(new_g_id)
+                                            self.genes.assembly.get(new_g_id)
                                         )
                                     gene_convert.update({oldrg.id: new_g_id})
                                 else:
@@ -624,11 +630,11 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         gene_folder: PosixPath,
     ):
         model_ids = list(all_models_data.keys())
-        for met in self.metabolites.assembly_conv.values():
+        for met in self.metabolites.assembly.values():
             self.__find_reactions(
                 met, m_go_new_old, r_go_old_new, model_ids, periplasmic_r, periplasmic_m
             )
-        for r in self.reactions.assembly_conv.values():
+        for r in self.reactions.assembly.values():
             self.__find_metabolites(
                 r, r_go_new_old, m_go_old_new, model_ids, periplasmic_r
             )
@@ -639,12 +645,12 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     def __get_additional_attributes(
         self, model_ids: [str], m_go_new_old: dict, r_go_new_old: dict
     ):
-        for met in self.metabolites.assembly_conv.values():
+        for met in self.metabolites.assembly.values():
             for model_id in model_ids:
                 old_mets = m_go_new_old.get(met.id).get(model_id)
                 if old_mets:
                     met.formula.get(model_id).append(old_mets[0].formula)
-        for r in self.reactions.assembly_conv.values():
+        for r in self.reactions.assembly.values():
             for mod_id in model_ids:
                 old_rs = r_go_new_old.get(r.id).get(mod_id)
                 if old_rs:
@@ -675,36 +681,33 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 r.metabolites.get(s)[met] = koef * -1
 
     def __runSwitchedMetabolites(self):
-        for r in self.reactions.assembly_conv.values():
+        for r in self.reactions.assembly.values():
             ex = False
             react_in = r.reactants[r.in_models["models_list"][0]]
             pro_in = r.products[r.in_models["models_list"][0]]
             for tmp in r.in_models["models_list"]:
-                react_in = list(set(react_in) and set(r.reactants.get(tmp)))
-                pro_in = list(set(pro_in) and set(r.products.get(tmp)))
+                react_in = list(set(react_in) & set(r.reactants.get(tmp)))
+                pro_in = list(set(pro_in) & set(r.products.get(tmp)))
                 if (not r.reactants.get(tmp)) | (not r.products.get(tmp)):
                     ex = True
             if not ex:
                 if (not react_in) | (not pro_in):
-                    # if r.in_models["models_amount"] % 2 != 0:
-                    for i in range(
-                        r.in_models["models_amount"] - 1,
-                        ceil(r.in_models["models_amount"] / 2),
-                        -1,
-                    ):
+                    up = r.in_models["models_amount"] - 1
+                    down = ceil(r.in_models["models_amount"] / 2) - 1
+                    consist = []
+                    for i in range(up, down, -1):
                         combinations = list(
                             itertools.combinations(r.in_models["models_list"], i)
                         )
-                        consist = []
                         for comb in combinations:
                             react_in_comb = r.reactants[comb[0]]
                             for c in comb:
                                 react_in_comb = list(
-                                    set(react_in_comb) and set(r.reactants.get(c))
+                                    set(react_in_comb) & set(r.reactants.get(c))
                                 )
                             if react_in_comb:
                                 consist.append(comb)
-                        if consist:
+                        if consist != []:
                             break
                     if len(consist) == 1:
                         # "Case 1: majority"
@@ -755,13 +758,13 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         self.__swapReactantsAndProducts(r, not_sel)
 
     def __assemble_attributes(self, and_as_solid: bool):
-        for met in self.metabolites.assembly_conv.values():
+        for met in self.metabolites.assembly.values():
             ass_r = getCoreConnections(met.reactions, 1, operator.ge, self.sources)
             met.reactions.update({"assembly": ass_r})
-        for gene in self.genes.assembly_conv.values():
+        for gene in self.genes.assembly.values():
             ass_rg = getCoreConnections(gene.reactions, 1, operator.ge, self.sources)
             gene.reactions.update({"assembly": ass_rg})
-        for react in self.reactions.assembly_conv.values():
+        for react in self.reactions.assembly.values():
             ass_reactants = getCoreConnections(
                 react.reactants, 1, operator.ge, self.sources
             )
@@ -791,7 +794,6 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 "assembly",
                 1,
                 react.in_models["models_list"],
-                search_in_comparison=False,
             )
             react.metabolites.update({"assembly": core_metabolites})
 
@@ -845,7 +847,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             raise ValueError("Number to check does not fit the number of models")
         elif number_of_model == 1:
             raise ValueError(
-                "Features in at least 1 model are already found in assembly/assembly_conv. "
+                "Features in at least 1 model are already found in assembly. "
                 "You do not need to run this comparison separately"
             )
         else:
@@ -906,3 +908,19 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
 
     def get_intersection(self, and_as_solid=False):
         getCore(self, len(self.sources), operator.ge, and_as_solid)
+
+    def write_supermodel_to_pkl(self, output_name: str, recursion_limit=None):
+        if not output_name.endswith(".pkl"):
+            raise ValueError("Wrong extension of the file")
+        if exists(output_name):
+            raise ValueError("File already exist, change the name")
+        else:
+            if recursion_limit is None:
+                recursion_limit = 50000
+            sys.setrecursionlimit(recursion_limit)
+            dill.dump(self, open(output_name, "wb"))
+
+
+def read_supermodel_from_pkl(input_name: str):
+    supermodel = dill.load(open(input_name, "rb"))
+    return supermodel
