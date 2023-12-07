@@ -8,7 +8,7 @@ from .general import findKeysByValue
 
 
 def getCoreConnections(
-        connections: dict, core_size: int, compare_operator: operator, sources: [str]
+    connections: dict, core_size: int, compare_operator: operator, sources: [str]
 ) -> [str]:
     """ Getting connections (reactants/products/ for reaction or reactions for
     metabolites or genes for reactions and vv)
@@ -59,13 +59,13 @@ def getCoreLowerBounds(bounds: dict, core_size: int, sources: [str]) -> [str]:
 
 
 def getCoreCoefficients(
-        metabolites: dict,
-        reactants: dict,
-        products: dict,
-        core_name: str,
-        core_size: int,
-        sources: [str],
-        search_in_comparison=True
+    metabolites: dict,
+    reactants: dict,
+    products: dict,
+    core_name: str,
+    core_size: int,
+    sources: [str],
+    search_in_comparison=True,
 ) -> dict:
     """ Getting core coefficients for metabolites via average of all possible modes of core_size number sources """
     core_metabolites = {}
@@ -100,11 +100,11 @@ def getCoreCoefficients(
 
 
 def getCoreGPR(
-        gprs: dict,
-        core_size: int,
-        compare_operator: operator,
-        sources: [str],
-        and_as_solid: bool,
+    gprs: dict,
+    core_size: int,
+    compare_operator: operator,
+    sources: [str],
+    and_as_solid: bool,
 ) -> [str]:
     """ Getting logical (or) parts of gene_reaction_rules (...and...)or(...)
     for reaction that are present in more than core_size sources = original models.
@@ -180,7 +180,7 @@ def getCoreGPR(
 
 
 def getCore(
-        supermodel, core_size: int, compare_operator: operator, and_as_solid: bool,
+    supermodel, core_size: int, compare_operator: operator, and_as_solid: bool,
 ):
     """ Getting supermodel core: intersection of at least core_size amount of sources (by default, intersection of all
      sources). Getting supermodel union of all sources. """
@@ -283,7 +283,7 @@ def getSomeBound(bounds: dict, bounds_type: str, sourceIn: [str]):
 
 
 def getSomeCoefficients(
-        metabolites: dict, reactants: dict, products: dict, name: str, sourceIn: [str]
+    metabolites: dict, reactants: dict, products: dict, name: str, sourceIn: [str]
 ):
     """ Getting coefficients mode of metabolites from sourceIn """
     coefficients = {}
@@ -381,7 +381,7 @@ def getDifGPR(gprs: dict, sourceIn: [str], sourceNotIn: [str], and_as_solid: boo
 
 
 def getDifference(
-        supermodel, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool, nletter: int,
+    supermodel, sourceIn: [str], sourceNotIn: [str], and_as_solid: bool, nletter: int,
 ):
     """ Getting metabolites and reactions that are present in "sourceIn"
     list of sources = original models
@@ -454,72 +454,3 @@ def getDifference(
         react.metabolites["comparison"].update({name: sI_metabolites})
         if (set(sourceIn) <= set(sr_present)) & (set(sourceNotIn) <= set(sr_absent)):
             supermodel.reactions.comparison[name].update({react.id: react})
-
-
-def get_short_name_len(sources: list) -> int:
-    for i in range(len(max(sources, key=len)) + 1):
-        short = []
-        for source in sources:
-            short.append(source[:i])
-        if len(set(short)) == len(sources):
-            return i
-
-
-def at_least_in(supermodel, number_of_model: int, and_as_solid=False):
-    if type(number_of_model) != int or number_of_model < 1 or number_of_model > len(
-            supermodel.sources):
-        sys.exit("Number to check does not fit the number of models")
-    elif number_of_model == 1:
-        sys.exit("Features in at least 1 model are already found in assembly")
-    else:
-        getCore(supermodel, number_of_model, operator.ge, and_as_solid)
-
-
-def exactly_in(supermodel, number_of_model: int, and_as_solid=False):
-    if type(number_of_model) != int or number_of_model < 1 or number_of_model > len(
-            supermodel.sources):
-        sys.exit("Number to check does not fit the number of models")
-    else:
-        getCore(supermodel, number_of_model, operator.eq, and_as_solid)
-
-
-def present(supermodel, yes=None, no=None, short_name_len=None, and_as_solid=False):
-    if yes is None and no is None:
-        sys.exit("Both models present and models not present are not provided.\n"
-                 "Please provide at least one of the list")
-    elif (yes is not None and type(yes) != list) or (
-            no is not None and type(no) != list):
-        sys.exit("Present or not present models are in wrong type. \n"
-                 "Please provide lists")
-    else:
-        if yes is None:
-            yes = []
-        if no is None:
-            no = []
-        wrong_yes = set(yes) - set(supermodel.sources)
-        wrong_no = set(no) - set(supermodel.sources)
-        if wrong_yes or wrong_no:
-            sys.exit("Some of input models are not in supermodel. \n"
-                     "Please check the input ids")
-        else:
-            if short_name_len is None:
-                short_name_len = get_short_name_len(supermodel.sources)
-            getDifference(supermodel, yes, no, and_as_solid, short_name_len)
-
-
-def get_venn_segments(supermodel, short_name_len=None, and_as_solid=False):
-    """ Getting metabolites and reactions networks for each Venn segment in Venn
-    diagram."""
-    if short_name_len is None:
-        short_name_len = get_short_name_len(supermodel.sources)
-    combinations = []
-    for i in range(1, len(supermodel.sources)):
-        combinations.extend(itertools.combinations(supermodel.sources, i))
-    for combo in combinations:
-        yes = sorted(list(combo))
-        no = sorted((list(set(supermodel.sources) - set(combo))))
-        getDifference(supermodel, yes, no, and_as_solid, short_name_len)
-
-
-def get_intersection(supermodel, and_as_solid=False):
-    getCore(supermodel, len(supermodel.sources), operator.ge, and_as_solid)
