@@ -71,9 +71,9 @@ def process_bigg(data, metabolites=False):
         .explode(column="old_bigg_ids")
         .get(["old_bigg_ids", "bigg_id"])
         .assign(
-            bigg_id=lambda x: x.bigg_id.str.replace("_[a-z]+$", "")
+            bigg_id=lambda x: x.bigg_id.str.replace("_[a-z]+$", "", regex=True)
             if metabolites
-            else x
+            else x.bigg_id
         )
         .drop_duplicates()
         .groupby("old_bigg_ids", group_keys=False)
