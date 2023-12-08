@@ -5,9 +5,9 @@ from collections import defaultdict
 from math import ceil
 from os.path import exists
 from pathlib import PosixPath
-
+import resource
 import dill
-from future.moves import itertools
+import itertools
 from .comparison import (
     getCoreConnections,
     getCoreGPR,
@@ -915,10 +915,13 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         if exists(output_name):
             raise ValueError("File already exist, change the name")
         else:
-            if recursion_limit is None:
-                recursion_limit = 50000
-            sys.setrecursionlimit(recursion_limit)
-            dill.dump(self, open(output_name, "wb"))
+            max_rec = 0x100000
+            resource.setrlimit(
+                resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY]
+            )
+            sys.setrecursionlimit(max_rec)
+            with open(output_name, "wb") as fh:
+                dill.dump(self, fh)
 
 
 def read_supermodel_from_pkl(input_name: str):
