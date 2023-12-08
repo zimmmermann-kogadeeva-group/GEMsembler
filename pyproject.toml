@@ -12,7 +12,7 @@ license = {file = "LICENSE"}
 authors = [{ name = "Elena Matveishina", email = "elena.matveishina@embl.de" }]
 dependencies = [
     "cobra",
-    "pandas",
+    "pandas>=2.0",
     "numpy",
     "ncbi-genome-download",
 ]

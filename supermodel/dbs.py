@@ -269,7 +269,7 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         .str.split("<->", n=1, expand=True)
         .rename(columns={0: "1metabolites", 1: "2metabolites"})
         # Sort the lists of metabolites in both columns
-        .applymap(lambda x: " ".join(sorted(x.split())))
+        .map(lambda x: " ".join(sorted(x.split())))
         .assign(
             reaction=bigg_database_r["bigg_id"],
             models_number=bigg_database_r["model_list"].str.split().apply(len),
