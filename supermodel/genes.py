@@ -325,5 +325,5 @@ def uniteGPR(list_gpr: [str]):
         for i in range(len(unique_and)):
             if ("and" in unique_and[i]) and ("(" not in unique_and[i]):
                 unique_and[i] = "(" + unique_and[i] + ")"
-    united_gpr = " or ".join(unique_and)
+    united_gpr = " or ".join(sorted(unique_and))
     return united_gpr

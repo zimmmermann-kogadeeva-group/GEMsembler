@@ -146,11 +146,13 @@ class GatheredModels:
         else:
             return deepcopy(self.__conf.get(model_type))
 
-    def get_model_attrs(self, model_id=None):
-        if model_id is None:
-            return deepcopy(self.__models)
-        else:
+    def get_model_attrs(self, model_id=None, attr=None):
+        if model_id is not None and attr is not None:
+            return deepcopy(self.__models.get(model_id).get(attr))
+        elif model_id is not None:
             return deepcopy(self.__models.get(model_id))
+        else:
+            return deepcopy(self.__models)
 
     def _get_same_db_models(self):
         same_db_models = defaultdict(dict)
@@ -356,6 +358,7 @@ class GatheredModels:
         assembly_id=None,
         path_final_genome_nt=None,
         path_final_genome_aa=None,
+        and_as_solid=False,
     ):
 
         # Check if assembly and final genome are present.
@@ -451,7 +454,7 @@ class GatheredModels:
             "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
             "bigg_models_metabolites.txt.gz",
         )
-        metabolites.setMetaboliteAttributes(bigg_data_m)
+        metabolites._setMetaboliteAttributes(bigg_data_m)
         reactions = SetofNewReactions(
             final_r_sel, final_r_not_sel, list(self.__models.keys())
         )
@@ -459,12 +462,12 @@ class GatheredModels:
             "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
             "bigg_models_reactions.txt.gz",
         )
-        reactions.setReactionAttributes(bigg_data_r)
+        reactions._setReactionAttributes(bigg_data_r)
         genes = SetofNewGenes(self.__models, gene_path)
-        m_go_old_new, m_go_new_old = metabolites.makeForwardBackward(
+        m_go_old_new, m_go_new_old = metabolites._makeForwardBackward(
             self.__models, final_m_sel, "metabolites", periplasmic_m,
         )
-        r_go_old_new, r_go_new_old = reactions.makeForwardBackward(
+        r_go_old_new, r_go_new_old = reactions._makeForwardBackward(
             self.__models, final_r_sel, "reactions"
         )
         supermodel = SuperModel(
@@ -479,6 +482,7 @@ class GatheredModels:
             periplasmic_m,
             periplasmic_r,
             gene_path,
+            and_as_solid,
         )
         return supermodel
 

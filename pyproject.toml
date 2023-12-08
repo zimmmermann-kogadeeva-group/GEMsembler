@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "supermodel"
-version = "0.0.1"
+version = "0.1.0"
 requires-python = ">=3.9"
 description = "Supermodel tool for dealing with several types of Genome-Scale Metabolic Models"
 readme = "README.md"
@@ -14,6 +14,8 @@ dependencies = [
     "cobra",
     "pandas>=2.0",
     "numpy",
+    "scipy",
+    "dill",
     "ncbi-genome-download",
 ]
 
