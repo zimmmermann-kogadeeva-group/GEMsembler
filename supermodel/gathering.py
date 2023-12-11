@@ -479,8 +479,8 @@ class GatheredModels:
             r_go_new_old,
             r_go_old_new,
             self.__models,
-            periplasmic_m,
             periplasmic_r,
+            periplasmic_m,
             gene_path,
             and_as_solid,
         )

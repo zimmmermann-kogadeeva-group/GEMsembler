@@ -282,7 +282,7 @@ class SetofNewGenes(object):
                     ]
                     if attr.empty:
                         if gene.id in self.notconverted.keys():
-                            self.notconverted.get(gene.id).updateNewGene(
+                            self.notconverted.get(gene.id)._updateNewGene(
                                 gene.id, model_id
                             )
                         else:
@@ -292,7 +292,7 @@ class SetofNewGenes(object):
                             self.notconverted.update({gene.id: new_gene})
                     elif type(attr.values[0]) != str:
                         if gene.id in self.notconverted.keys():
-                            self.notconverted.get(gene.id).updateNewGene(
+                            self.notconverted.get(gene.id)._updateNewGene(
                                 gene.id, model_id
                             )
                         else:
@@ -322,7 +322,7 @@ class SetofNewGenes(object):
             self.__addNewGenes_conv(all_models_data, gene_folder)
         else:
             for model_id in list(all_models_data.keys()):
-                for gene in all_models_data.get(model_id).genes:
+                for gene in all_models_data[model_id]["preprocess_model"].genes:
                     if gene.id in self.assembly.keys():
                         self.assembly.get(gene.id)._updateNewGene(gene.id, model_id)
                     else:
@@ -550,22 +550,6 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         gene_folder: PosixPath,
     ):
         for model_id in model_ids:
-            blast_file = gene_folder / (model_id + "_blast.tsv")
-            conversion_table = pd.read_csv(str(blast_file), sep="\t", header=None)
-            conversion_table.columns = [
-                "old_id",
-                "new_id",
-                "identity",
-                "length",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "10",
-                "11",
-            ]
             for gene in self.genes.assembly.values():
                 if model_id in gene.in_models["models_list"]:
                     old_g_ids = gene.annotation.get(model_id)
@@ -581,6 +565,23 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 for new_r in r_go_old_new.get(model_id).get(r_id):
                                     if new_r not in gene.reactions.get(model_id):
                                         gene.reactions.get(model_id).append(new_r)
+            if gene_folder is not None:
+                blast_file = gene_folder / (model_id + "_blast.tsv")
+                conversion_table = pd.read_csv(str(blast_file), sep="\t", header=None)
+                conversion_table.columns = [
+                    "old_id",
+                    "new_id",
+                    "identity",
+                    "length",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "10",
+                    "11",
+                ]
             for reaction in self.reactions.assembly.values():
                 old_rs = r_go_new_old.get(reaction.id).get(model_id)
                 if old_rs:
@@ -589,21 +590,24 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                         if oldr.genes:
                             gene_convert = {}
                             for oldrg in oldr.genes:
-                                attr_new = conversion_table[
-                                    conversion_table["old_id"] == oldrg.id
-                                ]["new_id"]
-                                if not attr_new.empty:
-                                    new_g_id = attr_new.values[0]
-                                    if self.genes.assembly.get(
-                                        new_g_id
-                                    ) not in reaction.genes.get(model_id):
-                                        reaction.genes.get(model_id).append(
-                                            self.genes.assembly.get(new_g_id)
-                                        )
-                                    gene_convert.update({oldrg.id: new_g_id})
+                                if gene_folder is not None:
+                                    attr_new = conversion_table[
+                                        conversion_table["old_id"] == oldrg.id
+                                    ]["new_id"]
+                                    if not attr_new.empty:
+                                        new_g_id = attr_new.values[0]
+                                        if self.genes.assembly.get(
+                                            new_g_id
+                                        ) not in reaction.genes.get(model_id):
+                                            reaction.genes.get(model_id).append(
+                                                self.genes.assembly.get(new_g_id)
+                                            )
+                                        gene_convert.update({oldrg.id: new_g_id})
+                                    else:
+                                        gene_convert.update({oldrg.id: "not_found"})
                                 else:
-                                    gene_convert.update({oldrg.id: "not_found"})
-                            old_gpr = oldr.gene_reaction_rule
+                                    gene_convert.update({oldrg.id: oldrg.id})
+                                old_gpr = oldr.gene_reaction_rule
                             new_gpr, mix_gpr = makeNewGPR(old_gpr, gene_convert)
                             if new_gpr:
                                 new_gpr_unite_r.append(new_gpr)
@@ -747,6 +751,10 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     # Maybe remove, since len(consist) is expected to be only 1 or 2
                     else:
                         print("Can enter consist more 2")
+                        print(r.id)
+                        print(r.reactants)
+                        print(r.products)
+                        print(consist)
                         # "Case 3: Nothing sort"
                         sel = sorted(r.in_models["models_list"])[0]
                         not_sel = []

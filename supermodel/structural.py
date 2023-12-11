@@ -586,7 +586,6 @@ def runSuggestionsMet(
                 sel.compartments,
             )
             for orig_id, sel in met_selected.items()
-            if sel.to_one_id == True and sel.from_one_id == True
         }
         sug_from_many = {}
     # actually getting suggestions based on reactions that were converted 1-1 with reaction equation

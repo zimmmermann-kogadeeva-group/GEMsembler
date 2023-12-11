@@ -1,7 +1,7 @@
 import re
 import warnings
-from pathlib import Path, PosixPath
-
+from pathlib import PosixPath
+import time
 from cobra import Model
 import pandas as pd
 import os
@@ -176,8 +176,13 @@ def get_locus_tag_genes(
     feature_table = pd.read_csv(feature_table_name, sep="\t", compression="gzip")
     out_nt = open(out_nt_fasta, "w")
     with gzip.open(ncbi_cds_name, "rt") as cds:
+        locus_tags = []
         for cdsl in cds:
             if cdsl.startswith(">"):
+                if locus_tags != []:
+                    for lt in locus_tags:
+                        out_nt.write(">" + lt + "\n")
+                        out_nt.write(one_seq)
                 new_locus_tag = cdsl.split("[locus_tag=")[1].split("]")[0]
                 if do_old_locus_tag:
                     attr = feature_table[
@@ -192,16 +197,22 @@ def get_locus_tag_genes(
                         old_locus_tag = new_locus_tag
                     else:
                         old_locus_tag = attr.values[0].split("old_locus_tag=")[1]
-                    out_nt.write(">" + old_locus_tag + "\n")
+                    locus_tags = old_locus_tag.split(",")
                 else:
-                    out_nt.write(">" + new_locus_tag + "\n")
+                    locus_tags = [new_locus_tag]
+                one_seq = ""
             else:
-                out_nt.write(cdsl)
+                one_seq = one_seq + cdsl
     out_nt.close()
     out_aa = open(out_aa_fasta, "w")
     with gzip.open(ncbi_protein_name, "rt") as proteins:
+        locus_tags = []
         for protl in proteins:
             if protl.startswith(">"):
+                if locus_tags != []:
+                    for lt in locus_tags:
+                        out_aa.write(">" + lt + "\n")
+                        out_aa.write(one_seq)
                 pp_id = protl.split(" ")[0][1:]
                 pnew_locus_tag = feature_table[
                     (feature_table["product_accession"] == pp_id)
@@ -220,11 +231,12 @@ def get_locus_tag_genes(
                         pold_locus_tag = pnew_locus_tag
                     else:
                         pold_locus_tag = attr.values[0].split("old_locus_tag=")[1]
-                    out_aa.write(">" + pold_locus_tag + "\n")
+                    locus_tags = pold_locus_tag.split(",")
                 else:
-                    out_aa.write(">" + pnew_locus_tag + "\n")
+                    locus_tags = pnew_locus_tag.split(",")
+                one_seq = ""
             else:
-                out_aa.write(protl)
+                one_seq = one_seq + protl
     out_aa.close()
 
 
@@ -238,7 +250,25 @@ def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: st
         file_formats="cds-fasta,protein-fasta,features",
         flat_output=True,
     )
-    cds_faa = ""
+    if not os.listdir(path):
+        warnings.warn("\nWarning! NCBI download failed. Trying second time")
+        time.sleep(15)
+        ngd.download(
+            assembly_accessions=assembly_id,
+            output=path,
+            file_formats="cds-fasta,protein-fasta,features",
+            flat_output=True,
+        )
+    if not os.listdir(path):
+        warnings.warn("\nWarning! NCBI download failed second time. Trying third time")
+        time.sleep(15)
+        ngd.download(
+            assembly_accessions=assembly_id,
+            output=path,
+            file_formats="cds-fasta,protein-fasta,features",
+            flat_output=True,
+        )
+        cds_faa = ""
     prot_faa = ""
     feat = ""
     for file in os.listdir(path):
@@ -249,11 +279,11 @@ def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: st
         if file.endswith("_feature_table.txt.gz"):
             feat = os.path.join(path, file)
     if not cds_faa:
-        warnings.warn("\nWarning! CDS fasta file is not found")
+        raise ValueError("CDS fasta file is not found")
     if not prot_faa:
-        warnings.warn("\nWarning! Protein fasta file is not found")
+        raise ValueError("Protein fasta file is not found")
     if not feat:
-        warnings.warn("\nWarning! Feature table is not found")
+        raise ValueError("Feature table is not found")
     final_nt_faa = os.path.join(output_folder, f"final_nt_{assembly_id}.faa")
     final_aa_faa = os.path.join(output_folder, f"final_aa_{assembly_id}.faa")
     get_locus_tag_genes(
@@ -266,6 +296,9 @@ def makeNewGPR(gpr: str, g_id_convert: dict):
     new_gpr = gpr
     mix_gpr = gpr
     for old_id, new_id in g_id_convert.items():
+        new_id = new_id.replace(".", "_")
+        if new_id[0].isdigit():
+            new_id = "g_" + new_id
         new_gpr = re.sub(rf"\b{old_id}\b", new_id, new_gpr)
         if new_id != "not_found":
             mix_gpr = re.sub(rf"\b{old_id}\b", new_id, mix_gpr)
