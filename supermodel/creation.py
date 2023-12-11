@@ -330,7 +330,9 @@ class SetofNewGenes(object):
                             gene.id, gene.id, model_id, list(all_models_data.keys())
                         )
                         self.assembly.update({gene.id: new_gene})
-                        getattr(self, model_id).update({gene.id: new_gene})
+            for gene in self.notconverted.values():
+                for model_id in gene.in_models["models_list"]:
+                    getattr(self, model_id).update({gene.id: gene})
 
 
 class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic metabolites for models without periplasmic compartments
