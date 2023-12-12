@@ -160,6 +160,9 @@ def get_genes_not_gapseq(
             gene = ""
         else:
             gene = gene + line
+    if new_id in model.genes:
+        genes_fasta.write(">" + new_id + "\n")
+        genes_fasta.write(gene)
     genes_fasta.close()
     aa_status = check_nt_or_aa(output_genes_name)
     return output_genes_name, aa_status
@@ -203,6 +206,9 @@ def get_locus_tag_genes(
                 one_seq = ""
             else:
                 one_seq = one_seq + cdsl
+    for lt in locus_tags:
+        out_nt.write(">" + lt + "\n")
+        out_nt.write(one_seq)
     out_nt.close()
     out_aa = open(out_aa_fasta, "w")
     with gzip.open(ncbi_protein_name, "rt") as proteins:
@@ -237,6 +243,9 @@ def get_locus_tag_genes(
                 one_seq = ""
             else:
                 one_seq = one_seq + protl
+        for lt in locus_tags:
+            out_aa.write(">" + lt + "\n")
+            out_aa.write(one_seq)
     out_aa.close()
 
 

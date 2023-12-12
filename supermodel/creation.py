@@ -254,6 +254,9 @@ class SetofNewGenes(object):
                 for gene in all_models_data[model_id]["preprocess_model"].genes:
                     if gene.id in self.assembly.keys():
                         self.assembly.get(gene.id)._updateNewGene(gene.id, model_id)
+                        getattr(self, model_id).update(
+                            {gene.id: self.assembly.get(gene.id)}
+                        )
                     else:
                         new_gene = NewGene(
                             gene.id, gene.id, model_id, list(all_models_data.keys())
@@ -304,6 +307,9 @@ class SetofNewGenes(object):
                         new_id = attr.values[0]
                         if new_id in self.assembly.keys():
                             self.assembly.get(new_id)._updateNewGene(gene.id, model_id)
+                            getattr(self, model_id).update(
+                                {new_id: self.assembly.get(new_id)}
+                            )
                         else:
                             new_gene = NewGene(
                                 new_id, gene.id, model_id, list(all_models_data.keys())
@@ -330,7 +336,7 @@ class SetofNewGenes(object):
                             gene.id, gene.id, model_id, list(all_models_data.keys())
                         )
                         self.assembly.update({gene.id: new_gene})
-            for gene in self.notconverted.values():
+            for gene in self.assembly.values():
                 for model_id in gene.in_models["models_list"]:
                     getattr(self, model_id).update({gene.id: gene})
 
