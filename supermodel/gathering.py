@@ -284,7 +284,7 @@ class GatheredModels:
                     )
                 else:
                     final_r_not_sel[model_id].update(
-                        {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
+                        {orig_r_id: [sel_r.compartments, [orig_r_id]]}
                     )
                 if (
                     len(
@@ -337,7 +337,7 @@ class GatheredModels:
                         )
                     else:
                         final_m_not_sel[model_id].update(
-                            {orig_m_id: [sel_m.compartments, sel_m.highest_consistent]}
+                            {orig_m_id: [sel_m.compartments, [orig_m_id]]}
                         )
             if self.periplasmic_reactions[model_id]:
                 for p_r_id, p_r in self.periplasmic_reactions[model_id].items():
@@ -479,8 +479,8 @@ class GatheredModels:
             r_go_new_old,
             r_go_old_new,
             self.__models,
-            periplasmic_m,
             periplasmic_r,
+            periplasmic_m,
             gene_path,
             and_as_solid,
         )

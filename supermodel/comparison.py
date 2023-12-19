@@ -450,3 +450,9 @@ def getDifference(
         react.metabolites["comparison"].update({name: sI_metabolites})
         if (set(sourceIn) <= set(sr_present)) & (set(sourceNotIn) <= set(sr_absent)):
             supermodel.reactions.comparison[name].update({react.id: react})
+    if name not in supermodel.metabolites.comparison.keys():
+        supermodel.metabolites.comparison.update({name: {}})
+    if name not in supermodel.reactions.comparison.keys():
+        supermodel.reactions.comparison.update({name: {}})
+    if name not in supermodel.genes.comparison.keys():
+        supermodel.genes.comparison.update({name: {}})

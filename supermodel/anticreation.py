@@ -74,7 +74,9 @@ def get_model_of_interest(
     else:
         in_reactions = supermodel.reactions.comparison[interest_level].values()
     if supermodel.reactions.assembly.get("Biomass") not in in_reactions:
-        in_reactions = in_reactions + supermodel.reactions.assembly.get("Biomass")
+        in_reactions = list(in_reactions) + [
+            supermodel.reactions.assembly.get("Biomass")
+        ]
     if reactions_include:
         in_reactions = list(set(in_reactions) | set(reactions_include))
     else:
