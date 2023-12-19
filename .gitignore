@@ -14,6 +14,7 @@ __pycache__/
 .flake8
 
 # Misc
+copy_to_cluster.sh
 env_simple.yml
 report.xml
 notes.md
