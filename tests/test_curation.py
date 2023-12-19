@@ -1,5 +1,5 @@
-from supermodel import load_sbml_model
-from supermodel.curation import remove_b_type_exchange, get_duplicated_reactions
+from gemsembler import load_sbml_model
+from gemsembler.curation import remove_b_type_exchange, get_duplicated_reactions
 
 
 class TestCuration:
