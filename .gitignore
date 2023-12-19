@@ -8,18 +8,20 @@
 *.egg-info/
 build/
 .jupyter.log
-__pycache__/
 .venv/
 .tox/
 .flake8
+__pycache__/
 
 # Misc
 copy_to_cluster.sh
 env_simple.yml
+conda_env.yml
+conda_env_simple.yml
 report.xml
 notes.md
-.envrc
 tags
+.envrc
 *.swp
 *.pkl
 
