@@ -1,4 +1,4 @@
-from supermodel.dbs import (
+from gemsembler.dbs import (
     get_old_bigg_m,
     get_old_bigg_r,
     get_seed_orig_m,

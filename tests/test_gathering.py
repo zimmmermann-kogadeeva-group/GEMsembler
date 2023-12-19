@@ -1,6 +1,6 @@
 from cobra.core.model import Model
-from supermodel import GatheredModels
-from supermodel.conversion import (
+from gemsembler import GatheredModels
+from gemsembler.conversion import (
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,

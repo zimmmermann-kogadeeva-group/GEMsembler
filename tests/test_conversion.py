@@ -1,5 +1,5 @@
-from supermodel import load_sbml_model
-from supermodel.conversion import (
+from gemsembler import load_sbml_model
+from gemsembler.conversion import (
     ConvAgora,
     ConvGapseq,
     ConvModelseed,
