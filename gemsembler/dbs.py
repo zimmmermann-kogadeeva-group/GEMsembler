@@ -8,29 +8,9 @@ import re
 # helper functions for pandas dataframes
 def separate(data, col, into=None, sep=" ", **kwargs):
     into = into or col
-    data[into] = data[col].str.split(sep, **kwargs)
-    return data
-
-
-def replace(data, col, pat, repl, regex=True, **kwargs):
-    data[col] = data[col].str.replace(pat, repl, regex=regex)
-    return data
-
-
-def set_value(data, col, value):
-    data[col] = value
-    return data
-
-
-def colapply(data, col, func):
-    data[col] = func(data[col])
-    return data
-
-
-def apply(data, col, func, new_col=None, **kwargs):
-    new_col = new_col or col
-    data[new_col] = data[col].apply(func, **kwargs)
-    return data
+    new_data = data.copy()
+    new_data[into] = data[col].str.split(sep, **kwargs)
+    return new_data
 
 
 def cache_file(func):
@@ -90,7 +70,11 @@ def process_bigg(data, metabolites=False):
         .pipe(separate, "old_bigg_ids", sep="; ")
         .explode(column="old_bigg_ids")
         .get(["old_bigg_ids", "bigg_id"])
-        .pipe(lambda x: replace(x, "bigg_id", "_[a-z]+$", "") if metabolites else x)
+        .assign(
+            bigg_id=lambda x: x.bigg_id.str.replace("_[a-z]+$", "", regex=True)
+            if metabolites
+            else x.bigg_id
+        )
         .drop_duplicates()
         .groupby("old_bigg_ids", group_keys=False)
         .apply(lambda x: x["bigg_id"].tolist())
@@ -158,17 +142,16 @@ def process_metanetx(data, db_name, repl_regex):
         data.query("source.str.startswith(@db_name) or source.str.startswith('bigg')")
         .copy()
         .reset_index(drop=True)
-        .pipe(colapply, "source", lambda x: x.str.replace(repl_regex, ":", regex=True))
+        .assign(source=lambda x: x.source.str.replace(repl_regex, ":", regex=True))
         .pipe(separate, "source", sep=":", into=["db", "db_id"], expand=True)
         .drop_duplicates(subset=["db", "db_id"])
         .pivot_table(index="ID", columns="db", values="db_id", aggfunc=",".join)
         .dropna()
-        .pipe(colapply, db_name, lambda x: x.str.split(","))
-        .explode(db_name)
-        .rename(columns={"bigg": "bigg_ids", db_name: f"{db_name}_ids"})
-        .reset_index(drop=True)
-        .set_index(f"{db_name}_ids")
-        .get("bigg_ids")
+        .assign(other_db=lambda x: x[db_name].str.split(","))
+        .drop(columns=db_name)
+        .explode("other_db")
+        .set_index("other_db")
+        .get("bigg")
         .str.split(",")
         .to_dict()
     )
@@ -279,29 +262,18 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         "bigg_models_reactions.txt.gz",
     )
 
-    reaction_regex = re.compile(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+|<->")
-
     r_connections = (
-        pd.DataFrame(
-            {
-                "reaction": bigg_database_r["bigg_id"],
-                "models_number": bigg_database_r["model_list"].str.split().apply(len),
-            }
-        )
-        # Add two columns for set of metabolites on both sides of the equation
-        .pipe(
-            set_value,
-            ["1metabolites", "2metabolites"],
-            (
-                bigg_database_r["reaction_string"]
-                .str.replace(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+", "", regex=True)
-                .apply(lambda x: f" {x} ")
-                .str.split("<->", n=1, expand=True)
-            ),
-        )
+        bigg_database_r["reaction_string"]
+        .str.replace(r"(\d+\.\d*(e-)?\d*|\d+e-\d*)|\+", "", regex=True)
+        .apply(lambda x: f" {x} ")
+        .str.split("<->", n=1, expand=True)
+        .rename(columns={0: "1metabolites", 1: "2metabolites"})
         # Sort the lists of metabolites in both columns
-        .pipe(apply, "1metabolites", lambda x: " ".join(sorted(x.split())))
-        .pipe(apply, "2metabolites", lambda x: " ".join(sorted(x.split())))
+        .map(lambda x: " ".join(sorted(x.split())))
+        .assign(
+            reaction=bigg_database_r["bigg_id"],
+            models_number=bigg_database_r["model_list"].str.split().apply(len),
+        )
         # Sort the dataframe by the metabolites
         .sort_values(
             ["1metabolites", "2metabolites", "models_number"],
@@ -312,18 +284,17 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         # Remove duplicates based on reactions
         .pipe(remove_duplicates, leave_from_mixed_directions)
         # Add an equation column
-        .pipe(
-            apply,
-            ["1metabolites", "2metabolites"],
-            lambda x: "<->".join(sorted(x)),
-            "equation",
-            axis=1,
+        .assign(
+            equation=lambda x: (
+                x[["1metabolites", "2metabolites"]].apply(
+                    lambda row: "<->".join(sorted(row))
+                )
+            )
         )
         .reset_index(drop=True)
-    )
-
-    return (
-        r_connections.groupby("equation")
+        .groupby("equation")
         .apply(lambda x: x["reaction"].values[0])
         .to_dict()
     )
+
+    return r_connections
