@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gemsembler"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.9"
-description = "Supermodel tool for dealing with several types of Genome-Scale Metabolic Models"
+description = "GEMsembler tool for dealing with several types of Genome-Scale Metabolic Models"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [{ name = "Elena Matveishina", email = "elena.matveishina@embl.de" }]
@@ -23,8 +23,8 @@ dependencies = [
 gemsembler = "gemsembler.__main__:main"
 
 [project.urls]
-"Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets"
-"Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets/issues"
+"Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler"
+"Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler/issues"
 
 [tool.pytest.ini_options]
 addopts = [
