@@ -3,7 +3,7 @@ requires = ["setuptools>=64.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "supermodel"
+name = "gemsembler"
 version = "0.1.0"
 requires-python = ">=3.9"
 description = "Supermodel tool for dealing with several types of Genome-Scale Metabolic Models"
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-supermodel = "supermodel.__main__:main"
+gemsembler = "gemsembler.__main__:main"
 
 [project.urls]
 "Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/EM007A_Supermodel_first_scripts_sets"
