@@ -283,14 +283,14 @@ def getSomeCoefficients(
 ):
     """ Getting coefficients mode of metabolites from sourceIn """
     coefficients = {}
-    if (reactants.get(name)) or (products.get(name)):
-        for rea in reactants.get(name):
+    if (reactants["comparison"].get(name)) or (products["comparison"].get(name)):
+        for rea in reactants["comparison"].get(name):
             k_mod = []
             for sI in sourceIn:
                 if metabolites.get(sI).get(rea):
                     k_mod.append(metabolites.get(sI).get(rea))
             coefficients.update({rea: mode(k_mod, keepdims=False)[0]})
-        for pro in products.get(name):
+        for pro in products["comparison"].get(name):
             k_mod = []
             for sI in sourceIn:
                 if metabolites.get(sI).get(pro):
@@ -426,9 +426,6 @@ def getDifference(
             )
             sI_lower_bound = getSomeBound(react.lower_bound, "lower", sourceIn)
             sI_upper_bound = getSomeBound(react.upper_bound, "upper", sourceIn)
-            sI_metabolites = getSomeCoefficients(
-                react.metabolites, react.reactants, react.products, name, sourceIn
-            )
         else:
             dif_reactants = getDifConnections(react.reactants, sr_present, sourceNotIn)
             dif_products = getDifConnections(react.products, sr_present, sourceNotIn)
@@ -438,15 +435,20 @@ def getDifference(
             )
             sI_lower_bound = getSomeBound(react.lower_bound, "lower", sr_present)
             sI_upper_bound = getSomeBound(react.upper_bound, "upper", sr_present)
-            sI_metabolites = getSomeCoefficients(
-                react.metabolites, react.reactants, react.products, name, sr_present
-            )
         react.reactants["comparison"].update({name: dif_reactants})
         react.products["comparison"].update({name: dif_products})
         react.genes["comparison"].update({name: dif_genes})
         react.gene_reaction_rule["comparison"].update({name: dif_gpr})
         react.lower_bound["comparison"].update({name: sI_lower_bound})
         react.upper_bound["comparison"].update({name: sI_upper_bound})
+        if sourceIn:
+            sI_metabolites = getSomeCoefficients(
+                react.metabolites, react.reactants, react.products, name, sourceIn
+            )
+        else:
+            sI_metabolites = getSomeCoefficients(
+                react.metabolites, react.reactants, react.products, name, sr_present
+            )
         react.metabolites["comparison"].update({name: sI_metabolites})
         if (set(sourceIn) <= set(sr_present)) & (set(sourceNotIn) <= set(sr_absent)):
             supermodel.reactions.comparison[name].update({react.id: react})
