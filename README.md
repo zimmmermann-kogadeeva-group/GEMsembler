@@ -1,4 +1,3 @@
-
 # GEMsembler
 
 GEMsembler tool for assembling and comparing several types of Genome-Scale Metabolic
@@ -42,4 +41,14 @@ gathered.run()
 Second stage is actual assembly of supermodel from the in formation in gathered models. User has to provide output folder. And for gene conversion user hast provide either final genes in fasta. Then all gene will be converted to ids in these files. Or if user provides NCBI assembly ID for his organism of interest, corresponding genome will be downloaded autpmaticly and all genes will be converted to the locus tags of the organis.
 ```
 supermodel_lp = gathered.assemble_supermodel("./gemsembler_output/", assembly_id = "GCF_000203855.3")
+```
+
+After supermodel is assembled different comparison methods can be run
+```
+supermodel_lp.at_least_in(2)
+```
+
+And results of comparison can be extracted as typical COBRApy models
+```
+core2 = get_model_of_interest(supermodel_lp, "core2", "./gemsembler_output/LP_core2_output_model.xml")
 ```
