@@ -5,11 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gemsembler"
 version = "0.2.0"
-requires-python = ">=3.9"
-description = "GEMsembler tool for dealing with several types of Genome-Scale Metabolic Models"
+description = "A tool for assembling and comparing several types of Genome-Scale Metabolic Models."
 readme = "README.md"
 license = {file = "LICENSE"}
-authors = [{ name = "Elena Matveishina", email = "elena.matveishina@embl.de" }]
+authors = [
+    { name = "Elena Matveishina", email = "elena.matveishina@embl.de" },
+    { name = "Bartosz Bartmanski", email = "bartosz.bartmanski@embl.de" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+keywords = ["genome scale metabolic models", "metabolism", "biology"]
+requires-python = ">=3.9"
 dependencies = [
     "cobra",
     "pandas>=2.0",
@@ -18,6 +27,18 @@ dependencies = [
     "dill",
     "ncbi-genome-download",
 ]
+
+[tool.bumpver]
+current_version = "0.2.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message  = "Bump version {old_version} -> {new_version}"
+commit          = true
+tag             = true
+push            = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"']
+"gemsembler/__init__.py" = ['^__version__ = "{version}"$']
 
 [project.scripts]
 gemsembler = "gemsembler.__main__:main"

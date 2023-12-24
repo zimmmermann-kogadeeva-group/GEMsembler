@@ -15,6 +15,7 @@ __pycache__/
 
 # Misc
 copy_to_cluster.sh
+requirements.txt
 env_simple.yml
 conda_env.yml
 conda_env_simple.yml
