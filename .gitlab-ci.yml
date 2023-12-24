@@ -25,13 +25,3 @@ pytest311:
   image: python:3.11
   script:
     - tox run -e py311
-
-build:
-  image: python:3.11
-  stage: build
-  only:
-    - tags
-  script:
-    - python3 -m pip install twine build
-    - python3 -m build
-    - python3 -m twine upload -r pypi -u __token__ -p ${PYPI_API_TOKEN} dist/*
