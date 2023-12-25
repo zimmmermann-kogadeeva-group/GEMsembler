@@ -5,7 +5,7 @@ Models.
 
 **THIS IS A BETA VERSION! BUGS CAN BE EXPECTED**
 
-## Instalation
+## Installation
 
 Install with the following command:
 ```
@@ -17,9 +17,9 @@ pip install gemsembler
 ## Usage
 
 Input models have to be COBRApy readable files. And models need to be
-particular type. Curently models made by CarveMe (carveme), ModelSEED
+particular type. Currently models made by CarveMe (carveme), ModelSEED
 (modelseed), gapseq (gapseq) and models downloaded from AGORA VMH database
-(agora) are supported. Custom type is comming soon. Genomes, from which the
+(agora) are supported. Custom type is coming soon. Genomes, from which the
 models are built will allow to convert and assemble genes as well.
 ```
 input_data = {
@@ -30,7 +30,7 @@ input_data = {
     "agora_LP": {"path_to_model": "./Lactobacillus_plantarum_WCFS1_agora.xml", "model_type": "agora", "path_to_genome": "./Lactobacillus_plantarum_WCFS1.fasta"}
 }
 ```
-Fisrt stage is the creation of gathered models, a class, that performs
+First stage is the creation of gathered models, a class, that performs
 conversion and contains results of all stages.
 ```
 gathered = GatheredModels()
@@ -43,8 +43,8 @@ Second stage is actual assembly of supermodel from the in formation in gathered
 models. User has to provide output folder. And for gene conversion user hast
 provide either final genes in fasta. Then all gene will be converted to ids in
 these files. Or if user provides NCBI assembly ID for his organism of interest,
-corresponding genome will be downloaded autpmaticly and all genes will be
-converted to the locus tags of the organis.
+corresponding genome will be downloaded automatically and all genes will be
+converted to the locus tags of the organism.
 ```
 supermodel_lp = gathered.assemble_supermodel("./gemsembler_output/", assembly_id = "GCF_000203855.3")
 ```
