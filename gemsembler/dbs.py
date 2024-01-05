@@ -287,7 +287,7 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         .assign(
             equation=lambda x: (
                 x[["1metabolites", "2metabolites"]].apply(
-                    lambda row: "<->".join(sorted(row))
+                    lambda row: "<->".join(sorted(row)), axis=1
                 )
             )
         )
