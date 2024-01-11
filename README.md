@@ -12,7 +12,12 @@ Install with the following command:
 pip install gemsembler
 ```
 
-**Note:** you also have to install BLAST in advance
+**Note:** you also have to install BLAST in advance.
+
+To get the latest version, you can install directly from gitlab:
+```
+pip install git+https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler.git
+```
 
 ## Usage
 

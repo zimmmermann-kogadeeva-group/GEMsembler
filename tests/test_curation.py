@@ -6,7 +6,7 @@ class TestCuration:
     def test_remove_b_type_exchange(self):
         # Load the example modelseed model. Only modelseed models require
         # removal of `b` compartments from metabolites and reactions
-        model = load_sbml_model("example/BU_modelSEED.sbml.gz")
+        model = load_sbml_model("example/BU/BU_modelSEED.sbml.gz")
 
         # Get and check the numer of metabolites and reactions before removing
         # metabolites and reactions in the `b` compartment
@@ -29,21 +29,21 @@ class TestCuration:
 
     def test_get_duplicated_reactions(self):
         # Check sizes of duplicated tables given agora model
-        model = load_sbml_model("example/BU_agora.xml.gz")
+        model = load_sbml_model("example/BU/BU_agora.xml.gz")
         dup = get_duplicated_reactions(model)
         assert len(dup) == 20
 
         # Check sizes of duplicated tables given carveme model
-        model = load_sbml_model("example/BU_carveme_hom.xml.gz")
+        model = load_sbml_model("example/BU/BU_carveme_hom.xml.gz")
         dup = get_duplicated_reactions(model)
         assert len(dup) == 204
 
         # Check sizes of duplicated tables given gapseq model
-        model = load_sbml_model("example/BU_gapseq.xml.gz")
+        model = load_sbml_model("example/BU/BU_gapseq.xml.gz")
         dup = get_duplicated_reactions(model)
         assert len(dup) == 110
 
         # Check sizes of duplicated tables given modelseed model
-        model = load_sbml_model("example/BU_modelSEED.sbml.gz")
+        model = load_sbml_model("example/BU/BU_modelSEED.sbml.gz")
         dup = get_duplicated_reactions(model)
         assert len(dup) == 0

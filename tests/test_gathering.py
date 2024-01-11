@@ -44,40 +44,40 @@ class TestGathering:
         # Check models in GatheredModels object
         assert len(g) == 0
 
-        g.add_model("test_carveme", "example/BU_carveme_hom.xml.gz", "carveme")
+        g.add_model("test_carveme", "example/BU/BU_carveme_hom.xml.gz", "carveme")
         assert "test_carveme" in g
         model_attrs = g.get_model_attrs("test_carveme")
-        assert model_attrs["path_to_model"] == "example/BU_carveme_hom.xml.gz"
+        assert model_attrs["path_to_model"] == "example/BU/BU_carveme_hom.xml.gz"
         assert model_attrs["model_type"] == "carveme"
         model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1244
         assert len(model.reactions) == 1849
 
-        g.add_model("test_agora", "example/BU_agora.xml.gz", "agora")
+        g.add_model("test_agora", "example/BU/BU_agora.xml.gz", "agora")
         assert "test_agora" in g
         model_attrs = g.get_model_attrs("test_agora")
-        assert model_attrs["path_to_model"] == "example/BU_agora.xml.gz"
+        assert model_attrs["path_to_model"] == "example/BU/BU_agora.xml.gz"
         assert model_attrs["model_type"] == "agora"
         model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1500
         assert len(model.reactions) == 2418
 
-        g.add_model("test_modelseed", "example/BU_modelSEED.sbml.gz", "modelseed")
+        g.add_model("test_modelseed", "example/BU/BU_modelSEED.sbml.gz", "modelseed")
         assert "test_modelseed" in g
         model_attrs = g.get_model_attrs("test_modelseed")
-        assert model_attrs["path_to_model"] == "example/BU_modelSEED.sbml.gz"
+        assert model_attrs["path_to_model"] == "example/BU/BU_modelSEED.sbml.gz"
         assert model_attrs["model_type"] == "modelseed"
         model = model_attrs["preprocess_model"]
         assert type(model) is Model
         assert len(model.metabolites) == 1271
         assert len(model.reactions) == 1161
 
-        g.add_model("test_gapseq", "example/BU_gapseq.xml.gz", "gapseq")
+        g.add_model("test_gapseq", "example/BU/BU_gapseq.xml.gz", "gapseq")
         assert "test_gapseq" in g
         model_attrs = g.get_model_attrs("test_gapseq")
-        assert model_attrs["path_to_model"] == "example/BU_gapseq.xml.gz"
+        assert model_attrs["path_to_model"] == "example/BU/BU_gapseq.xml.gz"
         assert model_attrs["model_type"] == "gapseq"
         model = model_attrs["preprocess_model"]
         assert type(model) is Model
