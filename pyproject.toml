@@ -21,12 +21,16 @@ keywords = ["genome scale metabolic models", "metabolism", "biology"]
 requires-python = ">=3.9"
 dependencies = [
     "cobra",
-    "pandas>=2.0",
-    "numpy",
-    "scipy",
     "dill",
     "ncbi-genome-download",
+    "numpy",
+    "pandas>=2.0",
+    "platformdirs",
+    "scipy",
 ]
+
+[tool.setuptools]
+packages = ["gemsembler"]
 
 [tool.bumpver]
 current_version = "0.2.2"

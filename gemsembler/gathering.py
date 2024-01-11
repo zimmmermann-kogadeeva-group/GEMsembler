@@ -1,11 +1,13 @@
-import os
+from cobra.io import read_sbml_model
 from collections import defaultdict
 from copy import deepcopy
 import logging
+import os
 from pathlib import Path
 import pickle
+from platformdirs import user_data_dir
 import warnings
-from cobra.io import read_sbml_model
+
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .creation import SetofNewMetabolites, SetofNewReactions, SetofNewGenes, SuperModel
 from .curation import remove_b_type_exchange, get_duplicated_reactions
@@ -87,7 +89,7 @@ class GatheredModels:
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
-            for p in Path("~/.gemsembler/").expanduser().iterdir():
+            for p in Path(user_data_dir("gemsembler")).iterdir():
                 p.unlink()
 
         self.__conf = {
