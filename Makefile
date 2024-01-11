@@ -34,27 +34,28 @@ LP_FILES = CA1.xml.gz \
 		   WCFS1.fasta.gz
 
 .PHONY: lp_data
-lp_data: $(addprefix example/LP_,${LP_FILES})
+lp_data: $(addprefix example/LP/LP_,${LP_FILES})
 
-example/LP_CA1.xml.gz:
-	wget -qO - ${PAPER_URL}/CA/LPL/CA1.xml | gzip -c > $@
+example/LP/LP_CA1.xml.gz:
+	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/CA/LPL/CA1.xml | gzip -c > $@
 
-example/LP_CA2.xml.gz:
-	wget -qO - ${PAPER_URL}/CA/LPL/CA2.xml | gzip -c > $@
+example/LP/LP_CA2.xml.gz:
+	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/CA/LPL/CA2.xml | gzip -c > $@
 
-example/LP_MS2.sbml.gz:
-	wget -qO - ${PAPER_URL}/MS/LPL/MS2.sbml | gzip -c > $@
+example/LP/LP_MS2.sbml.gz:
+	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/MS/LPL/MS2.sbml | gzip -c > $@
 
-example/LP_protein_fasta.faa.gz:
-	wget -qO - ${PAPER_URL}/inputs/LPL/protein_fasta.faa | gzip -c > $@
+example/LP/LP_protein_fasta.faa.gz:
+	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/inputs/LPL/protein_fasta.faa | gzip -c > $@
 
-example/LP_iLP728.xml.gz:
-	wget -qO - ${PAPER_URL}/manually_curated_models/LPL/iLP728.xml | gzip -c > $@
+example/LP/LP_iLP728.xml.gz:
+	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/manually_curated_models/LPL/iLP728.xml | gzip -c > $@
 
-example/LP_WCFS1_agora.xml.gz:
-	wget -qO - ${VMH_URL}/1.03/reconstructions/sbml/Lactobacillus_plantarum_WCFS1.xml | gzip -c > $@ 
+example/LP/LP_WCFS1_agora.xml.gz:
+	mkdir -p $(dir $@); wget -qO - ${VMH_URL}/1.03/reconstructions/sbml/Lactobacillus_plantarum_WCFS1.xml | gzip -c > $@ 
 
-example/LP_WCFS1.fasta.gz:
+example/LP/LP_WCFS1.fasta.gz:
+	mkdir -p $(dir $@); \
 	wget -q - ${VMH_URL}/genomes/AGORA-Genomes.zip -O agora_genomes.zip ; \
 	unzip -p agora_genomes.zip Lactobacillus_plantarum_WCFS1.fasta | gzip -c > $@ && \
 	rm agora_genomes.zip

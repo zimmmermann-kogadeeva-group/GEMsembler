@@ -1,14 +1,17 @@
-import re
-import warnings
-from pathlib import PosixPath
-import time
 from cobra import Model
-import pandas as pd
-import os
-from sympy import symbols, sympify, expand
-from .general import is_float
-import ncbi_genome_download as ngd
+from functools import partial
 import gzip
+from mimetypes import guess_type
+import ncbi_genome_download as ngd
+import os
+import pandas as pd
+from pathlib import PosixPath
+from sympy import symbols, sympify, expand
+import re
+import time
+import warnings
+
+from .general import is_float
 
 
 def check_nt_or_aa(path_fasta: PosixPath):
@@ -133,13 +136,17 @@ def get_genes_not_gapseq(
     model_type: str,
     model_id: str,
 ):
-    with open(input_genes_name, "r") as input_fasta:
+    encoding = guess_type(input_genes_name)[1]  # uses file extension
+    _open = partial(gzip.open, mode="rt") if encoding == "gzip" else open
+
+    with _open(input_genes_name) as input_fasta:
         lines = input_fasta.readlines()
     head, tail = os.path.split(input_genes_name)
     output_genes_name = (
         output_gene_folder
         / f"{os.path.splitext(tail)[0]}_{model_type}_{model_id}_genes.faa"
     )
+
     genes_fasta = open(output_genes_name, "w")
     new_id = ""
     for line in lines:

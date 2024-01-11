@@ -2,6 +2,7 @@ import json
 from functools import wraps
 import pandas as pd
 from pathlib import Path
+from platformdirs import user_data_dir
 import re
 
 
@@ -15,13 +16,13 @@ def separate(data, col, into=None, sep=" ", **kwargs):
 
 def cache_file(func):
     """
-    Decorator for caching mapping dictionaries in ~/.gemsembler
+    Decorator for caching mapping dictionaries in ~/.local/share/gemsembler
     """
 
     @wraps(func)
     def wrapper_decorator(*args, **kwargs):
         # Create the directory holding
-        cache_path = Path("~").expanduser() / ".gemsembler"
+        cache_path = Path(user_data_dir("gemsembler"))
         cache_path.mkdir(exist_ok=True, parents=True)
         cache_path /= func.__name__ + ".json"
 
@@ -40,13 +41,13 @@ def cache_file(func):
 def download_db(url, cache_name=None, **kwargs):
     """
     Function to download the data needed for conversion. Caches the data in
-    ~/.gemsembler.
+    ~/.local/share/gemsembler.
     """
     # Either get filename for cache file from input arg or url
     cache_name = cache_name or url.rsplit("/", 1)[-1]
 
     # Create the directory holding
-    cache_path = Path("~").expanduser() / ".gemsembler"
+    cache_path = Path(user_data_dir("gemsembler"))
     cache_path.mkdir(exist_ok=True, parents=True)
     cache_path /= cache_name
 
@@ -287,7 +288,7 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
         .assign(
             equation=lambda x: (
                 x[["1metabolites", "2metabolites"]].apply(
-                    lambda row: "<->".join(sorted(row))
+                    lambda row: "<->".join(sorted(row)), axis=1
                 )
             )
         )

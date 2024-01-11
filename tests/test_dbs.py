@@ -7,6 +7,7 @@ from gemsembler.dbs import (
     get_seed_addit_r,
     get_kegg_m,
     get_kegg_r,
+    get_bigg_network,
 )
 
 
@@ -116,3 +117,18 @@ class TestConversionMappings:
         assert kegg_r.get("R00253") == ["GALh", "GALm", "GLNS", "GLNS_1"]
         assert kegg_r.get("R03057") == ["LTA4H"]
         assert kegg_r.get("R00703") == ["LDH_L", "LDH_Lm", "LLDHh", "r0173"]
+
+    def test_bigg_network(self):
+        bigg_net = get_bigg_network()
+
+        # Check number of reactions
+        assert len(bigg_net) == 27946
+
+        # Check whether specific key exists in the bigg_net dict
+        assert "10fthf5glu_c adp_c h2o_c h_c pi_c<->10fthf_c atp_c glu__L_c" in bigg_net
+
+        # Check whether key-value pair matches within bigg_net dict
+        assert (
+            bigg_net["10fthf5glu_c adp_c h2o_c h_c pi_c<->10fthf_c atp_c glu__L_c"]
+            == "FPGS7_1"
+        )

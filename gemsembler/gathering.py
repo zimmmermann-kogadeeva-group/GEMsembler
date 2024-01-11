@@ -1,11 +1,13 @@
-import os
+from cobra.io import read_sbml_model
 from collections import defaultdict
 from copy import deepcopy
 import logging
+import os
 from pathlib import Path
 import pickle
+from platformdirs import user_data_dir
 import warnings
-from cobra.io import read_sbml_model
+
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
 from .creation import SetofNewMetabolites, SetofNewReactions, SetofNewGenes, SuperModel
 from .curation import remove_b_type_exchange, get_duplicated_reactions
@@ -81,11 +83,13 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
-            for p in Path("~/.gemsembler/").expanduser().iterdir():
+            for p in Path(user_data_dir("gemsembler")).iterdir():
                 p.unlink()
 
         self.__conf = {
@@ -360,7 +364,6 @@ class GatheredModels:
         path_final_genome_aa=None,
         and_as_solid=False,
     ):
-
         # Check if assembly and final genome are present.
         # If not, throw a warning.
         if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
@@ -382,9 +385,9 @@ class GatheredModels:
         else:
             output_folder = Path(output_folder)
             gene_path = output_folder / "tmp_gene_conversion"
-            gene_path.mkdir(exist_ok=True)
+            gene_path.mkdir(exist_ok=True, parents=True)
             db_path = gene_path / "blast_db"
-            db_path.mkdir(exist_ok=True)
+            db_path.mkdir(exist_ok=True, parents=True)
             if assembly_id:
                 (
                     path_final_genome_nt,
@@ -465,7 +468,10 @@ class GatheredModels:
         reactions._setReactionAttributes(bigg_data_r)
         genes = SetofNewGenes(self.__models, gene_path)
         m_go_old_new, m_go_new_old = metabolites._makeForwardBackward(
-            self.__models, final_m_sel, "metabolites", periplasmic_m,
+            self.__models,
+            final_m_sel,
+            "metabolites",
+            periplasmic_m,
         )
         r_go_old_new, r_go_new_old = reactions._makeForwardBackward(
             self.__models, final_r_sel, "reactions"
