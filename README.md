@@ -26,23 +26,25 @@ particular type. Currently models made by CarveMe (carveme), ModelSEED
 (modelseed), gapseq (gapseq) and models downloaded from AGORA VMH database
 (agora) are supported. Custom type is coming soon. Genomes, from which the
 models are built will allow to convert and assemble genes as well.
+First, we import gemsembler and get the path to data files:
 ```
-input_data = {
-    "curated_LP": {"path_to_model": "./iLP728_revision_data_met_C_c.xml", "model_type": "carveme", "path_to_genome": "./protein_fasta.faa"},
-    "cauniv_LP": {"path_to_model": "./CA1.xml", "model_type": "carveme", "path_to_genome": "./protein_fasta.faa"},
-    "cagram_LP": {"path_to_model": "./CA2.xml", "model_type": "carveme", "path_to_genome": "./protein_fasta.faa"},
-    "msgram_LP": {"path_to_model": "./MS2.sbml", "model_type": "modelseed", "path_to_genome": "./protein_fasta.faa"},
-    "agora_LP": {"path_to_model": "./Lactobacillus_plantarum_WCFS1_agora.xml", "model_type": "agora", "path_to_genome": "./Lactobacillus_plantarum_WCFS1.fasta"}
-}
+from importlib.resources import files
+from gemsembler import GatheredModels, data, get_model_of_interest
+
+
+lp_path = files(data.LP)
 ```
 First stage is the creation of gathered models, a class, that performs
-conversion and contains results of all stages.
+conversion and contains results of all stages:
 ```
 gathered = GatheredModels()
-for i, v in input_data.items():
-    gathered.add_model(i, **v)
+gathered.add_model("curated_LP", lp_path / "LP_iLP728_revision_data_met_C_c.xml.gz", "carveme", lp_path / "LP_protein_fasta.faa.gz")
+gathered.add_model("cauniv_LP", lp_path / "LP_CA1.xml.gz","carveme", lp_path / "LP_protein_fasta.faa.gz")
+gathered.add_model("cagram_LP", lp_path / "LP_CA2.xml.gz", "carveme", lp_path / "LP_protein_fasta.faa.gz")
+gathered.add_model("msgram_LP", lp_path / "LP_MS2.sbml.gz", "modelseed", lp_path / "LP_protein_fasta.faa.gz")
+gathered.add_model("agora_LP", lp_path / "LP_WCFS1_agora.xml.gz", "agora", lp_path / "LP_WCFS1.fasta.gz")
+    
 gathered.run()
-
 ```
 Second stage is actual assembly of supermodel from the in formation in gathered
 models. User has to provide output folder. And for gene conversion user hast

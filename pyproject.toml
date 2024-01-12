@@ -30,7 +30,11 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["gemsembler"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = true
+where = ["src"]
 
 [tool.bumpver]
 current_version = "0.2.2"

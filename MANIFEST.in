@@ -1,0 +1,2 @@
+include src/gemsembler/data/BU/*.gz
+include src/gemsembler/data/LP/*.gz
