@@ -1,4 +1,6 @@
+from importlib.resources import files
 from gemsembler import load_sbml_model
+from gemsembler.data import BU
 from gemsembler.conversion import (
     ConvAgora,
     ConvGapseq,
@@ -11,7 +13,7 @@ from gemsembler.conversion import (
 class TestConversion:
     def test_agora(self):
         # Open model and get a metabolite and a reaction to check
-        model = load_sbml_model("example/BU/BU_agora.xml.gz")
+        model = load_sbml_model(files(BU) / "BU_agora.xml.gz")
 
         # Create a conversion object
         conv = ConvAgora()
@@ -99,7 +101,7 @@ class TestConversion:
 
     def test_gapseq(self):
         # Open model and get a metabolite and a reaction to check
-        model = load_sbml_model("example/BU/BU_gapseq.xml.gz")
+        model = load_sbml_model(files(BU) / "BU_gapseq.xml.gz")
 
         # Create a conversion object
         conv = ConvGapseq()
@@ -187,7 +189,7 @@ class TestConversion:
 
     def test_modelseed(self):
         # Open model and get a metabolite and a reaction to check
-        model = load_sbml_model("example/BU/BU_modelSEED.sbml.gz")
+        model = load_sbml_model(files(BU) / "BU_modelSEED.sbml.gz")
 
         # Create a conversion object
         conv = ConvModelseed()
@@ -275,7 +277,7 @@ class TestConversion:
 
     def test_carveme(self):
         # Open model and get a metabolite and a reaction to check
-        model = load_sbml_model("example/BU/BU_carveme_hom.xml.gz")
+        model = load_sbml_model(files(BU) / "BU_carveme_hom.xml.gz")
 
         # Create a conversion object
         conv = ConvCarveme()

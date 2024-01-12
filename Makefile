@@ -6,8 +6,8 @@ ACTIVATE = source .venv/bin/activate
 	python3 -m venv $@
 
 .PHONY: install_packages
-install_packages: .venv requirements.txt
-	${ACTIVATE} && pip install -r requirements.txt
+install_packages: .venv
+	${ACTIVATE} && pip install -e .
 
 requirements.txt:
 	${ACTIVATE} && pip freeze > $@
@@ -34,7 +34,7 @@ LP_FILES = CA1.xml.gz \
 		   WCFS1.fasta.gz
 
 .PHONY: lp_data
-lp_data: $(addprefix example/LP/LP_,${LP_FILES})
+lp_data: $(addprefix src/gemsembler/data/LP/LP_,${LP_FILES})
 
 example/LP/LP_CA1.xml.gz:
 	mkdir -p $(dir $@); wget -qO - ${PAPER_URL}/CA/LPL/CA1.xml | gzip -c > $@
