@@ -14,6 +14,7 @@ build/
 __pycache__/
 
 # Misc
+Output/
 copy_to_cluster.sh
 requirements.txt
 env_simple.yml

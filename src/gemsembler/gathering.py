@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import pickle
 from platformdirs import user_data_dir
+import subprocess
 import warnings
 
 from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
@@ -395,17 +396,25 @@ class GatheredModels:
                 ) = get_final_fasta_with_ncbi_assemble(output_folder, assembly_id)
             if path_final_genome_nt is not None:
                 print(path_final_genome_nt)
-                os.system(
+                subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "
                     f"{Path(db_path, 'nt_db')} -dbtype nucl"
-                    f" -title 'nt_db' -parse_seqids"
+                    f" -title 'nt_db' -parse_seqids",
+                    shell=True,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             if path_final_genome_aa is not None:
                 print(path_final_genome_aa)
-                os.system(
+                subprocess.run(
                     f"makeblastdb -in {path_final_genome_aa} -out "
                     f"{Path(db_path, 'aa_db')} -dbtype"
-                    f" prot -title 'aa_db' -parse_seqids"
+                    f" prot -title 'aa_db' -parse_seqids",
+                    shell=True,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             for model_id, model_data in self.__models.items():
                 out_blast_file = gene_path / (model_id + "_blast.tsv")
@@ -435,10 +444,14 @@ class GatheredModels:
                 if blast_command == "" or db_name == "":
                     warnings.warn("\nWarning! Something wrong with aa/nt in files/DB")
                 else:
-                    os.system(
+                    subprocess.run(
                         f"{blast_command} -query {model_gene_file} "
                         f"-db {Path(db_path, db_name)} "
-                        f"-max_target_seqs 1 -outfmt '6' -out {out_blast_file}"
+                        f"-max_target_seqs 1 -outfmt '6' -out {out_blast_file}",
+                        shell=True,
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
                     )
         # Get final tables to create new objects
         (
