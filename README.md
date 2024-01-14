@@ -28,22 +28,14 @@ particular type. Currently models made by CarveMe (carveme), ModelSEED
 models are built will allow to convert and assemble genes as well.
 First, we import gemsembler and get the path to data files:
 ```
-from importlib.resources import files
-from gemsembler import GatheredModels, data, get_model_of_interest
-
-
-lp_path = files(data.LP)
+from gemsembler import GatheredModels, lp_example, get_model_of_interest
 ```
 First stage is the creation of gathered models, a class, that performs
 conversion and contains results of all stages:
 ```
 gathered = GatheredModels()
-gathered.add_model("curated_LP", lp_path / "LP_iLP728_revision_data_met_C_c.xml.gz", "carveme", lp_path / "LP_protein_fasta.faa.gz")
-gathered.add_model("cauniv_LP", lp_path / "LP_CA1.xml.gz","carveme", lp_path / "LP_protein_fasta.faa.gz")
-gathered.add_model("cagram_LP", lp_path / "LP_CA2.xml.gz", "carveme", lp_path / "LP_protein_fasta.faa.gz")
-gathered.add_model("msgram_LP", lp_path / "LP_MS2.sbml.gz", "modelseed", lp_path / "LP_protein_fasta.faa.gz")
-gathered.add_model("agora_LP", lp_path / "LP_WCFS1_agora.xml.gz", "agora", lp_path / "LP_WCFS1.fasta.gz")
-    
+for model in lp_example:
+    gathered.add_model(**model)
 gathered.run()
 ```
 Second stage is actual assembly of supermodel from the in formation in gathered
