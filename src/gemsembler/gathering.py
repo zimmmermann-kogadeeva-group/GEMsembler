@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 import pickle
-from platformdirs import user_data_dir
+from platformdirs import user_data_path
 import subprocess
 import warnings
 
@@ -90,7 +90,7 @@ class GatheredModels:
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
-            for p in Path(user_data_dir("gemsembler")).iterdir():
+            for p in user_data_path("gemsembler").iterdir():
                 p.unlink()
 
         self.__conf = {

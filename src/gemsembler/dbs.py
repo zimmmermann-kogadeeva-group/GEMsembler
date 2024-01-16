@@ -2,7 +2,7 @@ import json
 from functools import wraps
 import pandas as pd
 from pathlib import Path
-from platformdirs import user_data_dir
+from platformdirs import user_data_path
 import re
 
 
@@ -22,8 +22,7 @@ def cache_file(func):
     @wraps(func)
     def wrapper_decorator(*args, **kwargs):
         # Create the directory holding
-        cache_path = Path(user_data_dir("gemsembler"))
-        cache_path.mkdir(exist_ok=True, parents=True)
+        cache_path = user_data_path("gemsembler", ensure_exists=True)
         cache_path /= func.__name__ + ".json"
 
         if cache_path.exists():
@@ -47,8 +46,7 @@ def download_db(url, cache_name=None, **kwargs):
     cache_name = cache_name or url.rsplit("/", 1)[-1]
 
     # Create the directory holding
-    cache_path = Path(user_data_dir("gemsembler"))
-    cache_path.mkdir(exist_ok=True, parents=True)
+    cache_path = user_data_path("gemsembler", ensure_exists=True)
     cache_path /= cache_name
 
     # If the cache file exists open it, otherwise download the data
