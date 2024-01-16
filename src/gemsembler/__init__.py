@@ -6,7 +6,7 @@ from .anticreation import get_model_of_interest
 from .data import LP, BU
 
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 lp_example = [
     dict(
