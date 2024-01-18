@@ -14,6 +14,12 @@ stages:
     reports:
       junit: report.xml
 
+pytest39:
+  extends: .pytest
+  image: python:3.9
+  script:
+    - tox run -e py39
+
 pytest310:
   extends: .pytest
   image: python:3.10
