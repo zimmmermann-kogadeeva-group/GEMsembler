@@ -1,9 +1,7 @@
 import json
 from functools import wraps
 import pandas as pd
-from pathlib import Path
 from platformdirs import user_data_path
-import re
 
 
 # helper functions for pandas dataframes
@@ -45,14 +43,14 @@ def download_db(url, cache_name=None, **kwargs):
     # Either get filename for cache file from input arg or url
     cache_name = cache_name or url.rsplit("/", 1)[-1]
 
-    # Create the directory holding
-    cache_path = user_data_path("gemsembler", ensure_exists=True)
-    cache_path /= cache_name
+    # Define the path to where to cache the data
+    cache_path = user_data_path("gemsembler", ensure_exists=True) / cache_name
 
     # If the cache file exists open it, otherwise download the data
     if cache_path.exists():
         data = pd.read_csv(cache_path, sep="\t", **kwargs)
     else:
+        print(f"Downloading {cache_name} from {url}")
         data = pd.read_csv(url, sep="\t", **kwargs)
         data.to_csv(cache_path, sep="\t", index=False)
     return data

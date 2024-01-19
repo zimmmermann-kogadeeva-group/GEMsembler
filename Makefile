@@ -22,7 +22,7 @@ upload: build
 
 .PHONY: clean
 clean:
-	rm -rf example/*.pkl *.egg-info/ **/__pycache__/ build/ dist/ report.xml
+	rm -rf src/*.egg-info/ **/__pycache__/ build/ dist/ report.xml
 
 PAPER_URL = https://raw.githubusercontent.com/SystemsBioinformatics/pub-data/master/reconstruction-tools-assessment/pipeline/reconstructions/
 VMH_URL = https://www.vmh.life/files/reconstructions/AGORA/
