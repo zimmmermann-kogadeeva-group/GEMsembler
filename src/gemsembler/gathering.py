@@ -1,26 +1,26 @@
-from cobra.io import read_sbml_model
-from collections import defaultdict
-from copy import deepcopy
 import logging
 import os
-from pathlib import Path
 import pickle
-from platformdirs import user_data_path
 import subprocess
 import warnings
+from collections import defaultdict
+from copy import deepcopy
+from pathlib import Path
 
-from .conversion import ConvCarveme, ConvGapseq, ConvModelseed, ConvAgora, ConvBase
-from .creation import SetofNewMetabolites, SetofNewReactions, SetofNewGenes, SuperModel
-from .curation import remove_b_type_exchange, get_duplicated_reactions
+from cobra.io import read_sbml_model
+from platformdirs import user_data_path
+
+from .conversion import (ConvAgora, ConvBase, ConvCarveme, ConvGapseq,
+                         ConvModelseed)
+from .creation import (SetofNewGenes, SetofNewMetabolites, SetofNewReactions,
+                       SuperModel)
+from .curation import get_duplicated_reactions, remove_b_type_exchange
+from .dbs import download_db, get_bigg_network
+from .genes import (get_final_fasta_with_ncbi_assemble, get_genes_gapseq,
+                    get_genes_not_gapseq)
 from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
-from .dbs import get_bigg_network, download_db
-from .genes import (
-    get_final_fasta_with_ncbi_assemble,
-    get_genes_gapseq,
-    get_genes_not_gapseq,
-)
 
 
 class LoggerContext:

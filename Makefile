@@ -20,6 +20,10 @@ build:
 upload: build
 	${ACTIVATE} && python3 -m twine upload -r pypi -u __token__ dist/*
 
+.PHONY: check
+check:
+	ruff check src
+
 .PHONY: clean
 clean:
 	rm -rf src/*.egg-info/ **/__pycache__/ build/ dist/ report.xml

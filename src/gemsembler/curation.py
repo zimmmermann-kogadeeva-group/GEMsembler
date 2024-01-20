@@ -1,5 +1,6 @@
-import cobra
 from copy import deepcopy
+
+import cobra
 import pandas as pd
 
 

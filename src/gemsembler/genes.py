@@ -1,15 +1,16 @@
-from cobra import Model
-from functools import partial
 import gzip
-from mimetypes import guess_type
-import ncbi_genome_download as ngd
 import os
-import pandas as pd
-from pathlib import PosixPath
-from sympy import symbols, sympify, expand
 import re
 import time
 import warnings
+from functools import partial
+from mimetypes import guess_type
+from pathlib import PosixPath
+
+import ncbi_genome_download as ngd
+import pandas as pd
+from cobra import Model
+from sympy import expand, symbols, sympify
 
 from .general import is_float
 

@@ -1,5 +1,6 @@
 import json
 from functools import wraps
+
 import pandas as pd
 from platformdirs import user_data_path
 

@@ -1,7 +1,9 @@
-from cobra import Model, Reaction, Metabolite
 from pprint import pprint
-from cobra.io import write_sbml_model, validate_sbml_model
-from .creation import SuperModel, NewObject
+
+from cobra import Metabolite, Model, Reaction
+from cobra.io import validate_sbml_model, write_sbml_model
+
+from .creation import NewObject, SuperModel
 
 
 def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):

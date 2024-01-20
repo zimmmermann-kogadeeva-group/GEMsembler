@@ -2,16 +2,17 @@
 
 import re
 from abc import ABC, abstractmethod
+
 from .dbs import (
     get_BiGG_lists,
-    get_old_bigg_m,
-    get_old_bigg_r,
-    get_seed_orig_m,
-    get_seed_orig_r,
-    get_seed_addit_m,
-    get_seed_addit_r,
     get_kegg_m,
     get_kegg_r,
+    get_old_bigg_m,
+    get_old_bigg_r,
+    get_seed_addit_m,
+    get_seed_addit_r,
+    get_seed_orig_m,
+    get_seed_orig_r,
 )
 
 

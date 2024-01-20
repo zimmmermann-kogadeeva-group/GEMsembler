@@ -1,24 +1,20 @@
+import itertools
 import operator
+import resource
 import sys
 import warnings
 from collections import defaultdict
 from math import ceil
 from os.path import exists
 from pathlib import PosixPath
-import resource
+
 import dill
-import itertools
-from .comparison import (
-    getCoreConnections,
-    getCoreGPR,
-    getCoreLowerBounds,
-    getCoreCoefficients,
-    getCoreUpperBounds,
-    getCore,
-    getDifference,
-)
-from .genes import makeNewGPR, uniteGPR
 import pandas as pd
+
+from .comparison import (getCore, getCoreCoefficients, getCoreConnections,
+                         getCoreGPR, getCoreLowerBounds, getCoreUpperBounds,
+                         getDifference)
+from .genes import makeNewGPR, uniteGPR
 
 
 class NewObject:

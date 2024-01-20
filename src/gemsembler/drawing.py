@@ -1,11 +1,12 @@
+import math
 import operator
+
 import networkx as nx
 import pyautogui
-from pyvis.network import Network
-import math
-from creation import SetofNewReactions, SetofNewMetabolites, NewObject
 import seaborn as sns
+from creation import NewObject, SetofNewMetabolites, SetofNewReactions
 from general import findKeysByValue
+from pyvis.network import Network
 
 
 def getColorPalette(sources_number: int) -> dict:

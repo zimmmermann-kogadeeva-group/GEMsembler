@@ -1,10 +1,9 @@
 from importlib.resources import files
 
-from .gathering import GatheredModels, load_sbml_model
-from .creation import read_supermodel_from_pkl
 from .anticreation import get_model_of_interest
-from .data import LP, BU
-
+from .creation import read_supermodel_from_pkl
+from .data import BU, LP
+from .gathering import GatheredModels, load_sbml_model
 
 __version__ = "0.3.2"
 
