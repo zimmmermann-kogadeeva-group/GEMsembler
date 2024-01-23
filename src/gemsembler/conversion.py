@@ -239,11 +239,17 @@ class ConvAgora(ConvBase):
     def convert_metabolite(self, metabolite):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
         conv_main = self.__main_map_m__.get(id_wo_comp, [])
-        conv_addit = [
-            y
-            for x in [metabolite.annotation.get(self.__annot_m__, "")]
-            for y in self.__addit_map_m__.get(x, [])
-        ]
+        if type(metabolite.annotation.get(self.__annot_m__, "")) is str:
+            annotation = [metabolite.annotation.get(self.__annot_m__, "")]
+        elif type(metabolite.annotation.get(self.__annot_m__, "")) is list:
+            annotation = metabolite.annotation.get(self.__annot_m__, "")
+        else:
+            raise ValueError(f"{self.__annot_m__} annotation of {metabolite.id} "
+                             f"metabolite is written in wrong type: "
+                             f"{metabolite.annotation.get(self.__annot_m__, '')}. "
+                             f"It has to be either str or list. "
+                             f"Please change it in the model or remove completely.")
+        conv_addit = [y for x in annotation for y in self.__addit_map_m__.get(x, [])]
         conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
         conv_noconv = [id_wo_comp]
 

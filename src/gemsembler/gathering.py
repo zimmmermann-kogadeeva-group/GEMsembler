@@ -395,7 +395,6 @@ class GatheredModels:
                     path_final_genome_aa,
                 ) = get_final_fasta_with_ncbi_assemble(output_folder, assembly_id)
             if path_final_genome_nt is not None:
-                print(path_final_genome_nt)
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "
                     f"{Path(db_path, 'nt_db')} -dbtype nucl"
@@ -406,7 +405,6 @@ class GatheredModels:
                     stderr=subprocess.PIPE,
                 )
             if path_final_genome_aa is not None:
-                print(path_final_genome_aa)
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_aa} -out "
                     f"{Path(db_path, 'aa_db')} -dbtype"
