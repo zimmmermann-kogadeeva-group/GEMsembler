@@ -82,9 +82,11 @@ def check_nt_or_aa(path_fasta: PosixPath):
 
 
 def get_genome(ncbi_genome_name: str):
-    genomedata = open(ncbi_genome_name, "r")
-    genome_lines = genomedata.readlines()
-    genomedata.close()
+    encoding = guess_type(ncbi_genome_name)[1]  # uses file extension
+    _open = partial(gzip.open, mode="rt") if encoding == "gzip" else open
+
+    with _open(ncbi_genome_name) as input_fasta:
+        genome_lines = input_fasta.readlines()
     genomes = {}
     genomeid = ""
     for line in genome_lines:
@@ -314,16 +316,24 @@ def makeNewGPR(gpr: str, g_id_convert: dict):
     mix_gpr = gpr
     for old_id, new_id in g_id_convert.items():
         new_id = new_id.replace(".", "_")
+        old_id = old_id.replace(".", "_")
+        new_gpr = new_gpr.replace(".", "_")
+        mix_gpr = mix_gpr.replace(".", "_")
         if new_id[0].isdigit():
             new_id = "g_" + new_id
+
         new_gpr = re.sub(rf"\b{old_id}\b", new_id, new_gpr)
+
         if new_id != "not_found":
             mix_gpr = re.sub(rf"\b{old_id}\b", new_id, mix_gpr)
             globals()[new_id] = symbols(new_id)
         else:
-            old_if_formated = "g_" + old_id.replace(".", "_")
-            mix_gpr = re.sub(rf"\b{old_id}\b", old_if_formated, mix_gpr)
-            globals()[old_if_formated] = symbols(old_if_formated)
+            if old_id[0].isdigit():
+                old_if_formated = "g_" + old_id
+                mix_gpr = re.sub(rf"\b{old_id}\b", old_if_formated, mix_gpr)
+                globals()[old_if_formated] = symbols(old_if_formated)
+            else:
+                globals()[old_id] = symbols(old_id)
     new_gpr = re.sub(r"\bnot_found\b", "1", new_gpr)
     new_gpr = re.sub(r"\bor\b", "+", new_gpr)
     new_gpr = re.sub(r"\band\b", "*", new_gpr)
