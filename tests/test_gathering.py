@@ -1,12 +1,14 @@
 from importlib.resources import files
+
 from cobra.core.model import Model
+
 from gemsembler import GatheredModels
 from gemsembler.conversion import (
+    ConvAgora,
+    ConvBase,
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,
-    ConvAgora,
-    ConvBase,
 )
 from gemsembler.data import BU
 

@@ -12,9 +12,15 @@ from pathlib import PosixPath
 import dill
 import pandas as pd
 
-from .comparison import (getCore, getCoreCoefficients, getCoreConnections,
-                         getCoreGPR, getCoreLowerBounds, getCoreUpperBounds,
-                         getDifference)
+from .comparison import (
+    getCore,
+    getCoreCoefficients,
+    getCoreConnections,
+    getCoreGPR,
+    getCoreLowerBounds,
+    getCoreUpperBounds,
+    getDifference,
+)
 from .genes import makeNewGPR, uniteGPR
 
 
