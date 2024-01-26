@@ -12,9 +12,15 @@ from pathlib import PosixPath
 import dill
 import pandas as pd
 
-from .comparison import (getCore, getCoreCoefficients, getCoreConnections,
-                         getCoreGPR, getCoreLowerBounds, getCoreUpperBounds,
-                         getDifference)
+from .comparison import (
+    getCore,
+    getCoreCoefficients,
+    getCoreConnections,
+    getCoreGPR,
+    getCoreLowerBounds,
+    getCoreUpperBounds,
+    getDifference,
+)
 from .genes import makeNewGPR, uniteGPR
 
 
@@ -896,8 +902,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             wrong_no = set(no) - set(self.sources)
             if wrong_yes or wrong_no:
                 raise ValueError(
-                    "Some of input models are not in supermodel. "
-                    "Please check the input ids"
+                    f"Some of input models are not in supermodel. "
+                    f"Maybe {wrong_yes} or {wrong_no}"
+                    f"Please check the input ids"
                 )
             else:
                 if short_name_len is None:
@@ -919,6 +926,10 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
 
     def get_intersection(self, and_as_solid=False):
         getCore(self, len(self.sources), operator.ge, and_as_solid)
+
+    def get_all_confident_levels(self, and_as_solid=False):
+        for i in range(len(self.sources), 1, -1):
+            self.at_least_in(i, and_as_solid=and_as_solid)
 
     def write_supermodel_to_pkl(self, output_name: str, recursion_limit=None):
         if not output_name.endswith(".pkl"):
