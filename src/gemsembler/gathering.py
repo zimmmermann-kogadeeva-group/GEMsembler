@@ -126,8 +126,6 @@ class GatheredModels:
         }
 
         self.__models = {}
-        self.converted_metabolites = defaultdict(dict)
-        self.converted_reactions = defaultdict(dict)
         self.first_stage_selected_metabolites = None
         self.first_stage_selected_reactions = None
         self.structural_first_run_reactions = defaultdict(dict)
@@ -155,7 +153,7 @@ class GatheredModels:
     def get_model_attrs(self, model_id=None, attr=None):
         if model_id is not None and attr is not None:
             return deepcopy(self.__models.get(model_id).get(attr))
-        elif model_id is not None:
+        elif model_id is not None and attr is None:
             return deepcopy(self.__models.get(model_id))
         else:
             return deepcopy(self.__models)
@@ -168,15 +166,27 @@ class GatheredModels:
             same_db_models[db_name][model_id] = model_type
         return same_db_models
 
-    def run(self):
-        # run conversion
+    @property
+    def converted_metabolites(self):
+        conv_mbs = defaultdict(dict)
         for model_id, model_attrs in self.__models.items():
-            conv = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
-            converted_model = conv.convert_model(model_attrs["preprocess_model"])
+            converter = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
+            conv_mbs[model_id] = converter.convert_all_metabolites(
+                model_attrs["preprocess_model"]
+            )
+        return conv_mbs
 
-            self.converted_metabolites[model_id] = converted_model["metabolites"]
-            self.converted_reactions[model_id] = converted_model["reactions"]
+    @property
+    def converted_reactions(self):
+        conv_rcts = defaultdict(dict)
+        for model_id, model_attrs in self.__models.items():
+            converter = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
+            conv_rcts[model_id] = converter.convert_all_reactions(
+                model_attrs["preprocess_model"]
+            )
+        return conv_rcts
 
+    def run(self):
         # prepare dictionary for models per used database
         same_db_models = self._get_same_db_models()
 
