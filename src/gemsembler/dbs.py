@@ -289,9 +289,8 @@ def get_bigg_network(path_to_dbs=None, leave_from_mixed_directions=True):
                 )
             )
         )
-        .reset_index(drop=True)
-        .groupby("equation")
-        .apply(lambda x: x["reaction"].values[0])
+        .set_index("equation")
+        .get("reaction")
         .to_dict()
     )
 

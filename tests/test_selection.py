@@ -8,9 +8,7 @@ class TestSelection:
         for model in bu_example:
             g.add_model(**model)
 
-        sel_mbs = run_selection(
-            g._get_same_db_models(), g.converted_metabolites, "highest"
-        )
+        sel_mbs = run_selection(g.same_db_models, g.converted_metabolites, "highest")
 
         # Check the number of metabolites is consistant from `run_selection`
         assert len(sel_mbs["carveme_BU"]) == 1244

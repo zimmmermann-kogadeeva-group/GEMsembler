@@ -24,6 +24,10 @@ upload: build
 check:
 	ruff check src
 
+.PHONY: tags
+tags:
+	ctags-universal --recurse src tests
+
 .PHONY: clean
 clean:
 	rm -rf src/*.egg-info/ **/__pycache__/ build/ dist/ report.xml

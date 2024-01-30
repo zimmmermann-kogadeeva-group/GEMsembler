@@ -158,7 +158,8 @@ class GatheredModels:
         else:
             return deepcopy(self.__models)
 
-    def _get_same_db_models(self):
+    @property
+    def same_db_models(self):
         same_db_models = defaultdict(dict)
         for model_id, model_attrs in self.__models.items():
             model_type = model_attrs["model_type"]
@@ -187,15 +188,12 @@ class GatheredModels:
         return conv_rcts
 
     def run(self):
-        # prepare dictionary for models per used database
-        same_db_models = self._get_same_db_models()
-
         # run first stage selection for converted
         self.first_stage_selected_metabolites = run_selection(
-            same_db_models, self.converted_metabolites, "highest"
+            self.same_db_models, self.converted_metabolites, "highest"
         )
         self.first_stage_selected_reactions = run_selection(
-            same_db_models, self.converted_reactions, "highest"
+            self.same_db_models, self.converted_reactions, "highest"
         )
 
         # run first structural conversion
@@ -213,7 +211,7 @@ class GatheredModels:
             )
         # run second stage selection for first structural reactions
         self.second_stage_selected_reactions = run_selection(
-            same_db_models,
+            self.same_db_models,
             self.structural_first_run_reactions,
             "structural",
             replace_with_consistent=False,
@@ -234,7 +232,7 @@ class GatheredModels:
             )
         # run second stage selection for suggestions for metabolites from structural
         self.second_stage_selected_metabolites = run_selection(
-            same_db_models, self.structural_first_run_metabolites, "structural"
+            self.same_db_models, self.structural_first_run_metabolites, "structural"
         )
 
         # run second structural conversion with suggestions for metabolites
@@ -251,7 +249,7 @@ class GatheredModels:
             )
         # run third stage selection for first structural reactions
         self.third_stage_selected_reactions = run_selection(
-            same_db_models,
+            self.same_db_models,
             self.structural_second_run_reactions,
             "structural",
             replace_with_consistent=False,
