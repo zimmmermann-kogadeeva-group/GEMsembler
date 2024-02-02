@@ -27,6 +27,10 @@ dependencies = [
     "pandas>=2.0",
     "platformdirs",
     "scipy",
+    "networkx",
+    "pyautogui",
+    "seaborn",
+    "pyvis"
 ]
 
 [tool.setuptools]

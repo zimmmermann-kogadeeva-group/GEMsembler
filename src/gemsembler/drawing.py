@@ -1,11 +1,9 @@
 import math
-import operator
-
+import re
 import networkx as nx
 import pyautogui
 import seaborn as sns
-from creation import NewObject, SetofNewMetabolites, SetofNewReactions
-from general import findKeysByValue
+from .creation import NewObject, SuperModel
 from pyvis.network import Network
 
 
@@ -26,203 +24,261 @@ def getColorPalette(sources_number: int) -> dict:
 
 
 def defineNodeColor(
-    colordata: dict, pallitra: str, object: NewObject, Nletter: int
+    colordata: dict, pallitra: str, object: NewObject, n_letter: int
 ) -> [str, str]:
     col = colordata.get(pallitra)[object.in_models["models_amount"] - 1]
     name = ""
     for tmp in object.in_models["models_list"]:
-        name = name + tmp[:Nletter]
+        name = name + tmp[:n_letter]
     return [col, object.id + "\n" + name]
 
 
 def defineEdgeColor(
     colordata: dict,
-    pallitra: str,
+    pallitra_forward: str,
+    pallitra_reversed: str,
     mr: NewObject,
+    colname_m: str,
     r: NewObject,
-    connections: dict,
-    Nletter: int,
-) -> [str, str]:
+    colname_r: str,
+    connections: str,
+) -> [[str, str, str]]:
     n = 0
-    name = ""
-    for tmp in r.in_models["models_list"]:
-        if mr in connections.get(tmp):
-            n = n + 1
-            name = tmp[:Nletter]
-    col = colordata.get(pallitra)[n - 1]
-    return [col, name]
+    if r.lower_bound.get("assembly")[0] >= 0:
+        for tmp in r.in_models["models_list"]:
+            if mr in getattr(r, connections).get(tmp):
+                n = n + 1
+        if connections == "reactants":
+            col = colordata.get(pallitra_forward)[n - 1]
+            output = [[colname_m, colname_r, col]]
+        elif connections == "products":
+            col = colordata.get(pallitra_reversed)[n - 1]
+            output = [[colname_r, colname_m, col]]
+    elif r.upper_bound.get("assembly")[0] <= 0:
+        for tmp in r.in_models["models_list"]:
+            if mr in getattr(r, connections).get(tmp):
+                n = n + 1
+        if connections == "reactants":
+            col = colordata.get(pallitra_reversed)[n - 1]
+            output = [[colname_r, colname_m, col]]
+        elif connections == "products":
+            col = colordata.get(pallitra_forward)[n - 1]
+            output = [[colname_m, colname_r, col]]
+    else:
+        f = 0
+        b = 0
+        for tmp in r.in_models["models_list"]:
+            if mr in getattr(r, connections).get(tmp) and r.upper_bound.get(tmp)[0] > 0:
+                f = f + 1
+            if mr in getattr(r, connections).get(tmp) and r.lower_bound.get(tmp)[0] < 0:
+                b = b + 1
+        if connections == "reactants":
+            col_f = colordata.get(pallitra_forward)[f - 1]
+            col_b = colordata.get(pallitra_forward)[b - 1]
+            output = [
+                [colname_m, colname_r, col_f],
+                [colname_r, colname_m, col_b],
+            ]
+        elif connections == "products":
+            col_f = colordata.get(pallitra_reversed)[f - 1]
+            col_b = colordata.get(pallitra_reversed)[b - 1]
+            output = [
+                [colname_r, colname_m, col_f],
+                [colname_m, colname_r, col_b],
+            ]
+    return output
 
 
-def drawOnePathway(
-    supermodel,
-    pathway,
-    met_not_int,
-    colorBrewer,
-    name,
-    aminoacids=None,
-    directed=False,
-    surrounding=False,
-    Nletter=1,
+def draw_one_known_pathway(
+    supermodel: SuperModel,
+    pathway: dict,
+    output_name: str,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=None,
+    hei=None,
 ):
+    if not output_name.endswith(".html"):
+        raise ValueError(
+            "Output file for the plot is of wrong format. Please use html file name."
+        )
+    if met_not_int is None:
+        met_not_int = {
+            "h": 0,
+            "h2o": 0,
+            "h2": 0,
+            "oh1": 0,
+            "o2": 0,
+            "co2": 0,
+            "coa": 0,
+            "ppi": 0,
+            "pi": 0,
+            "amp": 0,
+            "adp": 0,
+            "atp": 0,
+            "cmp": 0,
+            "cdp": 0,
+            "ctp": 0,
+            "gmp": 0,
+            "gdp": 0,
+            "gtp": 0,
+            "ump": 0,
+            "udp": 0,
+            "utp": 0,
+            "nad": 0,
+            "nadh": 0,
+            "nadp": 0,
+            "nadph": 0,
+            "dadp": 0,
+            "damp": 0,
+            "nh3": 0,
+            "nh4": 0,
+            "fadh2": 0,
+            "fad": 0,
+            "ac": 0,
+            "accoa": 0,
+            "h2s": 0,
+            "HC00250": 0,
+        }
+    color_brewer = getColorPalette(len(supermodel.sources))
+    if n_letter is None:
+        n_letter = supermodel.get_short_name_len()
     g = nx.DiGraph()
-    for r_id in pathway["reactions"]:
-        r = supermodel.reactions.converted.get(r_id)
-        for rea in r.reactants.get("union1"):
-            tmp_rea = rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-            for pro in r.products.get("union1"):
-                tmp_pro = (
-                    pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                )
-                if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
-                    colname_r = defineNodeColor(
-                        colorBrewer, "1stPath", r_id, supermodel.reactions, Nletter
-                    )
-                    if rea.id in pathway["metabolites"]:
-                        colname_rea = defineNodeColor(
-                            colorBrewer,
-                            "metabolies",
-                            rea.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_rea = defineEdgeColor(
-                            colorBrewer, "1stPath", rea, r.reactants, Nletter
-                        )
+    path_met = []
+    for value in pathway.values():
+        for v in value:
+            path_met.append(v[0])
+            path_met.append(v[1])
+    path_met = list(set(path_met))
+    for r_id in pathway.keys():
+        if r_id in supermodel.reactions.assembly.keys():
+            r = supermodel.reactions.assembly.get(r_id)
+            colname_r = defineNodeColor(color_brewer, "1stPath", r, n_letter,)
+            g.add_node(colname_r[1], shape="box", color=colname_r[0])
+            for rea in r.reactants.get("assembly"):
+                tmp_rea = re.sub("_([cep])$", "", rea.id)
+                if tmp_rea not in met_not_int.keys():
+                    if rea.id in path_met:
+                        rea_pal = "metabolites"
                     else:
-                        colname_rea = defineNodeColor(
-                            colorBrewer,
-                            "metConnect",
-                            rea.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_rea = defineEdgeColor(
-                            colorBrewer, "connect", rea, r.reactants, Nletter
-                        )
-
-                    if pro.id in pathway["metabolites"]:
-                        colname_pro = defineNodeColor(
-                            colorBrewer,
-                            "metabolies",
-                            pro.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_pro = defineEdgeColor(
-                            colorBrewer, "1stPath", pro, r.products, Nletter
-                        )
-                    else:
-                        colname_pro = defineNodeColor(
-                            colorBrewer,
-                            "metConnect",
-                            pro.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_pro = defineEdgeColor(
-                            colorBrewer, "connect", pro, r.products, Nletter
-                        )
-                    g.add_node(colname_r[1], shape="box", color=colname_r[0])
+                        rea_pal = "metConnect"
+                    colname_rea = defineNodeColor(color_brewer, rea_pal, rea, n_letter,)
                     g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
-                    g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
-                    g.add_edge(
+                    rea_edge = defineEdgeColor(
+                        color_brewer,
+                        "1stPath",
+                        "metabolites",
+                        rea,
                         colname_rea[1],
+                        r,
                         colname_r[1],
-                        color=cn_rea[0],
-                        font_color="black",
+                        "reactants",
                     )
+                else:
+                    g.add_node(
+                        f"{tmp_rea} {met_not_int[tmp_rea]}",
+                        label=tmp_rea,
+                        shape="o",
+                        color=color_brewer["metConnect"][
+                            math.floor(len(supermodel.sources) / 2)
+                        ],
+                    )
+                    rea_edge = defineEdgeColor(
+                        color_brewer,
+                        "1stPath",
+                        "metabolites",
+                        rea,
+                        f"{tmp_rea} {met_not_int[tmp_rea]}",
+                        r,
+                        colname_r[1],
+                        "reactants",
+                    )
+                    met_not_int[tmp_rea] = met_not_int[tmp_rea] + 1
+                for e in rea_edge:
                     g.add_edge(
-                        colname_r[1],
-                        colname_pro[1],
-                        color=cn_pro[0],
-                        font_color="black",
+                        e[0], e[1], color=e[2], font_color="black",
                     )
+            for pro in r.products.get("assembly"):
+                tmp_pro = re.sub("_([cep])$", "", pro.id)
+                if tmp_pro not in met_not_int.keys():
+                    if pro.id in path_met:
+                        pro_pal = "metabolites"
+                    else:
+                        pro_pal = "metConnect"
+                    colname_pro = defineNodeColor(color_brewer, pro_pal, pro, n_letter,)
 
-    if surrounding:
-        for m_id in pathway["metabolites"]:
-            m = supermodel.metabolites.converted.get(m_id)
-            for ra in m.reactions.get("union1"):
-                if ra.id not in pathway["reactions"]:
-                    for rea1 in ra.reactants.get("union1"):
-                        tmp_rea1 = (
-                            rea1.id.removesuffix("_c")
-                            .removesuffix("_e")
-                            .removesuffix("_p")
-                        )
-                        for pro1 in ra.products.get("union1"):
-                            tmp_pro1 = (
-                                pro1.id.removesuffix("_c")
-                                .removesuffix("_e")
-                                .removesuffix("_p")
-                            )
-                            if (tmp_rea1 not in met_not_int) & (
-                                tmp_pro1 not in met_not_int
-                            ):
-                                if (tmp_rea1 in aminoacids) or (tmp_pro1 in aminoacids):
-                                    colname_rn = defineNodeColor(
-                                        colorBrewer,
-                                        "connect",
-                                        ra.id,
-                                        supermodel.reactions,
-                                        Nletter,
-                                    )
-                                    colname_rean = defineNodeColor(
-                                        colorBrewer,
-                                        "metConnect",
-                                        rea1.id,
-                                        supermodel.metabolites,
-                                        Nletter,
-                                    )
-                                    colname_pron = defineNodeColor(
-                                        colorBrewer,
-                                        "metConnect",
-                                        pro1.id,
-                                        supermodel.metabolites,
-                                        Nletter,
-                                    )
-                                    cn_rean = defineEdgeColor(
-                                        colorBrewer,
-                                        "connect",
-                                        rea1,
-                                        ra.reactants,
-                                        Nletter,
-                                    )
-                                    cn_pron = defineEdgeColor(
-                                        colorBrewer,
-                                        "connect",
-                                        pro1,
-                                        ra.products,
-                                        Nletter,
-                                    )
-                                    g.add_node(
-                                        colname_rn[1], shape="box", color=colname_rn[0]
-                                    )
-                                    if rea1.id not in pathway["metabolites"]:
-                                        g.add_node(
-                                            colname_rean[1],
-                                            shape="o",
-                                            color=colname_rean[0],
-                                        )
-                                    if pro1.id not in pathway["metabolites"]:
-                                        g.add_node(
-                                            colname_pron[1],
-                                            shape="o",
-                                            color=colname_pron[0],
-                                        )
-                                    g.add_edge(
-                                        colname_rean[1],
-                                        colname_rn[1],
-                                        color=cn_rean[0],
-                                        font_color="black",
-                                    )
-                                    g.add_edge(
-                                        colname_rn[1],
-                                        colname_pron[1],
-                                        color=cn_pron[0],
-                                        font_color="black",
-                                    )
-
-    wid, hei = pyautogui.size()
+                    g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
+                    pro_edge = defineEdgeColor(
+                        color_brewer,
+                        "1stPath",
+                        "metabolites",
+                        pro,
+                        colname_pro[1],
+                        r,
+                        colname_r[1],
+                        "products",
+                    )
+                else:
+                    g.add_node(
+                        f"{tmp_pro} {met_not_int[tmp_pro]}",
+                        label=tmp_pro,
+                        shape="o",
+                        color=color_brewer["metConnect"][
+                            math.floor(len(supermodel.sources) / 2)
+                        ],
+                    )
+                    pro_edge = defineEdgeColor(
+                        color_brewer,
+                        "1stPath",
+                        "metabolites",
+                        pro,
+                        f"{tmp_pro} {met_not_int[tmp_pro]}",
+                        r,
+                        colname_r[1],
+                        "products",
+                    )
+                    met_not_int[tmp_pro] = met_not_int[tmp_pro] + 1
+                for e in pro_edge:
+                    g.add_edge(
+                        e[0], e[1], color=e[2], font_color="black",
+                    )
+        else:
+            not_f_col = color_brewer["notFound"][
+                math.floor(len(supermodel.sources) / 2)
+            ]
+            g.add_node(
+                r_id, shape="box", color=not_f_col,
+            )
+            for pair in pathway.get(r_id):
+                if pair[0] in supermodel.metabolites.assembly.keys():
+                    colname_rea = defineNodeColor(
+                        color_brewer,
+                        "metabolites",
+                        supermodel.metabolites.assembly[pair[0]],
+                        n_letter,
+                    )
+                else:
+                    colname_rea = [not_f_col, pair[0]]
+                if pair[1] in supermodel.metabolites.assembly.keys():
+                    colname_pro = defineNodeColor(
+                        color_brewer,
+                        "metabolites",
+                        supermodel.metabolites.assembly[pair[1]],
+                        n_letter,
+                    )
+                else:
+                    colname_pro = [not_f_col, pair[1]]
+                g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
+                g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
+                g.add_edge(
+                    colname_rea[1], r_id, color=not_f_col, font_color="black",
+                )
+                g.add_edge(
+                    r_id, colname_pro[1], color=not_f_col, font_color="black",
+                )
+    if wid is None or hei is None:
+        wid, hei = pyautogui.size()
     pyvis_graph = Network(
         width="{}px".format(wid),
         height="{}px".format(hei),
@@ -230,7 +286,114 @@ def drawOnePathway(
         notebook=False,
     )
     pyvis_graph.from_nx(g)
-    pyvis_graph.show("../Output/" + name + ".html")
+    pyvis_graph.show(output_name, notebook=False)
+    return g
+
+
+def draw_tca(
+    supermodel: SuperModel,
+    output_name: str,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=None,
+    hei=None,
+):
+    tca = {
+        "PYK": [("pep_c", "pyr_c")],
+        "PPC": [("pep_c", "oaa_c")],
+        "PPCK": [("pep_c", "oaa_c")],
+        "PEPCK_re": [("pep_c", "oaa_c")],
+        "PC": [("pyr_c", "oaa_c")],
+        "PDH": [("pyr_c", "accoa_c")],
+        "PFL": [("pyr_c", "accoa_c")],
+        "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")],
+        "ACONT": [("cit_c", "icit_c")],
+        "ACONTa": [("cit_c", "acon_C_c")],
+        "ACONTb": [("acon_C_c", "icit_c")],
+        "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
+        "ICDHyr": [("icit_c", "akg_c")],
+        "ICDHx": [("icit_c", "akg_c")],
+        "ICITRED": [("icit_c", "osuc_c")],
+        "OSUCCL": [("osuc_c", "akg_c")],
+        "AKGDH": [("akg_c", "succoa_c")],
+        "OOR2r": [("akg_c", "succoa_c"), ("fdxo_42_c", "fdxr_42_c")],
+        "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
+        "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")],
+        "PDHcr": [("dhlam_c", "lpam_c")],
+        "SUCOAS": [("succoa_c", "succ_c")],
+        "SUCDi": [("succ_c", "fum_c")],
+        "FRD7": [("fum_c", "succ_c")],
+        "FUM": [("fum_c", "mal__L_c")],
+        "MALS": [("glx_c", "mal__L_c")],
+        "MDH": [("mal__L_c", "oaa_c")],
+        "MDH2": [("mal__L_c", "oaa_c")],
+        "MDH3": [("mal__L_c", "oaa_c")],
+    }
+    g = draw_one_known_pathway(
+        supermodel, tca, output_name, directed, met_not_int, n_letter, wid, hei
+    )
+    return g
+
+
+def draw_glycolysis(
+    supermodel: SuperModel,
+    output_name: str,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=None,
+    hei=None,
+):
+    glycolysis = {
+        "HEX1": [("glc__D_c", "g6p_c")],
+        "PGI": [("g6p_c", "f6p_c")],
+        "PFK": [("f6p_c", "fdp_c")],
+        "FBA": [("fdp_c", "g3p_c")],
+        "GAPD": [("g3p_c", "13dpg_c")],
+        "PGK": [("13dpg_c", "3pg_c")],
+        "PGM": [("3pg_c", "2pg_c")],
+        "ENO": [("2pg_c", "pep_c")],
+        "PYK": [("pep_c", "pyr_c")],
+    }
+    g = draw_one_known_pathway(
+        supermodel, glycolysis, output_name, directed, met_not_int, n_letter, wid, hei
+    )
+    return g
+
+
+def draw_pentose_phosphate(
+    supermodel: SuperModel,
+    output_name: str,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=None,
+    hei=None,
+):
+    pentose_phosphate_pathway = {
+        "G6PBDH": [("g6p_B_c", "6pgl_c")],
+        "G6PDH2r": [("g6p_c", "6pgl_c")],
+        "PGL": [("6pgl_c", "6pgc_c")],
+        "GND": [("6pgc_c", "ru5p__D_c")],
+        "RPE": [("ru5p__D_c", "xu5p__D_c")],
+        "RPI": [("ru5p__D_c", "r5p_c")],
+        "TKT1": [("xu5p__D_c", "g3p_c"), ("r5p_c", "s7p_c")],
+        "TALA": [("g3p_c", "f6p_c"), ("s7p_c", "e4p_c")],
+        "TKT2": [("e4p_c", "f6p_c"), ("xu5p__D_c", "g3p_c")],
+        "PGI": [("f6p_c", "g6p_c")],
+        "G6PI": [("g6p_c", "g6p_B_c")],
+    }
+    g = draw_one_known_pathway(
+        supermodel,
+        pentose_phosphate_pathway,
+        output_name,
+        directed,
+        met_not_int,
+        n_letter,
+        wid,
+        hei,
+    )
     return g
 
 
@@ -380,172 +543,6 @@ def drawTwoPathways(
         width="{}px".format(wid),
         height="{}px".format(hei),
         directed=directed,
-        notebook=False,
-    )
-    pyvis_graph.from_nx(g)
-    pyvis_graph.show("../Output/" + name + ".html")
-    return g
-
-
-def drawPathways(
-    supermodel,
-    pathway,
-    plot_type,
-    met_not_int,
-    colorBrewer,
-    name,
-    directed=False,
-    surrounding=None,
-    second_pathway=None,
-    Nletter=1,
-    union_size=1,
-):
-    path_met = []
-    for value in pathway.values():
-        for v in value:
-            path_met.append(v[0])
-            path_met.append(v[1])
-    path_met = list(set(path_met))
-    g = nx.DiGraph()
-    for r_id in pathway.keys():
-        if r_id in supermodel.reactions.converted.keys():
-            r = supermodel.reactions.converted.get(r_id)
-            for rea in r.reactants.get("union" + str(union_size)):
-                tmp_rea = (
-                    rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                )
-                for pro in r.products.get("union" + str(union_size)):
-                    tmp_pro = (
-                        pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                    )
-
-
-def drawTCA(
-    supermodel,
-    pathway,
-    met_not_int,
-    colorBrewer,
-    name,
-    aminoacids=None,
-    surrounding=False,
-    Nletter=1,
-):
-    path_met = []
-    for value in pathway.values():
-        for v in value:
-            path_met.append(v[0])
-            path_met.append(v[1])
-    path_met = list(set(path_met))
-    g = nx.DiGraph()
-    for r_id in pathway.keys():
-        if r_id in supermodel.reactions.converted.keys():
-            r = supermodel.reactions.converted.get(r_id)
-            for rea in r.reactants.get("union1"):
-                tmp_rea = (
-                    rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                )
-                for pro in r.products.get("union1"):
-                    tmp_pro = (
-                        pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                    )
-                    if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
-                        colname_r = defineNodeColor(
-                            colorBrewer, "purples", r_id, supermodel.reactions, Nletter
-                        )
-                        if rea.id in path_met:
-                            colname_rea = defineNodeColor(
-                                colorBrewer,
-                                "reds",
-                                rea.id,
-                                supermodel.metabolites,
-                                Nletter,
-                            )
-                            cn_rea = defineEdgeColor(
-                                colorBrewer, "reds", rea, r.reactants, Nletter
-                            )
-                        else:
-                            colname_rea = defineNodeColor(
-                                colorBrewer,
-                                "blues",
-                                rea.id,
-                                supermodel.metabolites,
-                                Nletter,
-                            )
-                            cn_rea = defineEdgeColor(
-                                colorBrewer, "blues", rea, r.reactants, Nletter
-                            )
-
-                        if pro.id in path_met:
-                            colname_pro = defineNodeColor(
-                                colorBrewer,
-                                "reds",
-                                pro.id,
-                                supermodel.metabolites,
-                                Nletter,
-                            )
-                            cn_pro = defineEdgeColor(
-                                colorBrewer, "reds", pro, r.products, Nletter
-                            )
-                        else:
-                            colname_pro = defineNodeColor(
-                                colorBrewer,
-                                "blues",
-                                pro.id,
-                                supermodel.metabolites,
-                                Nletter,
-                            )
-                            cn_pro = defineEdgeColor(
-                                colorBrewer, "blues", pro, r.products, Nletter
-                            )
-                        g.add_node(colname_r[1], shape="box", color=colname_r[0])
-                        g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
-                        g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
-                        g.add_edge(
-                            colname_rea[1],
-                            colname_r[1],
-                            color=cn_rea[0],
-                            font_color="black",
-                        )
-                        g.add_edge(
-                            colname_r[1],
-                            colname_pro[1],
-                            color=cn_pro[0],
-                            font_color="black",
-                        )
-        else:
-            g.add_node(r_id, shape="box", color=colorBrewer.get("greens")[-1])
-            for pair in pathway.get(r_id):
-                if pair[0] in supermodel.metabolites.converted.keys():
-                    colname_rea = defineNodeColor(
-                        colorBrewer, "reds", pair[0], supermodel.metabolites, Nletter
-                    )
-                else:
-                    colname_rea = [colorBrewer.get("greens")[-1], pair[0]]
-                if pair[1] in supermodel.metabolites.converted.keys():
-                    colname_pro = defineNodeColor(
-                        colorBrewer, "reds", pair[1], supermodel.metabolites, Nletter
-                    )
-                else:
-                    colname_pro = [colorBrewer.get("greens")[-1], pair[1]]
-                g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
-                g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
-                g.add_edge(
-                    colname_rea[1],
-                    r_id,
-                    color=colorBrewer.get("greens")[-1],
-                    font_color="black",
-                )
-                g.add_edge(
-                    r_id,
-                    colname_pro[1],
-                    color=colorBrewer.get("greens")[-1],
-                    font_color="black",
-                )
-    wid, hei = pyautogui.size()
-    pyvis_graph = Network(
-        width="{}px".format(wid),
-        height="{}px".format(hei),
-        directed=False,
         notebook=False,
     )
     pyvis_graph.from_nx(g)
