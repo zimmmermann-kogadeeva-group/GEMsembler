@@ -26,12 +26,20 @@ dependencies = [
     "numpy",
     "pandas>=2.0",
     "platformdirs",
+    "pyarrow",
     "scipy",
     "networkx",
     "pyautogui",
     "seaborn",
     "pyvis"
 ]
+
+[project.scripts]
+gemsembler = "gemsembler.__main__:main"
+
+[project.urls]
+"Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler"
+"Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -52,12 +60,9 @@ push            = false
 "pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"']
 "src/gemsembler/__init__.py" = ['^__version__ = "{version}"$']
 
-[project.scripts]
-gemsembler = "gemsembler.__main__:main"
-
-[project.urls]
-"Homepage" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler"
-"Bug tracker" = "https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler/issues"
+[tool.isort]
+profile = "black"
+src_paths = ["src", "tests"]
 
 [tool.pytest.ini_options]
 addopts = [

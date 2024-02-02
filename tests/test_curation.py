@@ -1,7 +1,8 @@
 from importlib.resources import files
+
 from gemsembler import load_sbml_model
+from gemsembler.curation import get_duplicated_reactions, remove_b_type_exchange
 from gemsembler.data import BU
-from gemsembler.curation import remove_b_type_exchange, get_duplicated_reactions
 
 
 class TestCuration:

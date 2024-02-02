@@ -10,14 +10,15 @@ from pathlib import Path
 from cobra.io import read_sbml_model
 from platformdirs import user_data_path
 
-from .conversion import (ConvAgora, ConvBase, ConvCarveme, ConvGapseq,
-                         ConvModelseed)
-from .creation import (SetofNewGenes, SetofNewMetabolites, SetofNewReactions,
-                       SuperModel)
+from .conversion import ConvAgora, ConvBase, ConvCarveme, ConvGapseq, ConvModelseed
+from .creation import SetofNewGenes, SetofNewMetabolites, SetofNewReactions, SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
 from .dbs import download_db, get_bigg_network
-from .genes import (get_final_fasta_with_ncbi_assemble, get_genes_gapseq,
-                    get_genes_not_gapseq)
+from .genes import (
+    get_final_fasta_with_ncbi_assemble,
+    get_genes_gapseq,
+    get_genes_not_gapseq,
+)
 from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
@@ -125,8 +126,6 @@ class GatheredModels:
         }
 
         self.__models = {}
-        self.converted_metabolites = defaultdict(dict)
-        self.converted_reactions = defaultdict(dict)
         self.first_stage_selected_metabolites = None
         self.first_stage_selected_reactions = None
         self.structural_first_run_reactions = defaultdict(dict)
@@ -154,12 +153,13 @@ class GatheredModels:
     def get_model_attrs(self, model_id=None, attr=None):
         if model_id is not None and attr is not None:
             return deepcopy(self.__models.get(model_id).get(attr))
-        elif model_id is not None:
+        elif model_id is not None and attr is None:
             return deepcopy(self.__models.get(model_id))
         else:
             return deepcopy(self.__models)
 
-    def _get_same_db_models(self):
+    @property
+    def same_db_models(self):
         same_db_models = defaultdict(dict)
         for model_id, model_attrs in self.__models.items():
             model_type = model_attrs["model_type"]
@@ -167,24 +167,33 @@ class GatheredModels:
             same_db_models[db_name][model_id] = model_type
         return same_db_models
 
-    def run(self):
-        # run conversion
+    @property
+    def converted_metabolites(self):
+        conv_mbs = defaultdict(dict)
         for model_id, model_attrs in self.__models.items():
-            conv = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
-            converted_model = conv.convert_model(model_attrs["preprocess_model"])
+            converter = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
+            conv_mbs[model_id] = converter.convert_all_metabolites(
+                model_attrs["preprocess_model"]
+            )
+        return conv_mbs
 
-            self.converted_metabolites[model_id] = converted_model["metabolites"]
-            self.converted_reactions[model_id] = converted_model["reactions"]
+    @property
+    def converted_reactions(self):
+        conv_rcts = defaultdict(dict)
+        for model_id, model_attrs in self.__models.items():
+            converter = self.__conf.get(model_attrs["model_type"]).get("conv_strategy")
+            conv_rcts[model_id] = converter.convert_all_reactions(
+                model_attrs["preprocess_model"]
+            )
+        return conv_rcts
 
-        # prepare dictionary for models per used database
-        same_db_models = self._get_same_db_models()
-
+    def run(self):
         # run first stage selection for converted
         self.first_stage_selected_metabolites = run_selection(
-            same_db_models, self.converted_metabolites, "highest"
+            self.same_db_models, self.converted_metabolites, "highest"
         )
         self.first_stage_selected_reactions = run_selection(
-            same_db_models, self.converted_reactions, "highest"
+            self.same_db_models, self.converted_reactions, "highest"
         )
 
         # run first structural conversion
@@ -202,7 +211,7 @@ class GatheredModels:
             )
         # run second stage selection for first structural reactions
         self.second_stage_selected_reactions = run_selection(
-            same_db_models,
+            self.same_db_models,
             self.structural_first_run_reactions,
             "structural",
             replace_with_consistent=False,
@@ -223,7 +232,7 @@ class GatheredModels:
             )
         # run second stage selection for suggestions for metabolites from structural
         self.second_stage_selected_metabolites = run_selection(
-            same_db_models, self.structural_first_run_metabolites, "structural"
+            self.same_db_models, self.structural_first_run_metabolites, "structural"
         )
 
         # run second structural conversion with suggestions for metabolites
@@ -240,7 +249,7 @@ class GatheredModels:
             )
         # run third stage selection for first structural reactions
         self.third_stage_selected_reactions = run_selection(
-            same_db_models,
+            self.same_db_models,
             self.structural_second_run_reactions,
             "structural",
             replace_with_consistent=False,

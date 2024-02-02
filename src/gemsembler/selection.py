@@ -2,14 +2,19 @@ from collections import defaultdict
 
 
 class Selected(object):
-    """ Class for selected object that checks results of different stages. After conversion stage
-    replace_with_consistent = True and results, going further (highest_consistent), have to be consistent. After
-    structural stage replace_with_consistent = False and results, going further (highest_consistent), don't change (
-    highest). How results of consistency check differ from original is written in consistency attr. Compartments are
-    just passed through for later. To_one_id shows amount of result ids (highest_consistent): True if 1,
-    False if more than 1 and None if there is highest_consistent is empty. From_one_id is set as None and will become
-    True or False in checkFromOneFromMany function. From_many_other_ids is set as empty list and will be populated
-    later in checkFromOneFromMany function. """
+    """
+    Class for selected object that checks results of different stages. After
+    conversion stage replace_with_consistent = True and results, going further
+    (highest_consistent), have to be consistent. After structural stage
+    replace_with_consistent = False and results, going further
+    (highest_consistent), don't change (highest). How results of consistency
+    check differ from original is written in consistency attr. Compartments are
+    just passed through for later. To_one_id shows amount of result ids
+    (highest_consistent): True if 1, False if more than 1 and None if there is
+    highest_consistent is empty. From_one_id is set as None and will become
+    True or False in checkFromOneFromMany function. From_many_other_ids is set
+    as empty list and will be populated later in checkFromOneFromMany function.
+    """
 
     def __init__(
         self,
@@ -62,7 +67,8 @@ class Selected(object):
         if len(self.highest_consistent) > 1:
             self.to_one_id = False
 
-    # adding results of mapping for selected objects with the same original id, but from other models
+    # adding results of mapping for selected objects with the same original id,
+    # but from other models
     def check_others(self, original_id, selected: dict):
         for other_model in self.in_other_models.keys():
             self.in_other_models[other_model] = [
@@ -82,7 +88,7 @@ def checkDBConsistency(
     original ID from one database is converted separately for different models,
     looking for intersection of those lists. If no intersection found,
     conversion is inconsistent. If intersection is less that whole converted
-    list, remove ids outside intersection. 
+    list, remove ids outside intersection.
     """
     consistent = defaultdict(dict)
     for bd, models in models_same_db.items():
@@ -92,8 +98,14 @@ def checkDBConsistency(
             for m in models.keys():
                 consistent[m] = {
                     idd: Selected(
-                        getattr(converted_model.get(m).get(idd), attr_to_check,),
-                        getattr(converted_model.get(m).get(idd), attr_to_check,),
+                        getattr(
+                            converted_model.get(m).get(idd),
+                            attr_to_check,
+                        ),
+                        getattr(
+                            converted_model.get(m).get(idd),
+                            attr_to_check,
+                        ),
                         converted_model.get(m).get(idd).compartments,
                         replace_with_consistent,
                     )
@@ -116,10 +128,14 @@ def checkDBConsistency(
                         # collecting in models ids is present
                         mod_present.append(mod)
                         # adding only not empty lists because intersecting #[[b1, b2], []] isn't reasonable
-                        if getattr(converted_model.get(mod).get(iid), attr_to_check,):
+                        if getattr(
+                            converted_model.get(mod).get(iid),
+                            attr_to_check,
+                        ):
                             bigg_ids.append(
                                 getattr(
-                                    converted_model.get(mod).get(iid), attr_to_check,
+                                    converted_model.get(mod).get(iid),
+                                    attr_to_check,
                                 )
                             )
                             bigg_ids_dict[mod] = getattr(
@@ -165,9 +181,12 @@ def checkDBConsistency(
 
 
 def checkFromOneFromMany(selected: dict):
-    """ Checking in selected objects which original id where converted uniquely to one or several bigg ids
-    (from_one_id = True) and which original ids have the same results (from_one_id = False).
-    Writing down original ids with the same results in from_many_other_ids."""
+    """
+    Checking in selected objects which original id where converted uniquely to
+    one or several bigg ids (from_one_id = True) and which original ids have
+    the same results (from_one_id = False).  Writing down original ids with the
+    same results in from_many_other_ids.
+    """
     # making dict with original ids and bigg results ids as str instead of list
     to_smth_str = {
         orig_id: " ".join(sorted(bigg_ids.highest_consistent))
@@ -176,7 +195,7 @@ def checkFromOneFromMany(selected: dict):
     # creating empty dict with bigg results as keys
     reversed_to_smth = {bigg_id: [] for bigg_id in to_smth_str.values()}
     # populating bigg keys in the empty dict with original ids, for which these bigg ids are results
-    for (k, v) in to_smth_str.items():
+    for k, v in to_smth_str.items():
         reversed_to_smth[v].append(k)
     # writing check results depending on amount of original ids for bigg results
     for value in reversed_to_smth.values():
@@ -194,11 +213,15 @@ def run_selection(
     attr_to_check: str,
     replace_with_consistent=True,
 ):
-    """Wrapping function to run checking consistency in resulting bigg ids for the same original id but different models
-    with different DB. Then checking whether for particular model there is only one original id gives particular results
-    or there are several original ids with the same results. And checking how the same original id performs in different
-    models, can it give 1 to 1 conversion somewhere else.If there is a group of original ids with the same results,
-    connecting them together. """
+    """
+    Wrapping function to run checking consistency in resulting bigg ids for the
+    same original id but different models with different DB. Then checking
+    whether for particular model there is only one original id gives particular
+    results or there are several original ids with the same results. And
+    checking how the same original id performs in different models, can it give
+    1 to 1 conversion somewhere else.If there is a group of original ids with
+    the same results, connecting them together.
+    """
     first_stage_selected = checkDBConsistency(
         same_db_models, previous_stage, attr_to_check, replace_with_consistent
     )

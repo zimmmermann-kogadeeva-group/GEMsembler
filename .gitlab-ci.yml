@@ -7,8 +7,6 @@ stages:
   stage: test
   before_script:
     - python3 -m pip install tox
-  script:
-    - tox run
   artifacts:
     when: always
     reports:
@@ -18,19 +16,19 @@ pytest39:
   extends: .pytest
   image: python:3.9
   script:
-    - tox run -e py39
+    - tox run -e py39 -- --junitxml=report.xml 
 
 pytest310:
   extends: .pytest
   image: python:3.10
   script:
-    - tox run -e py310
+    - tox run -e py310 -- --junitxml=report.xml 
 
 pytest311:
   extends: .pytest
   image: python:3.11
   script:
-    - tox run -e py311
+    - tox run -e py311 -- --junitxml=report.xml 
 
 build:
   image: python:3.11
