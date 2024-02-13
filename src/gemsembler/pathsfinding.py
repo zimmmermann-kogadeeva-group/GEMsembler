@@ -1,10 +1,11 @@
-from pathlib import Path
 import tracemalloc
 from copy import deepcopy
+from pathlib import Path
+
 import dill
+import metquest
 from cobra import Model
 from cobra.io import read_sbml_model, write_sbml_model
-import metquest
 
 
 def preprocessMedium(

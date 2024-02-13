@@ -1,24 +1,27 @@
+import itertools
 import operator
+import re
+import resource
 import sys
 import warnings
 from collections import defaultdict
 from math import ceil
 from os.path import exists
 from pathlib import PosixPath
-import resource
+
 import dill
-import itertools
+import pandas as pd
+
 from .comparison import (
+    getCore,
+    getCoreCoefficients,
     getCoreConnections,
     getCoreGPR,
     getCoreLowerBounds,
-    getCoreCoefficients,
     getCoreUpperBounds,
-    getCore,
     getDifference,
 )
 from .genes import makeNewGPR, uniteGPR
-import pandas as pd
 
 
 class NewObject:
@@ -151,9 +154,7 @@ class SetofNewMetabolites(SetofNewObjects):
         for a in attrib:
             for obj in getattr(self, a).values():
                 if a == "assembly":
-                    id_noc = (
-                        obj.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-                    )
+                    id_noc = re.sub("_([cep])$", "", obj.id)
                     name = database_info[database_info["universal_bigg_id"] == id_noc][
                         "name"
                     ].values[0]
@@ -248,8 +249,8 @@ class SetofNewGenes(object):
                 conversion_table = pd.read_csv(str(blast_file), sep="\t", header=None)
             except:
                 warnings.warn(
-                    "\nWarning! File str(blast_file) can't be opened."
-                    "\nOld gene will be used"
+                    f"\nWarning! File {str(blast_file)} can't be opened."
+                    f"\nOld gene will be used"
                 )
                 for gene in all_models_data[model_id]["preprocess_model"].genes:
                     if gene.id in self.assembly.keys():
@@ -901,8 +902,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             wrong_no = set(no) - set(self.sources)
             if wrong_yes or wrong_no:
                 raise ValueError(
-                    "Some of input models are not in supermodel. "
-                    "Please check the input ids"
+                    f"Some of input models are not in supermodel. "
+                    f"Maybe {wrong_yes} or {wrong_no}"
+                    f"Please check the input ids"
                 )
             else:
                 if short_name_len is None:
@@ -924,6 +926,10 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
 
     def get_intersection(self, and_as_solid=False):
         getCore(self, len(self.sources), operator.ge, and_as_solid)
+
+    def get_all_confident_levels(self, and_as_solid=False):
+        for i in range(len(self.sources), 1, -1):
+            self.at_least_in(i, and_as_solid=and_as_solid)
 
     def write_supermodel_to_pkl(self, output_name: str, recursion_limit=None):
         if not output_name.endswith(".pkl"):

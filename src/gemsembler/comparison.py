@@ -2,8 +2,10 @@ import itertools
 import operator
 import sys
 from collections import Counter
+
 import numpy
 from scipy.stats import mode
+
 from .general import findKeysByValue
 
 

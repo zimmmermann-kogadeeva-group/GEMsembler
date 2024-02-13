@@ -1,8 +1,10 @@
 import itertools
-from itertools import combinations
-from copy import deepcopy
-import cobra
 from collections import defaultdict
+from copy import deepcopy
+from itertools import combinations
+
+import cobra
+
 from .selection import Selected
 
 

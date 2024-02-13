@@ -1,7 +1,11 @@
-from cobra import Model, Reaction, Metabolite
+from copy import deepcopy
+from pathlib import Path
 from pprint import pprint
-from cobra.io import write_sbml_model, validate_sbml_model
-from .creation import SuperModel, NewObject
+
+from cobra import Metabolite, Model, Reaction
+from cobra.io import validate_sbml_model, write_sbml_model
+
+from .creation import NewObject, SuperModel
 
 
 def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):
@@ -59,6 +63,7 @@ def get_model_of_interest(
     interest_level: str,
     output_name=None,
     gene_interest_level=None,
+    biomass_interest_level=None,
     extend_zero_bounds=True,
     gapfill_transport=True,
     reactions_include: [NewObject] = None,
@@ -68,11 +73,18 @@ def get_model_of_interest(
     Additionaly, some reactions"""
     if not gene_interest_level:
         gene_interest_level = interest_level
+    if not biomass_interest_level:
+        biomass_interest_level = interest_level
     outmodel = Model(interest_level)
     if interest_level in supermodel.sources + ["assembly"]:
         in_reactions = getattr(supermodel.reactions, interest_level).values()
-    else:
+    elif interest_level in supermodel.reactions.comparison.keys():
         in_reactions = supermodel.reactions.comparison[interest_level].values()
+    else:
+        raise ValueError(
+            f"Interest level {interest_level} is not determined yet. "
+            f"Please run corresponding supermodel comparison first."
+        )
     if supermodel.reactions.assembly.get("Biomass") not in in_reactions:
         in_reactions = list(in_reactions) + [
             supermodel.reactions.assembly.get("Biomass")
@@ -85,16 +97,22 @@ def get_model_of_interest(
         in_reactions = list(set(in_reactions) - set(reactions_exclude))
     for r in in_reactions:
         if r in reactions_include:
-            interest_level = "assembly"
-        if interest_level in supermodel.sources + ["assembly"]:
+            interest_level_r = "assembly"
+        elif r.id == "Biomass":
+            interest_level_r = biomass_interest_level
+        else:
+            interest_level_r = interest_level
+        if interest_level_r in supermodel.sources + ["assembly"]:
             r_upper_bound = r.upper_bound
             r_lower_bound = r.lower_bound
             r_metabolites = r.metabolites
-            r_gene_reaction_rule = r.gene_reaction_rule
         else:
             r_upper_bound = r.upper_bound["comparison"]
             r_lower_bound = r.lower_bound["comparison"]
             r_metabolites = r.metabolites["comparison"]
+        if gene_interest_level in supermodel.sources + ["assembly"]:
+            r_gene_reaction_rule = r.gene_reaction_rule
+        else:
             r_gene_reaction_rule = r.gene_reaction_rule["comparison"]
         out_reaction = Reaction(r.id)
         if r.name:
@@ -108,15 +126,16 @@ def get_model_of_interest(
             )
         out_reaction.subsystem = out_subsystem
         if extend_zero_bounds and (
-            r_upper_bound.get(interest_level)[0] - r_lower_bound.get(interest_level)[0]
+            r_upper_bound.get(interest_level_r)[0]
+            - r_lower_bound.get(interest_level_r)[0]
             == 0
         ):
             out_reaction.lower_bound = -1000.0
             out_reaction.upper_bound = 1000.0
         else:
-            out_reaction.lower_bound = r_lower_bound.get(interest_level)[0]
-            out_reaction.upper_bound = r_upper_bound.get(interest_level)[0]
-        for met, k in r_metabolites.get(interest_level).items():
+            out_reaction.lower_bound = r_lower_bound.get(interest_level_r)[0]
+            out_reaction.upper_bound = r_upper_bound.get(interest_level_r)[0]
+        for met, k in r_metabolites.get(interest_level_r).items():
             out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
             out_reaction.add_metabolites({out_met: k})
         if r_gene_reaction_rule.get(gene_interest_level):
@@ -134,3 +153,41 @@ def get_model_of_interest(
         report = validate_sbml_model(filename=output_name)
         pprint(report)
     return outmodel
+
+
+def get_models_with_all_confidence_levels(
+    supermodel: SuperModel,
+    output_dir=None,
+    gene_interest_level=None,
+    biomass_interest_level=None,
+    extend_zero_bounds=True,
+    gapfill_transport=True,
+    reactions_include: [NewObject] = None,
+    reactions_exclude: [NewObject] = None,
+):
+    output_models = {}
+    confidence_levels = deepcopy(supermodel.sources)
+    for i in range(len(supermodel.sources), 1, -1):
+        confidence_levels.append("core" + str(i))
+    confidence_levels.append("assembly")
+    for level in confidence_levels:
+        if output_dir is not None:
+            output_dir_lev = Path(output_dir) / (level + ".xml")
+        else:
+            output_dir_lev = None
+        output_models.update(
+            {
+                level: get_model_of_interest(
+                    supermodel,
+                    level,
+                    output_name=output_dir_lev,
+                    gene_interest_level=gene_interest_level,
+                    biomass_interest_level=biomass_interest_level,
+                    extend_zero_bounds=extend_zero_bounds,
+                    gapfill_transport=gapfill_transport,
+                    reactions_include=reactions_include,
+                    reactions_exclude=reactions_exclude,
+                )
+            }
+        )
+    return output_models

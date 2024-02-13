@@ -2,16 +2,17 @@
 
 import re
 from abc import ABC, abstractmethod
+
 from .dbs import (
     get_BiGG_lists,
-    get_old_bigg_m,
-    get_old_bigg_r,
-    get_seed_orig_m,
-    get_seed_orig_r,
-    get_seed_addit_m,
-    get_seed_addit_r,
     get_kegg_m,
     get_kegg_r,
+    get_old_bigg_m,
+    get_old_bigg_r,
+    get_seed_addit_m,
+    get_seed_addit_r,
+    get_seed_orig_m,
+    get_seed_orig_r,
 )
 
 
@@ -103,12 +104,16 @@ class ConvBase(ABC):
     def convert_reaction(self, metabolite):
         return NotImplemented
 
+    def convert_all_metabolites(self, model):
+        return {x.id: self.convert_metabolite(x) for x in model.metabolites}
+
+    def convert_all_reactions(self, model):
+        return {x.id: self.convert_reaction(x) for x in model.reactions}
+
     def convert_model(self, model):
         return {
-            "metabolites": {
-                x.id: self.convert_metabolite(x) for x in model.metabolites
-            },
-            "reactions": {x.id: self.convert_reaction(x) for x in model.reactions},
+            "metabolites": self.convert_all_metabolites(model),
+            "reactions": self.convert_all_reactions(model),
         }
 
 
@@ -238,11 +243,21 @@ class ConvAgora(ConvBase):
     def convert_metabolite(self, metabolite):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
         conv_main = self.__main_map_m__.get(id_wo_comp, [])
-        conv_addit = [
-            y
-            for x in [metabolite.annotation.get(self.__annot_m__, "")]
-            for y in self.__addit_map_m__.get(x, [])
-        ]
+        annot = metabolite.annotation.get(self.__annot_m__, "")
+
+        # Make sure required annotation is a list
+        if isinstance(annot, str):
+            annot = [annot]
+
+        if not isinstance(annot, list):
+            raise ValueError(
+                f"{self.__annot_m__} annotation of {metabolite.id} "
+                f"metabolite is written in wrong type: {type(annot)}. "
+                "It has to be either str or list. Please change it in "
+                "the model or remove completely."
+            )
+
+        conv_addit = [y for x in annot for y in self.__addit_map_m__.get(x, [])]
         conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
         conv_noconv = [id_wo_comp]
 

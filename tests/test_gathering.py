@@ -1,12 +1,14 @@
 from importlib.resources import files
+
 from cobra.core.model import Model
+
 from gemsembler import GatheredModels
 from gemsembler.conversion import (
+    ConvAgora,
+    ConvBase,
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,
-    ConvAgora,
-    ConvBase,
 )
 from gemsembler.data import BU
 
@@ -86,10 +88,9 @@ class TestGathering:
         assert len(model.metabolites) == 1520
         assert len(model.reactions) == 1891
 
-        same_db_models = g._get_same_db_models()
-        assert same_db_models["bigg"] == {"test_carveme": "carveme"}
-        assert same_db_models["weird_bigg"] == {"test_agora": "agora"}
-        assert same_db_models["modelseed"] == {
+        assert g.same_db_models["bigg"] == {"test_carveme": "carveme"}
+        assert g.same_db_models["weird_bigg"] == {"test_agora": "agora"}
+        assert g.same_db_models["modelseed"] == {
             "test_modelseed": "modelseed",
             "test_gapseq": "gapseq",
         }

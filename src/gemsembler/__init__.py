@@ -1,12 +1,11 @@
 from importlib.resources import files
 
-from .gathering import GatheredModels, load_sbml_model
-from .creation import read_supermodel_from_pkl
 from .anticreation import get_model_of_interest
-from .data import LP, BU
+from .creation import read_supermodel_from_pkl
+from .data import BU, LP
+from .gathering import GatheredModels, load_sbml_model
 
-
-__version__ = "0.3.2"
+__version__ = "0.3.4"
 
 lp_example = [
     dict(
@@ -43,22 +42,22 @@ lp_example = [
 
 bu_example = [
     dict(
-        model_id="test_carveme",
+        model_id="carveme_BU",
         path_to_model=files(BU) / "BU_carveme_hom.xml.gz",
         model_type="carveme",
     ),
     dict(
-        model_id="test_agora",
+        model_id="agora_BU",
         path_to_model=files(BU) / "BU_agora.xml.gz",
         model_type="agora",
     ),
     dict(
-        model_id="test_modelseed",
+        model_id="modelseed_BU",
         path_to_model=files(BU) / "BU_modelSEED.sbml.gz",
         model_type="modelseed",
     ),
     dict(
-        model_id="test_gapseq",
+        model_id="gapseq_BU",
         path_to_model=files(BU) / "BU_gapseq.xml.gz",
         model_type="gapseq",
     ),

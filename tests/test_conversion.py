@@ -1,13 +1,14 @@
 from importlib.resources import files
+
 from gemsembler import load_sbml_model
-from gemsembler.data import BU
 from gemsembler.conversion import (
     ConvAgora,
+    ConvBase,
+    ConvCarveme,
     ConvGapseq,
     ConvModelseed,
-    ConvCarveme,
-    ConvBase,
 )
+from gemsembler.data import BU
 
 
 class TestConversion:
