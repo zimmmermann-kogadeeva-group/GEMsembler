@@ -1,6 +1,64 @@
+import operator
 from collections import defaultdict
 import pandas as pd
 from cobra.flux_analysis import pfba
+from .creation import SuperModel
+from .comparison import getCoreGPR
+
+
+def table_one_known_pathway(
+    supermodel: SuperModel,
+    pathway_r: list,
+    output_name: str,
+    yes_range=1,
+    no_range=1,
+    genes=True,
+    and_as_solid=False,
+):
+    output = {"pathway_R": pathway_r, "Confidence": [], "Status": []}
+    if genes:
+        output.update({"GPR_confidence": [], "GPR_core": [], "GPR_assembly": []})
+    for r_id in pathway_r:
+        if r_id in supermodel.reactions.assembly.keys():
+            r = supermodel.reactions.assembly[r_id]
+            output["Confidence"].append(f"Core{r.in_models['models_amount']}")
+            if r.in_models["models_amount"] >= len(supermodel.sources) - yes_range:
+                output["Status"].append("yes")
+            elif r.in_models["models_amount"] <= no_range:
+                output["Status"].append("no")
+            else:
+                output["Status"].append("q")
+            if genes:
+                if not r.gene_reaction_rule["assembly"]:
+                    output["GPR_confidence"].append("Core0")
+                    output["GPR_core"].append("")
+                    output["GPR_assembly"].append("")
+                else:
+                    for i in range(r.in_models["models_amount"], 0, -1):
+                        gpr_core = getCoreGPR(
+                            r.gene_reaction_rule,
+                            i,
+                            operator.ge,
+                            r.in_models["models_list"],
+                            and_as_solid,
+                        )
+                        if gpr_core:
+                            output["GPR_confidence"].append(f"Core{i}")
+                            output["GPR_core"].append(gpr_core[0])
+                            output["GPR_assembly"].append(
+                                r.gene_reaction_rule["assembly"][0]
+                            )
+                            break
+        else:
+            output["Confidence"].append("Core0")
+            output["Status"].append("no")
+            if genes:
+                output["GPR_confidence"].append("Core0")
+                output["GPR_core"].append("")
+                output["GPR_assembly"].append("")
+    output_tb = pd.DataFrame(output)
+    output_tb.to_csv(output_name, sep="\t", index=False)
+    return output_tb
 
 
 def run_growth_full_flux_analysis(
