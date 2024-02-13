@@ -2,33 +2,32 @@
 SHELL = /bin/bash
 ACTIVATE = source .venv/bin/activate 
 
+.PHONY: install_packages build upload check isort tags clean
+
 .venv:
 	python3 -m venv $@
 
-.PHONY: install_packages
 install_packages: .venv
 	${ACTIVATE} && pip install -e .
 
 requirements.txt:
 	${ACTIVATE} && pip freeze > $@
 
-.PHONY: build
 build:
 	${ACTIVATE} && python3 -m build
 
-.PHONY: upload
 upload: build
 	${ACTIVATE} && python3 -m twine upload -r pypi -u __token__ dist/*
 
-.PHONY: check
 check:
-	ruff check src
+	ruff check src tests
 
-.PHONY: tags
+isort:
+	isort src tests
+
 tags:
 	ctags-universal --recurse src tests
 
-.PHONY: clean
 clean:
 	rm -rf src/*.egg-info/ **/__pycache__/ build/ dist/ report.xml
 
