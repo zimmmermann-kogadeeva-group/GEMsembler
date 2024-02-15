@@ -5,7 +5,7 @@ import networkx as nx
 import pandas as pd
 import pyautogui
 import seaborn as sns
-from .creation import NewObject, SuperModel
+from .creation import NewElement, SuperModel
 from .comparison import getCoreGPR, getCoreConnections
 from pyvis.network import Network
 from .downstream import table_one_known_pathway
@@ -47,7 +47,7 @@ def get_color_palette(sources_number: int) -> dict:
 def define_node_features(
     colordata: dict,
     pallitra: str,
-    object: NewObject,
+    object: NewElement,
     n_letter: int,
     gene=False,
     and_as_solid=False,
@@ -95,9 +95,9 @@ def define_edge_features(
     colordata: dict,
     pallitra_forward: str,
     pallitra_reversed: str,
-    mr: NewObject,
+    mr: NewElement,
     colname_m: str,
-    r: NewObject,
+    r: NewElement,
     colname_r: str,
     connections: str,
     n_letter: int,
