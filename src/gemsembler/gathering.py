@@ -11,7 +11,7 @@ from cobra.io import read_sbml_model
 from platformdirs import user_data_path
 
 from .conversion import ConvAgora, ConvBase, ConvCarveme, ConvGapseq, ConvModelseed
-from .creation import SetofNewGenes, SetofNewMetabolites, SetofNewReactions, SuperModel
+from .creation import SetofNewGenes, SetofNewElements, SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
 from .dbs import download_db, get_bigg_network
 from .genes import (
@@ -85,9 +85,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -469,44 +467,26 @@ class GatheredModels:
             periplasmic_m,
             periplasmic_r,
         ) = self.get_input_dictionaries()
-        # Creating new objects as supermodel elements
-        metabolites = SetofNewMetabolites(
-            final_m_sel, final_m_not_sel, list(self.__models.keys()), periplasmic_m
-        )
+
+        # Create supermodel
         bigg_data_m = download_db(
             "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
             "bigg_models_metabolites.txt.gz",
-        )
-        metabolites._setMetaboliteAttributes(bigg_data_m)
-        reactions = SetofNewReactions(
-            final_r_sel, final_r_not_sel, list(self.__models.keys())
         )
         bigg_data_r = download_db(
             "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
             "bigg_models_reactions.txt.gz",
         )
-        reactions._setReactionAttributes(bigg_data_r)
-        genes = SetofNewGenes(self.__models, gene_path)
-        m_go_old_new, m_go_new_old = metabolites._makeForwardBackward(
-            self.__models,
-            final_m_sel,
-            "metabolites",
-            periplasmic_m,
-        )
-        r_go_old_new, r_go_new_old = reactions._makeForwardBackward(
-            self.__models, final_r_sel, "reactions"
-        )
         supermodel = SuperModel(
-            metabolites,
-            reactions,
-            genes,
-            m_go_new_old,
-            m_go_old_new,
-            r_go_new_old,
-            r_go_old_new,
+            final_m_sel,
+            final_m_not_sel,
+            final_r_sel,
+            final_r_not_sel,
             self.__models,
-            periplasmic_r,
             periplasmic_m,
+            periplasmic_r,
+            bigg_data_m,
+            bigg_data_r,
             gene_path,
             and_as_solid,
         )

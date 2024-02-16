@@ -5,7 +5,7 @@ from pprint import pprint
 from cobra import Metabolite, Model, Reaction
 from cobra.io import validate_sbml_model, write_sbml_model
 
-from .creation import NewObject, SuperModel
+from .creation import NewElement, SuperModel
 
 
 def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):
@@ -66,8 +66,8 @@ def get_model_of_interest(
     biomass_interest_level=None,
     extend_zero_bounds=True,
     gapfill_transport=True,
-    reactions_include: [NewObject] = None,
-    reactions_exclude: [NewObject] = None,
+    reactions_include: [NewElement] = None,
+    reactions_exclude: [NewElement] = None,
 ):
     """ Creating COBRA model from supermodel based on specific level of interest for example core or union.
     Additionaly, some reactions"""
@@ -162,8 +162,8 @@ def get_models_with_all_confidence_levels(
     biomass_interest_level=None,
     extend_zero_bounds=True,
     gapfill_transport=True,
-    reactions_include: [NewObject] = None,
-    reactions_exclude: [NewObject] = None,
+    reactions_include: [NewElement] = None,
+    reactions_exclude: [NewElement] = None,
 ):
     output_models = {}
     confidence_levels = deepcopy(supermodel.sources)

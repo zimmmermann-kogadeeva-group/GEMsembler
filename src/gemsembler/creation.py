@@ -24,7 +24,7 @@ from .comparison import (
 from .genes import makeNewGPR, uniteGPR
 
 
-class NewObject:
+class NewElement:
     """ New object class - one metabolite or reaction for supermodel. """
 
     def __init__(
@@ -34,12 +34,14 @@ class NewObject:
         compartments: [str],
         source: str,
         possible_sources: [str],
+        converted: bool,
     ):
         self.id = new_id
         self.compartments = {"assembly": compartments}
         self.sources = {}
         self.in_models = {"models_amount": 1, "models_list": [source]}
         self.annotation = {}
+        self.converted = converted
         for ps in possible_sources:
             if ps == source:
                 self.compartments.update({ps: compartments})
@@ -50,7 +52,7 @@ class NewObject:
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
 
-    def _updateNewObject(
+    def _update_new_element(
         self, id_to_update: str, compart_to_update: [str], source: str,
     ):
         self.sources.update({source: self.sources.get(source) + 1})
@@ -66,40 +68,321 @@ class NewObject:
                 self.compartments["assembly"].append(c)
 
 
-class SetofNewObjects:
+class NewMetabolite(NewElement):
+    def __init__(
+        self,
+        new_id: str,
+        old_id: str,
+        compartments: [str],
+        source: str,
+        possible_sources: [str],
+        converted: bool,
+        m_database_info: pd.core.frame.DataFrame,
+    ):
+        super().__init__(
+            new_id, old_id, compartments, source, possible_sources, converted
+        )
+        if converted:
+            id_noc = re.sub("_([cep])$", "", new_id)
+            name = m_database_info[m_database_info["universal_bigg_id"] == id_noc][
+                "name"
+            ].values[0]
+        else:
+            name = "Not converted"
+        self.name = name
+        self.reactions = {k: [] for k in possible_sources}
+        self.reactions.update({"assembly": [], "comparison": {}})
+        self.formula = {k: [] for k in possible_sources}
+
+    def _find_reactions(
+        self,
+        m_go_new_old: dict,
+        r_go_old_new: dict,
+        periplasmic_r: dict,
+        periplasmic_m: dict,
+    ):
+        for model_id in self.sources.keys():
+            old_mets = m_go_new_old.get(self.id).get(model_id)
+            if not old_mets:
+                continue
+            new_r = []
+            for old_met in old_mets:
+                if old_met.id in list(periplasmic_m.get(model_id, {}).keys()):
+                    # Old metabolite has additional periplasmic version in supermodel.
+                    # So we need to split its reactions between them
+                    for reaction in old_met.reactions:
+                        if not r_go_old_new.get(model_id).get(reaction.id):
+                            continue
+                        met_is_periplasmic = self.id.endswith("_p")
+                        met_was_converted_to_periplasmic = (
+                            old_met.id
+                            in periplasmic_r.get(model_id).get(reaction.id, {}).keys()
+                        )
+                        if (met_is_periplasmic & met_was_converted_to_periplasmic) or (
+                            (not met_is_periplasmic)
+                            & (not met_was_converted_to_periplasmic)
+                        ):
+                            new_r.append(r_go_old_new.get(model_id).get(reaction.id)[0])
+                else:
+                    # No need to split reactions
+                    for r in old_met.reactions:
+                        if r_go_old_new.get(model_id).get(r.id):
+                            new_r.append(r_go_old_new.get(model_id).get(r.id)[0])
+            if new_r:
+                self.reactions[model_id] = list(set(new_r))
+
+
+class NewReaction(NewElement):
+    def __init__(
+        self,
+        new_id: str,
+        old_id: str,
+        compartments: [str],
+        source: str,
+        possible_sources: [str],
+        converted: bool,
+        r_database_info: pd.core.frame.DataFrame,
+    ):
+        super().__init__(
+            new_id, old_id, compartments, source, possible_sources, converted
+        )
+        if converted:
+            id_noc = new_id.replace("sink_", "DM_")
+            name = r_database_info[r_database_info["bigg_id"] == id_noc]["name"]
+            if (not name.empty) and (not name.isnull().values.any()):
+                name = name.values[0]
+            else:
+                name = ""
+            equation = r_database_info[r_database_info["bigg_id"] == id_noc][
+                "reaction_string"
+            ]
+            if not equation.empty:
+                equation = equation.values[0]
+            else:
+                equation = None
+        else:
+            name = "Not converted"
+            equation = None
+        self.name = name
+        self.reaction = equation
+        base_keys = possible_sources + ["assembly"]
+        self.reactants = {k: [] for k in base_keys}
+        self.reactants.update({"comparison": {}})
+        self.products = {k: [] for k in base_keys}
+        self.products.update({"comparison": {}})
+        self.metabolites = {k: {} for k in base_keys + ["comparison"]}
+        self.lower_bound = {k: [] for k in base_keys}
+        self.lower_bound.update({"comparison": {}})
+        self.upper_bound = {k: [] for k in base_keys}
+        self.upper_bound.update({"comparison": {}})
+        self.subsystem = {k: [] for k in possible_sources}
+        self.genes = {k: [] for k in base_keys}
+        self.genes.update({"comparison": {}})
+        self.gene_reaction_rule = {k: [] for k in base_keys}
+        self.gene_reaction_rule.update({k + "_mixed": [] for k in possible_sources})
+        self.gene_reaction_rule.update({"comparison": {}})
+
+    def __sel_met_from_p_model_for_p_r(
+        self,
+        old_react_metabolites: list,
+        old_react_id: str,
+        model_id: str,
+        m_go_old_new: dict,
+        periplasmic_r: dict,
+    ):
+        out_met = {}
+        for met in old_react_metabolites:
+            new_mets = m_go_old_new.get(model_id).get(met.id)
+            if not new_mets:
+                continue
+            if len(new_mets) == 1:
+                out_met.update({new_mets[0]: met})
+            else:
+                test_of_single_entry = True
+                for new_met in new_mets:
+                    new_met_is_periplasmic = new_met.id.endswith("_p")
+                    new_met_was_converted_to_periplasmic = (
+                        met.id in periplasmic_r.get(model_id).get(old_react_id).keys()
+                    )
+                    if (
+                        new_met_is_periplasmic & new_met_was_converted_to_periplasmic
+                    ) or (
+                        (not new_met_is_periplasmic)
+                        & (not new_met_was_converted_to_periplasmic)
+                    ):
+                        out_met.update({new_met: met})
+                        if test_of_single_entry:
+                            test_of_single_entry = False
+                            continue
+                        if not test_of_single_entry:
+                            problem_m = [n.id for n, m in out_met.items() if m == met]
+                            warnings.warn(
+                                f"Something went wrong with periplasmic"
+                                f"connections of {self.id}. Problematic"
+                                f"metabolites are {' '.join(problem_m)}"
+                            )
+        return out_met
+
+    def __sel_met_from_p_model_for_not_p_r(
+        self, old_react_metabolites: list, model_id: str, m_go_old_new: dict
+    ):
+        out_met = {}
+        for met in old_react_metabolites:
+            new_mets = m_go_old_new.get(model_id).get(met.id)
+            if not new_mets:
+                continue
+            if len(new_mets) == 1:
+                out_met.update({new_mets[0]: met})
+            else:
+                test_of_single_entry = True
+                for new_met in new_mets:
+                    if not new_met.id.endswith("_p"):
+                        out_met.update({new_met: met})
+                        if test_of_single_entry:
+                            test_of_single_entry = False
+                            continue
+                        if not test_of_single_entry:
+                            problem_m = [n.id for n, m in out_met.items() if m == met]
+                            warnings.warn(
+                                f"Something went wrong with periplasmic"
+                                f"connections of {self.id}. Problematic"
+                                f"metabolites are {' '.join(problem_m)}"
+                            )
+        return out_met
+
+    def _find_reactants_products(
+        self, r_go_new_old: dict, m_go_old_new: dict, periplasmic_r: dict, m_type: str
+    ):
+        for model_id in self.sources.keys():
+            old_react = r_go_new_old.get(self.id).get(model_id)
+            # old_react is list, usually with 1 element,
+            # but even if not 1, these reactions have the same r equation,
+            # so we can take any and I tool the 1st
+            if not old_react:
+                continue
+            old_react_react_prod = getattr(old_react[0], m_type)
+            model_has_periplasmic_changes = model_id in periplasmic_r.keys()
+            reaction_has_periplasmic_changes = (
+                old_react[0].id in periplasmic_r.get(model_id, {}).keys()
+            )
+            if (model_has_periplasmic_changes) & (reaction_has_periplasmic_changes):
+                met_for_p_r = self.__sel_met_from_p_model_for_p_r(
+                    old_react_react_prod,
+                    old_react[0].id,
+                    model_id,
+                    m_go_old_new,
+                    periplasmic_r,
+                )
+                for m in met_for_p_r.keys():
+                    getattr(self, m_type).get(model_id).append(m)
+            elif model_has_periplasmic_changes & (not reaction_has_periplasmic_changes):
+                met_for_not_p_r = self.__sel_met_from_p_model_for_not_p_r(
+                    old_react_react_prod, model_id, m_go_old_new,
+                )
+                for m in met_for_not_p_r.keys():
+                    getattr(self, m_type).get(model_id).append(m)
+            else:
+                # There was no periplasmic perturbation in the model
+                # Only 1 element in new_reacts_prods is expected
+                for react_prod in old_react_react_prod:
+                    new_reacts_prods = m_go_old_new.get(model_id).get(react_prod.id)
+                    if new_reacts_prods:
+                        getattr(self, m_type).get(model_id).append(new_reacts_prods[0])
+                        if len(new_reacts_prods) > 1:
+                            warnings.warn(
+                                f"Unexpected not unique connections between new "
+                                f"and old metabolite without periplasmic story."
+                                f"Model: {model_id}. Old metabolite: {react_prod.id}."
+                                f"New metabolites: "
+                                f"{' '.join([n.id for n in new_reacts_prods])}"
+                            )
+
+    def _find_metabolites(
+        self, r_go_new_old: dict, m_go_old_new: dict, periplasmic_r: dict,
+    ):
+        for model_id in self.sources.keys():
+            old_react = r_go_new_old.get(self.id).get(model_id)
+            # old_react is list, usually with 1 element,
+            # but even if not 1, these reactions have the same r equation,
+            # so we can take any and I tool the 1st
+            if not old_react:
+                continue
+            old_react_metabolites = old_react[0].metabolites
+            model_has_periplasmic_changes = model_id in periplasmic_r.keys()
+            reaction_has_periplasmic_changes = (
+                old_react[0].id in periplasmic_r.get(model_id, {}).keys()
+            )
+            if model_has_periplasmic_changes & reaction_has_periplasmic_changes:
+                met_for_p_r = self.__sel_met_from_p_model_for_p_r(
+                    list(old_react_metabolites.keys()),
+                    old_react[0].id,
+                    model_id,
+                    m_go_old_new,
+                    periplasmic_r,
+                )
+                for m, v in met_for_p_r.items():
+                    self.metabolites.get(model_id).update({m: old_react_metabolites[v]})
+            elif model_has_periplasmic_changes & (not reaction_has_periplasmic_changes):
+                met_for_not_p_r = self.__sel_met_from_p_model_for_not_p_r(
+                    list(old_react_metabolites.keys()), model_id, m_go_old_new,
+                )
+                for m, v in met_for_not_p_r.items():
+                    self.metabolites.get(model_id).update({m: old_react_metabolites[v]})
+            else:
+                # There was no periplasmic perturbation in the model
+                # Only 1 element in new_mets is expected
+                for met, koef in old_react_metabolites.items():
+                    new_mets = m_go_old_new.get(model_id).get(met.id)
+                    if new_mets:
+                        self.metabolites.get(model_id).update({new_mets[0]: koef})
+                        if len(new_mets) > 1:
+                            warnings.warn(
+                                f"Unexpected not unique connections between new "
+                                f"and old metabolite without periplasmic story."
+                                f"Model: {model_id}. Old metabolite: {met.id}."
+                                f"New metabolites: {' '.join([n.id for n in new_mets])}"
+                            )
+
+
+class SetofNewElements:
     """ Setting dictionaries for all metabolites or reactions:
     selected for supermodel - self.assembly and not selected - self.notconverted. """
 
-    def __addNewObjs(self, selected: dict, where_to_add: str, model_ids: list):
-        for mod_id in model_ids:
-            if mod_id in list(selected.keys()):
-                objects = selected.get(mod_id)
-                for key in objects.keys():
-                    for new_id in objects[key][1]:
-                        comp = objects[key][0]
-                        if new_id in getattr(self, where_to_add).keys():
-                            getattr(self, where_to_add).get(new_id)._updateNewObject(
-                                key, comp, mod_id
-                            )
-                        else:
-                            new = NewObject(new_id, key, comp, mod_id, model_ids)
-                            getattr(self, where_to_add).update({new_id: new})
-
-    def __makeSetofNew(
-        self, selected: dict, not_selected: dict, model_ids, additional,
+    def __add_new_elements(
+        self,
+        element_type: str,
+        selected: dict,
+        where_to_add: str,
+        model_ids: list,
+        convered: bool,
+        db_info: pd.core.frame.DataFrame,
     ):
-        self.__addNewObjs(selected, "assembly", model_ids)
-        if additional:
-            self.__addNewObjs(additional, "assembly", model_ids)
-        for new_id, new_obj in self.assembly.items():
-            for model_id in new_obj.in_models["models_list"]:
-                getattr(self, model_id).update({new_id: new_obj})
-        self.__addNewObjs(
-            not_selected, "notconverted", model_ids
-        )  # TODO connect not_converted for really not converted only with old id
+        new_elements = {"metabolites": NewMetabolite, "reactions": NewReaction}
+        for mod_id in model_ids:
+            if mod_id not in list(selected.keys()):
+                continue
+            objects = selected.get(mod_id)
+            for key in objects.keys():
+                for new_id in objects[key][1]:
+                    comp = objects[key][0]
+                    if new_id in getattr(self, where_to_add).keys():
+                        getattr(self, where_to_add).get(new_id)._update_new_element(
+                            key, comp, mod_id
+                        )
+                    else:
+                        new = new_elements[element_type](
+                            new_id, key, comp, mod_id, model_ids, convered, db_info
+                        )
+                        getattr(self, where_to_add).update({new_id: new})
 
     def __init__(
-        self, selected: dict, not_selected: dict, model_ids: [str], additional=None,
+        self,
+        element_type: str,
+        selected: dict,
+        not_selected: dict,
+        model_ids: [str],
+        db_info: pd.core.frame.DataFrame,
+        additional=None,
     ):
         self.assembly = {}
         for source in selected.keys():
@@ -107,7 +390,19 @@ class SetofNewObjects:
         self.assembly_mix = {}
         self.comparison = defaultdict(dict)
         self.notconverted = {}
-        self.__makeSetofNew(selected, not_selected, model_ids, additional)
+        self.__add_new_elements(
+            element_type, selected, "assembly", model_ids, True, db_info
+        )
+        if additional:
+            self.__add_new_elements(
+                element_type, additional, "assembly", model_ids, True, db_info
+            )
+        for new_id, new_obj in self.assembly.items():
+            for model_id in new_obj.in_models["models_list"]:
+                getattr(self, model_id).update({new_id: new_obj})
+        self.__add_new_elements(
+            element_type, not_selected, "notconverted", model_ids, False, db_info
+        )
 
     def _makeForwardBackward(
         self,
@@ -117,7 +412,7 @@ class SetofNewObjects:
         additional=None,
     ):
         """ Creating dictionaries linking metabolites/reactions:
-        NewObject in supermodel with old original ID and OldObject in original models with new ID in supermodel """
+            NewObject in supermodel with old original ID and OldObject in original models with new ID in supermodel """
         go_old_new = defaultdict(dict)
         go_new_old = defaultdict(dict)
         model_ids = list(selected.keys())
@@ -125,13 +420,10 @@ class SetofNewObjects:
             for key, value in selected.get(model_id).items():
                 new_obj = [self.assembly.get(value[1][0])]
                 if additional:
-                    if model_id in list(additional.keys()):
-                        if key in list(additional.get(model_id).keys()):
-                            new_obj.append(
-                                self.assembly.get(
-                                    additional.get(model_id).get(key)[1][0]
-                                )
-                            )
+                    if key in list(additional.get(model_id, {}).keys()):
+                        new_obj.append(
+                            self.assembly.get(additional.get(model_id).get(key)[1][0])
+                        )
                 go_old_new[model_id].update({key: new_obj})
         for k, v in self.assembly.items():
             for mod_id in v.in_models["models_list"]:
@@ -144,73 +436,6 @@ class SetofNewObjects:
                 ]
                 go_new_old[k].update({mod_id: old_obj})
         return go_old_new, go_new_old
-
-
-class SetofNewMetabolites(SetofNewObjects):
-    """ Metabolites class that add name and blank reaction attribute to metabolite """
-
-    def _setMetaboliteAttributes(self, database_info: pd.core.frame.DataFrame):
-        attrib = ["assembly", "notconverted"]
-        for a in attrib:
-            for obj in getattr(self, a).values():
-                if a == "assembly":
-                    id_noc = re.sub("_([cep])$", "", obj.id)
-                    name = database_info[database_info["universal_bigg_id"] == id_noc][
-                        "name"
-                    ].values[0]
-                else:
-                    name = "Not converted"
-                obj.name = name
-                obj.reactions = {k: [] for k in obj.sources.keys()}
-                obj.reactions.update({"assembly": [], "comparison": {}})
-                obj.formula = {k: [] for k in obj.sources.keys()}
-
-
-class SetofNewReactions(SetofNewObjects):
-    """ Reactions class that add name, reaction equation and blank reactants/products attributes to reaction """
-
-    def _setReactionAttributes(self, database_info: pd.core.frame.DataFrame):
-        attrib = ["assembly", "notconverted"]
-        for a in attrib:
-            for obj in getattr(self, a).values():
-                if a == "assembly":
-                    id_noc = obj.id.replace("sink_", "DM_")
-                    name = database_info[database_info["bigg_id"] == id_noc]["name"]
-                    if (not name.empty) and (not name.isnull().values.any()):
-                        name = name.values[0]
-                    else:
-                        name = ""
-                    equation = database_info[database_info["bigg_id"] == id_noc][
-                        "reaction_string"
-                    ]
-                    if not equation.empty:
-                        equation = equation.values[0]
-                    else:
-                        equation = None
-                    obj.name = name
-                else:
-                    name = "Not converted"
-                    equation = None
-                obj.name = name
-                obj.reaction = equation
-                base_keys = list(obj.sources.keys()) + ["assembly"]
-                obj.reactants = {k: [] for k in base_keys}
-                obj.reactants.update({"comparison": {}})
-                obj.products = {k: [] for k in base_keys}
-                obj.products.update({"comparison": {}})
-                obj.metabolites = {k: {} for k in base_keys + ["comparison"]}
-                obj.lower_bound = {k: [] for k in base_keys}
-                obj.lower_bound.update({"comparison": {}})
-                obj.upper_bound = {k: [] for k in base_keys}
-                obj.upper_bound.update({"comparison": {}})
-                obj.subsystem = {k: [] for k in list(obj.sources.keys())}
-                obj.genes = {k: [] for k in base_keys}
-                obj.genes.update({"comparison": {}})
-                obj.gene_reaction_rule = {k: [] for k in base_keys}
-                obj.gene_reaction_rule.update(
-                    {k + "_mixed": [] for k in obj.sources.keys()}
-                )
-                obj.gene_reaction_rule.update({"comparison": {}})
 
 
 class NewGene(object):
@@ -347,209 +572,6 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     Creating connections between metabolites and reaction via dictionaries with sources as keys and links to
     reactants/products/reactions as values.  """
 
-    def __find_reactions(
-        self,
-        metabolite: NewObject,
-        m_go_new_old: dict,
-        r_go_old_new: dict,
-        model_ids: [str],
-        periplasmic_r: dict,
-        periplasmic_m: dict,
-    ):
-        for model_id in model_ids:
-            old_mets = m_go_new_old.get(metabolite.id).get(model_id)
-            if old_mets:
-                new_r = []
-                for old_met in old_mets:
-                    if model_id in list(periplasmic_m.keys()):
-                        if old_met.id in list(periplasmic_m.get(model_id).keys()):
-                            for reaction in old_met.reactions:
-                                if r_go_old_new.get(model_id).get(reaction.id):
-                                    if (metabolite.id.endswith("_p")) & (
-                                        reaction.id
-                                        in list(periplasmic_r.get(model_id).keys())
-                                    ):
-                                        new_r.append(
-                                            r_go_old_new.get(model_id).get(reaction.id)[
-                                                0
-                                            ]
-                                        )
-                                    elif (not metabolite.id.endswith("_p")) & (
-                                        reaction.id
-                                        not in list(periplasmic_r.get(model_id).keys())
-                                    ):
-                                        new_r.append(
-                                            r_go_old_new.get(model_id).get(reaction.id)[
-                                                0
-                                            ]
-                                        )
-                        else:
-                            for r in old_met.reactions:
-                                if r_go_old_new.get(model_id).get(r.id):
-                                    new_r.append(
-                                        r_go_old_new.get(model_id).get(r.id)[0]
-                                    )
-                    else:
-                        new_r = []
-                        for r in old_met.reactions:
-                            if r_go_old_new.get(model_id).get(r.id):
-                                new_r.append(r_go_old_new.get(model_id).get(r.id)[0])
-                if new_r:
-                    metabolite.reactions[model_id] = list(set(new_r))
-
-    def __find_metabolites(
-        self,
-        reaction: NewObject,
-        r_go_new_old: dict,
-        m_go_old_new: dict,
-        model_ids: [str],
-        periplasmic_r: dict,
-    ):
-        for model_id in model_ids:
-            old_react = r_go_new_old.get(reaction.id).get(model_id)
-            if old_react:
-                old_react_reactants = old_react[0].reactants
-                old_react_products = old_react[0].products
-                old_react_metabolites = old_react[0].metabolites
-                if model_id in periplasmic_r.keys():
-                    if old_react[0].id in periplasmic_r.get(model_id).keys():
-                        for reactant in old_react_reactants:
-                            new_reactants = m_go_old_new.get(model_id).get(reactant.id)
-                            if new_reactants:
-                                if len(new_reactants) == 1:
-                                    reaction.reactants.get(model_id).append(
-                                        new_reactants[0]
-                                    )
-                                elif len(new_reactants) > 1:
-                                    for new_reactant in new_reactants:
-                                        if (new_reactant.id.endswith("_p")) & (
-                                            reactant.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.reactants.get(model_id).append(
-                                                new_reactant
-                                            )
-                                        if (not new_reactant.id.endswith("_p")) & (
-                                            reactant.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.reactants.get(model_id).append(
-                                                new_reactant
-                                            )
-                        for product in old_react_products:
-                            new_products = m_go_old_new.get(model_id).get(product.id)
-                            if new_products:
-                                if len(new_products) == 1:
-                                    reaction.products.get(model_id).append(
-                                        new_products[0]
-                                    )
-                                elif len(new_products) > 1:
-                                    for new_product in new_products:
-                                        if (new_product.id.endswith("_p")) & (
-                                            product.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.products.get(model_id).append(
-                                                new_product
-                                            )
-                                        if (not new_product.id.endswith("_p")) & (
-                                            product.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.products.get(model_id).append(
-                                                new_product
-                                            )
-                        for met, koef in old_react_metabolites.items():
-                            new_mets = m_go_old_new.get(model_id).get(met.id)
-                            if new_mets:
-                                if len(new_mets) == 1:
-                                    reaction.metabolites.get(model_id).update(
-                                        {new_mets[0]: koef}
-                                    )
-                                elif len(new_mets) > 1:
-                                    for new_met in new_mets:
-                                        if (new_met.id.endswith("_p")) & (
-                                            met.id
-                                            in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.metabolites.get(model_id).update(
-                                                {new_met: koef}
-                                            )
-                                        if (not new_met.id.endswith("_p")) & (
-                                            met.id
-                                            not in periplasmic_r.get(model_id)
-                                            .get(old_react[0].id)
-                                            .keys()
-                                        ):
-                                            reaction.metabolites.get(model_id).update(
-                                                {new_met: koef}
-                                            )
-                    else:
-                        for reactant in old_react_reactants:
-                            new_reactants = m_go_old_new.get(model_id).get(reactant.id)
-                            if new_reactants:
-                                if len(new_reactants) == 1:
-                                    reaction.reactants.get(model_id).append(
-                                        new_reactants[0]
-                                    )
-                                elif len(new_reactants) > 1:
-                                    for new_reactant in new_reactants:
-                                        if not new_reactant.id.endswith("_p"):
-                                            reaction.reactants.get(model_id).append(
-                                                new_reactant
-                                            )
-                        for product in old_react_products:
-                            new_products = m_go_old_new.get(model_id).get(product.id)
-                            if new_products:
-                                if len(new_products) == 1:
-                                    reaction.products.get(model_id).append(
-                                        new_products[0]
-                                    )
-                                elif len(new_products) > 1:
-                                    for new_product in new_products:
-                                        if not new_product.id.endswith("_p"):
-                                            reaction.products.get(model_id).append(
-                                                new_product
-                                            )
-                        for met, koef in old_react_metabolites.items():
-                            new_mets = m_go_old_new.get(model_id).get(met.id)
-                            if new_mets:
-                                if len(new_mets) == 1:
-                                    reaction.metabolites.get(model_id).update(
-                                        {new_mets[0]: koef}
-                                    )
-                                elif len(new_mets) > 1:
-                                    for new_met in new_mets:
-                                        if not new_met.id.endswith("_p"):
-                                            reaction.metabolites.get(model_id).update(
-                                                {new_met: koef}
-                                            )
-                else:
-                    for reactant in old_react_reactants:
-                        new_reactants = m_go_old_new.get(model_id).get(reactant.id)
-                        if new_reactants:
-                            reaction.reactants.get(model_id).append(new_reactants[0])
-                    for product in old_react_products:
-                        new_products = m_go_old_new.get(model_id).get(product.id)
-                        if new_products:
-                            reaction.products.get(model_id).append(new_products[0])
-                    for met, koef in old_react_metabolites.items():
-                        new_mets = m_go_old_new.get(model_id).get(met.id)
-                        if new_mets:
-                            reaction.metabolites.get(model_id).update(
-                                {new_mets[0]: koef}
-                            )
-
     def __find_genes(
         self,
         all_models_data: dict,
@@ -644,13 +666,17 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     ):
         model_ids = list(all_models_data.keys())
         for met in self.metabolites.assembly.values():
-            self.__find_reactions(
-                met, m_go_new_old, r_go_old_new, model_ids, periplasmic_r, periplasmic_m
+            met._find_reactions(
+                m_go_new_old, r_go_old_new, periplasmic_r, periplasmic_m
             )
         for r in self.reactions.assembly.values():
-            self.__find_metabolites(
-                r, r_go_new_old, m_go_old_new, model_ids, periplasmic_r
+            r._find_reactants_products(
+                r_go_new_old, m_go_old_new, periplasmic_r, "reactants"
             )
+            r._find_reactants_products(
+                r_go_new_old, m_go_old_new, periplasmic_r, "products"
+            )
+            r._find_metabolites(r_go_new_old, m_go_old_new, periplasmic_r)
         self.__find_genes(
             all_models_data, r_go_old_new, r_go_new_old, model_ids, gene_folder
         )
@@ -680,7 +706,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     r.upper_bound.get(mod_id).append(upp_b)
                     r.subsystem.get(mod_id).append("#or#".join(subsys))
 
-    def __swapReactantsAndProducts(self, r: NewObject, sources_to_swap: list):
+    def __swapReactantsAndProducts(self, r: NewElement, sources_to_swap: list):
         for s in sources_to_swap:
             a = r.reactants.get(s)
             b = r.products.get(s)
@@ -757,13 +783,15 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                                 ):
                                     not_sel.append(tmp)
                             self.__swapReactantsAndProducts(r, not_sel)
-                    # Maybe remove, since len(consist) is expected to be only 1 or 2
+                    # len(consist) is expected to be only 1 or 2
                     else:
-                        print("Can enter consist more 2")
-                        print(r.id)
-                        print(r.reactants)
-                        print(r.products)
-                        print(consist)
+                        warnings.warn(
+                            f"Warning! Something went wrong with swaping "
+                            f"metabolites for {r.id}."
+                            f"Can enter consist more 2."
+                            f"Reactants: {r.reactants}. "
+                            f"Products: {r.products}. Consist: {consist}"
+                        )
                         # "Case 3: Nothing sort"
                         sel = sorted(r.in_models["models_list"])[0]
                         not_sel = []
@@ -816,23 +844,38 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
 
     def __init__(
         self,
-        metabolites: SetofNewMetabolites,
-        reactions: SetofNewReactions,
-        genes: SetofNewGenes,
-        m_go_new_old: dict,
-        m_go_old_new: dict,
-        r_go_new_old: dict,
-        r_go_old_new: dict,
+        final_m_sel: dict,
+        final_m_not_sel: dict,
+        final_r_sel: dict,
+        final_r_not_sel: dict,
         all_models_data: dict,
-        periplasmic_r: dict,
         additional_periplasmic_m: dict,
+        periplasmic_r: dict,
+        m_db_info: pd.core.frame.DataFrame,
+        r_db_info: pd.core.frame.DataFrame,
         gene_folder,
         and_as_solid: bool,
     ):
-        self.metabolites = metabolites
-        self.reactions = reactions
-        self.genes = genes
         self.sources = list(all_models_data.keys())
+        self.metabolites = SetofNewElements(
+            "metabolites",
+            final_m_sel,
+            final_m_not_sel,
+            self.sources,
+            m_db_info,
+            additional_periplasmic_m,
+        )
+        self.reactions = SetofNewElements(
+            "reactions", final_r_sel, final_r_not_sel, self.sources, r_db_info,
+        )
+        self.genes = SetofNewGenes(all_models_data, gene_folder)
+
+        m_go_old_new, m_go_new_old = self.metabolites._makeForwardBackward(
+            all_models_data, final_m_sel, "metabolites", additional_periplasmic_m,
+        )
+        r_go_old_new, r_go_new_old = self.reactions._makeForwardBackward(
+            all_models_data, final_r_sel, "reactions"
+        )
         self.__find_connections(
             m_go_new_old,
             m_go_old_new,
