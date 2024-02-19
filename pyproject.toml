@@ -21,17 +21,19 @@ keywords = ["genome scale metabolic models", "metabolism", "biology"]
 requires-python = ">=3.9"
 dependencies = [
     "cobra",
+    "metquest",
     "dill",
     "ncbi-genome-download",
     "numpy",
-    "pandas>=2.0",
-    "platformdirs",
-    "pyarrow",
     "scipy",
     "networkx",
-    "pyautogui",
+    "pandas>=2.0",
+    "pyarrow",
     "seaborn",
-    "pyvis"
+    "pyvis",
+    "platformdirs",
+    "pyautogui",
+    "pyyaml"
 ]
 
 [project.scripts]
