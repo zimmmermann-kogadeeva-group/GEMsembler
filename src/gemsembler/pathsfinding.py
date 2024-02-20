@@ -238,14 +238,12 @@ def run_metquest(
     return output, graph
 
 
-def main(
+def pathsfinding(
     path_to_model,
-    path_to_union_model,
     output_dir,
     nutritional_sources: [str],
     other_medium: [str],
     cofactors=None,
-    metabolites: [str] = None,
     max_paths_length=40,
     len_diversity=3,
     number_of_xml=1,
@@ -259,15 +257,7 @@ def main(
 
     # Open the models
     model = read_sbml_model(path_to_model)
-    union_model = read_sbml_model(path_to_union_model)
     tag = model.id
-
-    # If type of metabolites is given, rather than list of metabolites, extract
-    # from union_model
-    if isinstance(metabolites, str):
-        metabolites = [
-            m.id for m in union_model.reactions.get_by_id(metabolites).reactants
-        ]
 
     # Alter metabolite ids
     seed_metabolites_tag, cofactors_c, other_medium_c = preprocess_medium(
@@ -282,8 +272,6 @@ def main(
     # Save the model without cofactors
     path_to_model_wo_cof = output_dir / (model_name + "_wo_cofactors.xml")
     write_sbml_model(model_wo_cof, path_to_model_wo_cof)
-
-    # TODO: save config to output_dir
 
     # Make a tmp dir in which to run metquest
     with tempfile.TemporaryDirectory(dir=output_dir) as tmp_dir, tmp_cwd():
