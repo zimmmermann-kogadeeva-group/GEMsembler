@@ -31,6 +31,7 @@ dependencies = [
     "pyarrow",
     "seaborn",
     "pyvis",
+    "h5py",
     "platformdirs",
     "pyautogui",
     "pyyaml"

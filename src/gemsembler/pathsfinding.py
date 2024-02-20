@@ -206,7 +206,6 @@ def run_metquest(
     number_of_xml,
     max_paths_length,
 ):
-    getcwd()
     graph, name_map = metquest.construct_graph.create_graph(
         path_to_models, number_of_xml
     )
