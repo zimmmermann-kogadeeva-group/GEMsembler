@@ -370,6 +370,7 @@ class GatheredModels:
         assembly_id=None,
         path_final_genome_nt=None,
         path_final_genome_aa=None,
+        do_mix_conv_notconv=False,
         and_as_solid=False,
     ):
         # Check if assembly and final genome are present.
@@ -488,6 +489,7 @@ class GatheredModels:
             bigg_data_m,
             bigg_data_r,
             gene_path,
+            do_mix_conv_notconv,
             and_as_solid,
         )
         return supermodel
