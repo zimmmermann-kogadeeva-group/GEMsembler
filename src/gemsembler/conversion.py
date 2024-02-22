@@ -312,9 +312,17 @@ class ConvCarveme(ConvBase):
         else:
             conv_main = [id_wo_comp]
 
+        try:
+            comp = [metabolite.compartment.split("_")[1]]
+        except IndexError:
+            raise ValueError(
+                f"metabolite '{metabolite.id}' has incompatible "
+                f"compartment: {metabolite.compartment}"
+            )
+
         return Converted(
             check_db=self.__bigg_m__,
-            compartment=[metabolite.compartment.split("_")[1]],
+            compartment=comp,
             main=conv_main,
             metabolite=True,
         )
