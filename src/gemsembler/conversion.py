@@ -312,9 +312,8 @@ class ConvCarveme(ConvBase):
         else:
             conv_main = [id_wo_comp]
 
-        try:
-            comp = [metabolite.compartment.split("_")[1]]
-        except IndexError:
+        comp = metabolite.compartment.split("_")
+        if len(comp) == 1:
             raise ValueError(
                 f"metabolite '{metabolite.id}' has incompatible "
                 f"compartment: {metabolite.compartment}"
@@ -322,7 +321,7 @@ class ConvCarveme(ConvBase):
 
         return Converted(
             check_db=self.__bigg_m__,
-            compartment=comp,
+            compartment=[comp[1]],
             main=conv_main,
             metabolite=True,
         )
@@ -337,6 +336,47 @@ class ConvCarveme(ConvBase):
         return Converted(
             check_db=self.__bigg_r__,
             compartment=[x.split("_")[1] for x in reaction.compartments],
+            main=conv_main,
+            metabolite=False,
+        )
+
+
+class ConvBigg(ConvBase):
+    def __init__(self, main_map_m=None, main_map_r=None, bigg_m=None, bigg_r=None):
+        super().__init__(bigg_m, bigg_r)
+
+        # TODO: checks that tables, if given, are of the appropriate format
+        self.__main_map_m__ = main_map_m or get_old_bigg_m()
+        self.__main_map_r__ = main_map_r or get_old_bigg_r()
+        self.__comp_regex__ = re.compile("_([cep])$")
+
+    def convert_metabolite(self, metabolite):
+        id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
+        if id_wo_comp not in self.__bigg_m__:
+            conv_main = [
+                x + metabolite.compartment
+                for x in self.__main_map_m__.get(id_wo_comp, [])
+            ]
+        else:
+            conv_main = [id_wo_comp]
+
+        return Converted(
+            check_db=self.__bigg_m__,
+            compartment=metabolite.compartment,
+            main=conv_main,
+            metabolite=True,
+        )
+
+    def convert_reaction(self, reaction):
+        id_wo_comp = reaction.id
+        if id_wo_comp not in self.__bigg_r__:
+            conv_main = [x for x in self.__main_map_r__.get(id_wo_comp, [])]
+        else:
+            conv_main = [id_wo_comp]
+
+        return Converted(
+            check_db=self.__bigg_r__,
+            compartment=reaction.compartments,
             main=conv_main,
             metabolite=False,
         )

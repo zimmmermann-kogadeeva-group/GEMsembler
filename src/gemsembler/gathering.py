@@ -10,8 +10,15 @@ from pathlib import Path
 from cobra.io import read_sbml_model
 from platformdirs import user_data_path
 
-from .conversion import ConvAgora, ConvBase, ConvCarveme, ConvGapseq, ConvModelseed
-from .creation import SetofNewGenes, SetofNewElements, SuperModel
+from .conversion import (
+    ConvAgora,
+    ConvBase,
+    ConvBigg,
+    ConvCarveme,
+    ConvGapseq,
+    ConvModelseed,
+)
+from .creation import SetofNewElements, SetofNewGenes, SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
 from .dbs import download_db, get_bigg_network
 from .genes import (
@@ -85,7 +92,9 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -105,6 +114,13 @@ class GatheredModels:
                 "db_name": "bigg",
                 "wo_periplasmic": False,
                 "conv_strategy": ConvCarveme(),
+                "genome_model_strategy": get_genes_not_gapseq,
+            },
+            "bigg": {
+                "remove_b": False,
+                "db_name": "bigg",
+                "wo_periplasmic": False,
+                "conv_strategy": ConvBigg(),
                 "genome_model_strategy": get_genes_not_gapseq,
             },
             "gapseq": {
