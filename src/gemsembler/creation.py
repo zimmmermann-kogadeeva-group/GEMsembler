@@ -1030,14 +1030,19 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         self.genes = SetofNewGenes(all_models_data, gene_folder, do_mix_conv_notconv)
 
         if do_mix_conv_notconv:
-            final_m_all = final_m_sel | final_m_not_sel
+            final_m_all = defaultdict(dict)
+            for model_id in final_m_sel.keys():
+                final_m_all[model_id] = final_m_sel[model_id] | final_m_not_sel[model_id]
             m_connection_dicts = self.metabolites._makeForwardBackward(
                 all_models_data,
                 final_m_all,
                 "metabolites",
                 additional=additional_periplasmic_m,
             )
-            final_r_all = final_r_sel | final_r_not_sel
+            final_r_all = defaultdict(dict)
+            for model_id in final_r_sel.keys():
+                final_r_all[model_id] = final_r_sel[model_id] | final_r_not_sel[
+                    model_id]
             r_connection_dicts = self.reactions._makeForwardBackward(
                 all_models_data, final_r_all, "reactions",
             )

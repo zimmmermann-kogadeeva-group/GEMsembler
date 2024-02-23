@@ -834,7 +834,6 @@ def draw_notconv_biomass(
         raise ValueError(
             "Output file for the plot is of wrong format. Please use html file name."
         )
-    color_brewer = get_color_palette(len(supermodel.sources))
     if n_letter is None:
         n_letter = supermodel.get_short_name_len()
     g = nx.DiGraph()
@@ -844,47 +843,18 @@ def draw_notconv_biomass(
     for typ in supermodel.sources:
         for rea in biomass_r.reactants.get(typ):
             if rea.id not in reactants.keys():
-                if rea.id in rea.annotation.get(typ):
-                    reactants.update({rea.id: f"{rea.id}\n{typ[:n_letter]}"})
-                else:
-                    reactants.update(
-                        {
-                            rea.id: f"{rea.id}\n{rea.annotation.get(typ)}\n{typ[:n_letter]}"
-                        }
-                    )
+                reactants.update({rea.id: f"{rea.id}\n{typ[:n_letter]}"})
             else:
                 if rea.id in rea.annotation.get(typ):
                     reactants.update(
-                        {rea.id: f"{reactants.get(rea.id)}\n{rea.id}\n{typ[:n_letter]}"}
-                    )
-                else:
-                    reactants.update(
-                        {
-                            rea.id: f"{reactants.get(rea.id)}\n{rea.id}"
-                            f"\n{rea.annotation.get(typ)}\n{typ[:n_letter]}"
-                        }
+                        {rea.id: f"{reactants.get(rea.id)}{typ[:n_letter]}"}
                     )
         for pro in biomass_r.products.get(typ):
             if pro.id not in products.keys():
-                if pro.id in pro.annotation.get(typ):
-                    products.update({pro.id: f"{pro.id}\n{typ[:n_letter]}"})
-                else:
-                    reactants.update(
-                        {
-                            pro.id: f"{pro.id}\n{pro.annotation.get(typ)}\n{typ[:n_letter]}"
-                        }
-                    )
+                products.update({pro.id: f"{pro.id}\n{typ[:n_letter]}"})
             else:
-                if pro.id in pro.annotation.get(typ):
-                    products.update(
-                        {pro.id: f"{products.get(pro.id)}\n{pro.id}\n{typ[:n_letter]}"}
-                    )
-                else:
-                    products.update(
-                        {
-                            pro.id: f"{products.get(pro.id)}\n{pro.id}\n"
-                            f"{pro.annotation.get(typ)}\n{typ[:n_letter]}"
-                        }
+                products.update(
+                        {pro.id: f"{products.get(pro.id)}{typ[:n_letter]}"}
                     )
     g.add_node(biomass_r.id, shape="box")
     for r in reactants.values():
