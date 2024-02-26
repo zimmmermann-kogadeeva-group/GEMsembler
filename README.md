@@ -14,11 +14,6 @@ pip install gemsembler
 
 **Note:** you also have to install BLAST in advance.
 
-To get the latest version, you can install directly from gitlab:
-```
-pip install git+https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler.git
-```
-
 ## Usage
 
 Input models have to be COBRApy readable files. And models need to be
