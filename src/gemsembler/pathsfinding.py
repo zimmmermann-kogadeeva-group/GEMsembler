@@ -42,6 +42,17 @@ def write_mq_data(mq_data, filename):
 
 
 def read_mq_data(filename, key, subkey=None):
+    possible_keys = (
+        "all_synthesized",
+        "max_synthesized",
+        "name_map",
+        "max_linear_paths",
+        "max_circular_paths",
+    )
+    # Raise error if not one of the possible keys
+    if key not in possible_keys:
+        raise ValueError(f"key has to one of the following: {possible_keys}\nGot {key}")
+
     with h5py.File(filename, "r") as fh:
         if key.endswith("synthesized"):
             return [x.decode() for x in fh[key]]

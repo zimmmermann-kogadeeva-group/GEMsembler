@@ -74,12 +74,8 @@ def process_bigg(data, metabolites=False):
             else x.bigg_id
         )
         .drop_duplicates()
-        .groupby("old_bigg_ids", group_keys=False)
-        .apply(lambda x: x["bigg_id"].tolist())
-        .reset_index(name="bigg_ids")
-        .rename(columns={"old_bigg_ids": "old_ids"})
-        .set_index("old_ids")
-        .get("bigg_ids")
+        .groupby("old_bigg_ids", group_keys=False)["bigg_id"]
+        .apply(list)
         .to_dict()
     )
 
