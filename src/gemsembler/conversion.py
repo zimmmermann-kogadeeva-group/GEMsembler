@@ -362,7 +362,7 @@ class ConvBigg(ConvBase):
 
         return Converted(
             check_db=self.__bigg_m__,
-            compartment=metabolite.compartment,
+            compartment=[metabolite.compartment],
             main=conv_main,
             metabolite=True,
         )
@@ -376,7 +376,7 @@ class ConvBigg(ConvBase):
 
         return Converted(
             check_db=self.__bigg_r__,
-            compartment=reaction.compartments,
+            compartment=list(reaction.compartments),
             main=conv_main,
             metabolite=False,
         )

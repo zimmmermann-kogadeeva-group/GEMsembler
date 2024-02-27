@@ -245,7 +245,6 @@ def pathsfinding(
     other_medium: [str],
     cofactors=None,
     max_paths_length=40,
-    len_diversity=3,
     number_of_xml=1,
     **kwargs,
 ):

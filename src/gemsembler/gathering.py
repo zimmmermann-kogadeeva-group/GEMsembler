@@ -298,6 +298,10 @@ class GatheredModels:
         periplasmic_m = defaultdict(dict)
         periplasmic_r = defaultdict(dict)
         for model_id in self.__models.keys():
+            final_r_sel[model_id] = {}
+            final_r_not_sel[model_id] = {}
+            final_m_sel[model_id] = {}
+            final_m_not_sel[model_id] = {}
             for orig_r_id, sel_r in self.third_stage_selected_reactions[
                 model_id
             ].items():

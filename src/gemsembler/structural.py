@@ -499,6 +499,11 @@ def runStructuralCheck(
                 and met_checked[m2].from_one_id == True
             ):
                 bigg_met2_checked.append(met_checked[m2].highest_consistent[0])
+        if (len(bigg_met1) > 20) | (len(bigg_met2) > 20):
+            react_struct_checked.update(
+                {id_r: StructuralR({"Biomass": "growth_reaction"}, sel)}
+            )
+            continue
         bigg_r = getReaction(
             bigg_met1_checked,
             bigg_met2_checked,
@@ -521,10 +526,6 @@ def runStructuralCheck(
         ) & (id_r.startswith("EX_")):
             react_struct_checked.update(
                 {id_r: StructuralR({id_r: "not_found_but_exchange_reaction"}, sel)}
-            )
-        elif (len(bigg_met1) > 20) | (len(bigg_met2) > 20):
-            react_struct_checked.update(
-                {id_r: StructuralR({"Biomass": "growth_reaction"}, sel)}
             )
         else:
             react_struct_checked.update(
