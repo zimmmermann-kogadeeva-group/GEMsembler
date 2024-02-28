@@ -6,7 +6,7 @@ from ast import literal_eval
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
-
+from .general import findKeysByValue
 import h5py
 import metquest
 from cobra import Model
@@ -27,6 +27,8 @@ def write_mq_data(mq_data, filename):
     with h5py.File(filename, "w") as fh:
         fh.create_dataset("all_synthesized", data=list(mq_data["all_synthesized"]))
         fh.create_dataset("max_synthesized", data=list(mq_data["max_synthesized"]))
+        fh.create_dataset("max_paths_length", data=list(mq_data["max_paths_length"]))
+        fh.create_dataset("tag", data=list(mq_data["tag"]))
 
         name_map = fh.create_group("name_map")
         for k, v in mq_data["name_map"].items():
@@ -41,99 +43,123 @@ def write_mq_data(mq_data, filename):
             circular_paths[k] = str(v)
 
 
-def read_mq_data(filename, key, subkey=None):
+def read_mq_data(filename, key, subkey=None, len_diversity=None, map_back=True):
     possible_keys = (
         "all_synthesized",
         "max_synthesized",
         "name_map",
         "max_linear_paths",
         "max_circular_paths",
+        "max_paths_length",
+        "tag"
     )
     # Raise error if not one of the possible keys
     if key not in possible_keys:
         raise ValueError(f"key has to one of the following: {possible_keys}\nGot {key}")
 
     with h5py.File(filename, "r") as fh:
-        if key.endswith("synthesized"):
+        if key.endswith("synthesized") or (key in ["tag", "max_paths_length"]):
             return [x.decode() for x in fh[key]]
+        elif key == "name_map":
+            return {k: fh[key][k][()].decode() for k in fh[key].keys()}
         else:
             # If subkey is defined (for a given metabolite), then restrict the
             # output to that
             keys = fh[key].keys() if subkey is None else [subkey]
-            if key == "name_map":
-                return {k: fh[key][k][()].decode() for k in keys}
-            elif key.endswith("paths"):
+            if len_diversity is None:
                 return {k: literal_eval(fh[key][k][()].decode()) for k in keys}
+            else:
+                output = {}
+                for k in keys:
+                    if k not in fh[key].keys():
+                        output.update({k: None})
+                    elif 0 in fh[key][k].keys():
+                        output.update({k: "No need to synthesize"})
+                    else:
+                        len_diversity = min(len(fh[key][k].keys()), len_diversity)
+                        path_lengths = list(fh[key][k].keys())[:len_diversity]
+                        if map_back:
+                            output.update({k: [
+                                [fh["name_map"][p][()].decode() for p in path]
+                                for path_length in path_lengths
+                                for path in literal_eval(fh[key][k][path_length][()].decode())
+                            ]})
+                        else:
+                            output.update({k: [
+                                [p for p in path]
+                                for path_length in path_lengths
+                                for path in literal_eval(fh[key][k].get(path_length)[()].decode())
+                            ]})
+                return output
 
 
-def get_paths(subset, name_map, len_diversity=3):
-    # Update len_diversity - len_diversity cannot be greater than number of
-    # path lengths
-    len_diversity = min(len(subset.keys()), len_diversity)
-    path_lengths = list(subset.keys())[:len_diversity]
-    # convert ids from metquest back to original using the name_map
-    return [
-        [name_map.get(p) for p in path]
-        for path_length in path_lengths
-        for path in subset.get(path_length)
-    ]
-
-
-def get_all_paths(mq_data, metabolites, tag, max_paths_length=40, len_diversity=3):
+def get_all_paths(mq_data_path, metabolites, len_diversity=3):
     met_paths = {}
     comments = {}
-    name_map = mq_data.get("name_map")
+    tag = read_mq_data(mq_data_path, "tag")[0]
+    max_paths_length = read_mq_data(mq_data_path, "max_paths_length")[0]
+    name_map = read_mq_data(mq_data_path, "name_map")
+    all_syn = read_mq_data(mq_data_path,"all_synthesized")
+    max_syn = read_mq_data(mq_data_path,"max_synthesized")
 
     for met in metabolites:
         # metquest adds model id to the beginning (sometimes - TODO)
         met_tag = tag + " " + met
-
-        # Get linear and circular paths from metquest output for a given metabolite
-        linear_paths = mq_data.get(f"{max_paths_length}_linear_paths").get(met_tag)
-        circular_paths = mq_data.get(f"{max_paths_length}_circular_paths").get(met_tag)
+        met_name_map = findKeysByValue(name_map, met)
+        if met_name_map:
+            met_name_map = met_name_map[0]
+        else:
+            met_name_map = ""
 
         # if metabolite is not in all_synthesized list, then it cannot be synthesized
-        if met_tag not in mq_data.get("all_synthesized"):
+        if (met_tag not in all_syn) and (met not in all_syn) and (met_name_map not in all_syn):
             comments[met] = "can not be synthesized"
 
         # if metabolite is not in X_synthesized then it cannot be synthesized with max path length of X
-        elif met_tag not in mq_data.get(f"{max_paths_length}_synthesized"):
+        elif (met_tag not in max_syn) and (met not in max_syn) and (met_name_map not in max_syn):
             comment = f"can not be synthesized with max {max_paths_length} length path"
             comments[met] = comment
-
-        # Check linear paths for given metabolite
-        elif linear_paths is not None:
-            if 0 in linear_paths:
-                comments[met] = "No need to synthesize"
-            else:
-                met_paths[met] = get_paths(linear_paths, name_map, len_diversity)
-
-        # Check circular paths for given metabolite
-        elif circular_paths is not None:
-            if 0 in circular_paths:
-                comments[met] = "No need to synthesize"
-            else:
-                met_paths[met] = get_paths(circular_paths, name_map, len_diversity)
-
-        # Otherwise check ...
         else:
-            all_syn = set(mq_data.get("all_synthesized"))
-            max_syn = set(mq_data.get(f"{max_paths_length}_synthesized"))
-            maybe_synthesised = all_syn - max_syn
-            if maybe_synthesised:  # if non-empty
-                comment = "Problematic: can be synthesized but does not have paths"
-            else:
-                comment = (
-                    f"Maybe can not be synthesized with max {max_paths_length} length "
-                    f"path, because all_synthesized not bigger "
-                    f"{max_paths_length}_synthesized"
-                )
-            comments[met] = comment
+            # Check linear paths for given metabolite
+            if met_tag in max_syn:
+                met_found = met_tag
+            elif met in max_syn:
+                met_found = met
+            elif met_name_map in max_syn:
+                met_found = met_name_map
+            # Get linear and circular paths from metquest output for a given metabolite
+            linear_paths = read_mq_data(mq_data_path, "max_linear_paths", met_found,
+                                        len_diversity)
+            if type(linear_paths[met_found]) == str:
+                comments[met] = linear_paths[met_found]
+            elif type(linear_paths[met_found]) == list:
+                met_paths[met] = linear_paths[met_found]
+            elif linear_paths[met_found] is None:
+                # Check circular paths for given metabolite
+                circular_paths = read_mq_data(mq_data_path, "max_circular_paths",
+                                              met_found,
+                                              len_diversity)
+                if type(circular_paths[met_found]) == str:
+                    comments[met] = circular_paths[met_found]
+                elif type(circular_paths[met_found]) == list:
+                    met_paths[met] = circular_paths[met_found]
+                elif circular_paths[met_found] is None:
+                    # Otherwise check ...
+                    maybe_synthesised = set(all_syn) - set(max_syn)
+                    if maybe_synthesised:  # if non-empty
+                        comment = "Problematic: can be synthesized but does not have paths"
+                    else:
+                        comment = (
+                            f"Maybe can not be synthesized with max {max_paths_length} length "
+                            f"path, because all_synthesized not bigger than max_synthesized"
+                        )
+                    comments[met] = comment
+
     return met_paths, comments
 
 
 def preprocess_medium(
-    tag: str, nutritional_sources: [str], other_medium: [str], cofactors: [str] = None
+    tag: str, nutritional_sources: [str], other_medium: [str], cofactors: [str],
 ):
     if cofactors is None:
         cofactors = [
@@ -271,7 +297,7 @@ def pathsfinding(
 
     # Alter metabolite ids
     seed_metabolites_tag, cofactors_c, other_medium_c = preprocess_medium(
-        tag, nutritional_sources, other_medium
+        tag, nutritional_sources, other_medium, cofactors
     )
 
     # Remove cofactors from the model
@@ -296,6 +322,9 @@ def pathsfinding(
             number_of_xml,
             max_paths_length,
         )
+
+    # Add necessary parameters to output data
+    mq_output.update({"tag": tag, "max_paths_length": max_paths_length})
 
     # Save the output
     write_mq_data(mq_output, output_dir / "metquest.h5")
