@@ -50,6 +50,9 @@ def write_mq_data(mq_data, filename):
 class MQData(object):
     def __init__(self, filename):
         self.__filename = filename
+        with h5py.File(self.__filename, "r") as fh:
+            self.__max_paths_length = fh["max_paths_length"][()]
+            self.__tag = fh["tag"][()].decode()
 
     @property
     def all_synthesized(self):
@@ -74,13 +77,11 @@ class MQData(object):
 
     @property
     def max_paths_length(self):
-        with h5py.File(self.__filename, "r") as fh:
-            return fh["max_paths_length"][()]
+        return self.__max_paths_length
 
     @property
     def tag(self):
-        with h5py.File(self.__filename, "r") as fh:
-            return fh["tag"][()].decode()
+        return self.__tag
 
     def get_keys(self, path_type, mb_id=None):
         with h5py.File(self.__filename, "r") as fh:
@@ -168,44 +169,51 @@ class MQData(object):
                 path_type, mb_id, path_lengths, len_diversity, map_back
             )
 
+    def _get_alt_mb_ids(self, mb_id):
+        mb_id_tag = self.__tag + " " + mb_id
+        mb_id_name_map = self.reverse_name_map.get(mb_id, "")
+        return mb_id_tag, mb_id_name_map
+
+    def _check_mb_id(self, path_type, *args):
+        pos_ids = self.get_ids(path_type)
+        for mb_id in args:
+            if mb_id in pos_ids:
+                return mb_id
+
     def get_all_paths(self, metabolites, len_diversity=3):
         met_paths = {}
         comments = {}
+        all_syn = self.all_synthesized
+        max_syn = self.max_synthesized
 
         for met in metabolites:
             # metquest adds model id to the beginning (sometimes - TODO)
             # Get all possible ways metquest can give ids to metabolites
-            met_tag = self.tag + " " + met
-            met_name_map = self.reverse_name_map.get(met, "")
+            met_tag, met_name_map = self._get_alt_mb_ids(met)
 
             # if metabolite is not in all_synthesized list, then it cannot be
             # synthesized
             if (
-                (met_tag not in self.all_synthesized)
-                and (met not in self.all_synthesized)
-                and (met_name_map not in self.all_synthesized)
+                (met_tag not in all_syn)
+                and (met not in all_syn)
+                and (met_name_map not in all_syn)
             ):
                 comments[met] = "can not be synthesized"
 
             # if metabolite is not in X_synthesized then it cannot be
             # synthesized with max path length of X
             elif (
-                (met_tag not in self.max_synthesized)
-                and (met not in self.max_synthesized)
-                and (met_name_map not in self.max_synthesized)
+                (met_tag not in max_syn)
+                and (met not in max_syn)
+                and (met_name_map not in max_syn)
             ):
                 comment = f"can not be synthesized with max {self.max_paths_length} length path"
                 comments[met] = comment
             else:
-                pos_ids = self.get_ids("linear_paths")
-
-                if met_tag in pos_ids:
-                    met_found = met_tag
-                elif met in pos_ids:
-                    met_found = met
-                elif met_name_map in pos_ids:
-                    met_found = met_name_map
-                else:
+                met_found = self._check_mb_id(
+                    "linear_paths", met_tag, met, met_name_map
+                )
+                if met_found is None:
                     comment[met] = "Not found in linear"
                     continue
 
@@ -219,17 +227,9 @@ class MQData(object):
                 elif isinstance(linear_paths, list):
                     met_paths[met] = linear_paths
                 else:
-                    pos_ids = self.get_ids("circular_paths")
-
-                    if met_tag in pos_ids:
-                        met_found = met_tag
-                    elif met in pos_ids:
-                        met_found = met
-                    elif met_name_map in pos_ids:
-                        met_found = met_name_map
-                    else:
-                        comment[met] = "Not found in circular_paths"
-                        continue
+                    met_found = self._check_mb_id(
+                        "linear_paths", met_tag, met, met_name_map
+                    )
 
                     # Check circular paths for given metabolite
                     circular_paths = self._subset_paths(
