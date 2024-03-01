@@ -23,23 +23,48 @@ def tmp_cwd():
         chdir(oldpwd)
 
 
-def write_mq_data(mq_data, filename):
+def write_mq_data(mq_data: dict, filename: str):
+    """
+    Function to save output from metquest in hdf5 format.
+    HDF5 format was chosen due to large size of the output from metquest, which
+    caused crashes when reading the data.
+
+    Parameters
+    ----------
+    mq_data : dict
+        Dictionary containing output from metquest
+    filename : str
+        path to output file
+    """
+
+    # Open file handle with h5py
     with h5py.File(filename, "w") as fh:
+        # Save the metadata at root of the hierarchy in the file
         fh.create_dataset("all_synthesized", data=list(mq_data["all_synthesized"]))
         fh.create_dataset("max_synthesized", data=list(mq_data["max_synthesized"]))
         fh.create_dataset("max_paths_length", data=mq_data["max_paths_length"])
         fh.create_dataset("tag", data=mq_data["tag"])
 
+        # Save the dictionary containing the mapping between metquest internal
+        # ids and original ids
         name_map = fh.create_group("name_map")
         for mq_id, orig_id in mq_data["name_map"].items():
             name_map[mq_id] = orig_id
 
+        # HDF5 format does not support saving dictionaries, so they need to
+        # converted to strings before being saved. To ease memory footprint, we
+        # stringify data at path length level, i.e.
+        # /path_type/mb_id/path_length/<list_of_paths>
+        # Applies for both linear and circular paths
+
+        # Save linear linear paths
         linear_paths = fh.create_group("linear_paths")
         for mb_id, path_lengths in mq_data["linear_paths"].items():
             linear_paths.create_group(mb_id)
             for path_length, path in path_lengths.items():
                 linear_paths[mb_id][str(path_length)] = str(path)
 
+        # Save the circular paths
         circular_paths = fh.create_group("circular_paths")
         for mb_id, path_lengths in mq_data["circular_paths"].items():
             circular_paths.create_group(mb_id)
@@ -49,21 +74,26 @@ def write_mq_data(mq_data, filename):
 
 class MQData(object):
     def __init__(self, filename):
+        # Save the filename as private variable to prevent the user from
+        # accidentally overwriting it. Get and store metadata from the file.
         self.__filename = filename
         with h5py.File(self.__filename, "r") as fh:
             self.__max_paths_length = fh["max_paths_length"][()]
             self.__tag = fh["tag"][()].decode()
 
+    # To minimise memory footprint, only load this data when requested by user
     @property
     def all_synthesized(self):
         with h5py.File(self.__filename, "r") as fh:
             return {x.decode() for x in fh["all_synthesized"]}
 
+    # To minimise memory footprint, only load this data when requested by user
     @property
     def max_synthesized(self):
         with h5py.File(self.__filename, "r") as fh:
             return {x.decode() for x in fh["max_synthesized"]}
 
+    # To minimise memory footprint, only load this data when requested by user
     @property
     def name_map(self):
         with h5py.File(self.__filename, "r") as fh:
@@ -71,18 +101,22 @@ class MQData(object):
                 mq_id: orig_id[()].decode() for mq_id, orig_id in fh["name_map"].items()
             }
 
+    # To minimise memory footprint, only load this data when requested by user
     @property
     def reverse_name_map(self):
         return {orig_id: mq_id for mq_id, orig_id in self.name_map.items()}
 
+    # Property to prevent the user from overwriting it
     @property
     def max_paths_length(self):
         return self.__max_paths_length
 
+    # Property to prevent the user from overwriting it
     @property
     def tag(self):
         return self.__tag
 
+    # Function to get available keys at the given level
     def get_keys(self, path_type, mb_id=None):
         with h5py.File(self.__filename, "r") as fh:
             if mb_id is not None:
@@ -90,12 +124,15 @@ class MQData(object):
             else:
                 return list(fh[path_type].keys())
 
+    # Wrapper function around get_keys for better ux
     def get_ids(self, path_type):
         return self.get_keys(path_type)
 
+    # Wrapper function around get_keys for better ux
     def get_paths_lengths(self, path_type, mb_id):
         return self.get_keys(path_type, mb_id)
 
+    # Function to get all paths given path type, metabolite id and path length
     def __get_by_path_length(self, path_type, mb_id, path_length, convert=False):
         with h5py.File(self.__filename) as fh:
             paths = literal_eval(fh[f"{path_type}/{mb_id}/{path_length}"][()].decode())
@@ -103,20 +140,28 @@ class MQData(object):
                 paths = [{self.name_map[_id] for _id in path} for path in paths]
             return paths
 
+    # Function to get all paths for all path lengths given path type and
+    # metabolite id
     def __get_by_mb_id(self, path_type, mb_id, convert=False):
         return {
             path_len: self.__get_by_path_length(path_type, mb_id, path_len, convert)
             for path_len in self.get_paths_lengths(path_type, mb_id)
         }
 
+    # Defining __getitem__ method to be able to access the data with
+    # mq_data[<path_type>, <mb_id>, <path_length>]
     def __getitem__(self, key):
+        # If only path type is given, return all paths for all metabolites
         if isinstance(key, str):
             return {
                 mb_id: self.__get_by_mb_id(key, mb_id) for mb_id in self.get_ids(key)
             }
+        # If more arguments were specified
         elif hasattr(key, "__iter__"):
+            # Return all paths for all path lengths given metabolite id
             if len(key) == 2:
                 return self.__get_by_mb_id(*key)
+            # Return all paths for given path type, metabolite id and path length
             elif len(key) == 3:
                 return self.__get_by_path_length(*key)
             else:
@@ -144,11 +189,14 @@ class MQData(object):
             len_diversity = min(len(path_lengths), len_diversity)
             path_lengths = path_lengths[:len_diversity]
 
+        # Return all paths for given path lengths (if specified)
         return {
             path_len: self.__get_by_path_length(path_type, mb_id, path_len, map_back)
             for path_len in path_lengths
         }
 
+    # Wrapper function around _subset_paths to allow for getting all paths for
+    # all metabolites
     def subset_paths(
         self,
         path_type,
@@ -169,11 +217,15 @@ class MQData(object):
                 path_type, mb_id, path_lengths, len_diversity, map_back
             )
 
+    # metquest is not consistent with metabolite ids, hence we get all
+    # possibilites
     def _get_alt_mb_ids(self, mb_id):
         mb_id_tag = self.__tag + " " + mb_id
         mb_id_name_map = self.reverse_name_map.get(mb_id, "")
         return mb_id_tag, mb_id_name_map
 
+    # Function to check which of the given metabolites is present in set of ids
+    # for given path type. args is a list of possible metabolite ids.
     def _check_mb_id(self, path_type, *args):
         pos_ids = self.get_ids(path_type)
         for mb_id in args:
