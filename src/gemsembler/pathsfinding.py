@@ -228,8 +228,11 @@ class MQData(object):
                     met_paths[met] = linear_paths
                 else:
                     met_found = self._check_mb_id(
-                        "linear_paths", met_tag, met, met_name_map
+                        "circular_paths", met_tag, met, met_name_map
                     )
+                    if met_found is None:
+                        comment[met] = "Not found in linear"
+                        continue
 
                     # Check circular paths for given metabolite
                     circular_paths = self._subset_paths(
