@@ -1,12 +1,12 @@
 import argparse
-from os import chdir, getcwd
 import pickle
 import tempfile
 from ast import literal_eval
 from contextlib import contextmanager
 from copy import deepcopy
+from os import chdir, getcwd
 from pathlib import Path
-from .general import findKeysByValue
+
 import h5py
 import metquest
 from cobra import Model
@@ -27,139 +27,242 @@ def write_mq_data(mq_data, filename):
     with h5py.File(filename, "w") as fh:
         fh.create_dataset("all_synthesized", data=list(mq_data["all_synthesized"]))
         fh.create_dataset("max_synthesized", data=list(mq_data["max_synthesized"]))
-        fh.create_dataset("max_paths_length", data=list(mq_data["max_paths_length"]))
-        fh.create_dataset("tag", data=list(mq_data["tag"]))
+        fh.create_dataset("max_paths_length", data=mq_data["max_paths_length"])
+        fh.create_dataset("tag", data=mq_data["tag"])
 
         name_map = fh.create_group("name_map")
-        for k, v in mq_data["name_map"].items():
-            name_map[k] = v
+        for mq_id, orig_id in mq_data["name_map"].items():
+            name_map[mq_id] = orig_id
 
-        linear_paths = fh.create_group("max_linear_paths")
-        for k, v in mq_data["max_linear_paths"].items():
-            linear_paths[k] = str(v)
+        linear_paths = fh.create_group("linear_paths")
+        for mb_id, path_lengths in mq_data["linear_paths"].items():
+            linear_paths.create_group(mb_id)
+            for path_length, path in path_lengths.items():
+                linear_paths[mb_id][str(path_length)] = str(path)
 
-        circular_paths = fh.create_group("max_circular_paths")
-        for k, v in mq_data["max_circular_paths"].items():
-            circular_paths[k] = str(v)
+        circular_paths = fh.create_group("circular_paths")
+        for mb_id, path_lengths in mq_data["circular_paths"].items():
+            circular_paths.create_group(mb_id)
+            for path_length, path in path_lengths.items():
+                circular_paths[mb_id][str(path_length)] = str(path)
 
 
-def read_mq_data(filename, key, subkey=None, len_diversity=None, map_back=True):
-    possible_keys = (
-        "all_synthesized",
-        "max_synthesized",
-        "name_map",
-        "max_linear_paths",
-        "max_circular_paths",
-        "max_paths_length",
-        "tag"
-    )
-    # Raise error if not one of the possible keys
-    if key not in possible_keys:
-        raise ValueError(f"key has to one of the following: {possible_keys}\nGot {key}")
+class MQData(object):
+    def __init__(self, filename):
+        self.__filename = filename
 
-    with h5py.File(filename, "r") as fh:
-        if key.endswith("synthesized") or (key in ["tag", "max_paths_length"]):
-            return [x.decode() for x in fh[key]]
-        elif key == "name_map":
-            return {k: fh[key][k][()].decode() for k in fh[key].keys()}
-        else:
-            # If subkey is defined (for a given metabolite), then restrict the
-            # output to that
-            keys = fh[key].keys() if subkey is None else [subkey]
-            if len_diversity is None:
-                return {k: literal_eval(fh[key][k][()].decode()) for k in keys}
+    @property
+    def all_synthesized(self):
+        with h5py.File(self.__filename, "r") as fh:
+            return {x.decode() for x in fh["all_synthesized"]}
+
+    @property
+    def max_synthesized(self):
+        with h5py.File(self.__filename, "r") as fh:
+            return {x.decode() for x in fh["max_synthesized"]}
+
+    @property
+    def name_map(self):
+        with h5py.File(self.__filename, "r") as fh:
+            return {
+                mq_id: orig_id[()].decode() for mq_id, orig_id in fh["name_map"].items()
+            }
+
+    @property
+    def reverse_name_map(self):
+        return {orig_id: mq_id for mq_id, orig_id in self.name_map.items()}
+
+    @property
+    def max_paths_length(self):
+        with h5py.File(self.__filename, "r") as fh:
+            return fh["max_paths_length"][()]
+
+    @property
+    def tag(self):
+        with h5py.File(self.__filename, "r") as fh:
+            return fh["tag"][()].decode()
+
+    def get_keys(self, path_type, mb_id=None):
+        with h5py.File(self.__filename, "r") as fh:
+            if mb_id is not None:
+                return list(fh[f"{path_type}/{mb_id}"].keys())
             else:
-                output = {}
-                for k in keys:
-                    if k not in fh[key].keys():
-                        output.update({k: None})
-                    elif 0 in fh[key][k].keys():
-                        output.update({k: "No need to synthesize"})
+                return list(fh[path_type].keys())
+
+    def get_ids(self, path_type):
+        return self.get_keys(path_type)
+
+    def get_paths_lengths(self, path_type, mb_id):
+        return self.get_keys(path_type, mb_id)
+
+    def __get_by_path_length(self, path_type, mb_id, path_length, convert=False):
+        with h5py.File(self.__filename) as fh:
+            paths = literal_eval(fh[f"{path_type}/{mb_id}/{path_length}"][()].decode())
+            if convert:
+                paths = [{self.name_map[_id] for _id in path} for path in paths]
+            return paths
+
+    def __get_by_mb_id(self, path_type, mb_id, convert=False):
+        return {
+            path_len: self.__get_by_path_length(path_type, mb_id, path_len, convert)
+            for path_len in self.get_paths_lengths(path_type, mb_id)
+        }
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return {
+                mb_id: self.__get_by_mb_id(key, mb_id) for mb_id in self.get_ids(key)
+            }
+        elif hasattr(key, "__iter__"):
+            if len(key) == 2:
+                return self.__get_by_mb_id(*key)
+            elif len(key) == 3:
+                return self.__get_by_path_length(*key)
+            else:
+                raise ValueError(f"Too many args: {len(key)}")
+
+    def _subset_paths(
+        self, path_type, mb_id, path_lengths=None, len_diversity=None, map_back=True
+    ):
+        # Get path lengths if not defined, otherwise check the correct type
+        if path_lengths is None:
+            # path lengths are stored as strings in the file, so needs
+            # conversion back to ints and sorting
+            path_lengths = sorted(
+                [int(x) for x in self.get_paths_lengths(path_type, mb_id)]
+            )
+        elif isinstance(path_lengths, int):
+            path_lengths = [path_lengths]
+        elif isinstance(path_lengths, list):
+            pass
+        else:
+            raise ValueError("path_lengths can only be: None, int or list")
+
+        # Subset path lengths based on len_diversity arg if given
+        if len_diversity is not None:
+            len_diversity = min(len(path_lengths), len_diversity)
+            path_lengths = path_lengths[:len_diversity]
+
+        return {
+            path_len: self.__get_by_path_length(path_type, mb_id, path_len, map_back)
+            for path_len in path_lengths
+        }
+
+    def subset_paths(
+        self,
+        path_type,
+        mb_id=None,
+        path_lengths=None,
+        len_diversity=None,
+        map_back=True,
+    ):
+        if mb_id is None:
+            return {
+                self._subset_paths(
+                    path_type, mb_id, path_lengths, len_diversity, map_back
+                )
+                for mb_id in self.get_ids(path_type)
+            }
+        else:
+            return self._subset_paths(
+                path_type, mb_id, path_lengths, len_diversity, map_back
+            )
+
+    def get_all_paths(self, metabolites, len_diversity=3):
+        met_paths = {}
+        comments = {}
+
+        for met in metabolites:
+            # metquest adds model id to the beginning (sometimes - TODO)
+            # Get all possible ways metquest can give ids to metabolites
+            met_tag = self.tag + " " + met
+            met_name_map = self.reverse_name_map.get(met, "")
+
+            # if metabolite is not in all_synthesized list, then it cannot be
+            # synthesized
+            if (
+                (met_tag not in self.all_synthesized)
+                and (met not in self.all_synthesized)
+                and (met_name_map not in self.all_synthesized)
+            ):
+                comments[met] = "can not be synthesized"
+
+            # if metabolite is not in X_synthesized then it cannot be
+            # synthesized with max path length of X
+            elif (
+                (met_tag not in self.max_synthesized)
+                and (met not in self.max_synthesized)
+                and (met_name_map not in self.max_synthesized)
+            ):
+                comment = f"can not be synthesized with max {self.max_paths_length} length path"
+                comments[met] = comment
+            else:
+                pos_ids = self.get_ids("linear_paths")
+
+                if met_tag in pos_ids:
+                    met_found = met_tag
+                elif met in pos_ids:
+                    met_found = met
+                elif met_name_map in pos_ids:
+                    met_found = met_name_map
+                else:
+                    comment[met] = "Not found in linear"
+                    continue
+
+                # Check linear paths for given metabolite. Get linear and
+                # circular paths from metquest output for a given metabolite
+                linear_paths = self._subset_paths(
+                    "linear_paths", met_found, len_diversity=len_diversity
+                )
+                if isinstance(linear_paths, str):
+                    comments[met] = linear_paths
+                elif isinstance(linear_paths, list):
+                    met_paths[met] = linear_paths
+                else:
+                    pos_ids = self.get_ids("circular_paths")
+
+                    if met_tag in pos_ids:
+                        met_found = met_tag
+                    elif met in pos_ids:
+                        met_found = met
+                    elif met_name_map in pos_ids:
+                        met_found = met_name_map
                     else:
-                        len_diversity = min(len(fh[key][k].keys()), len_diversity)
-                        path_lengths = list(fh[key][k].keys())[:len_diversity]
-                        if map_back:
-                            output.update({k: [
-                                [fh["name_map"][p][()].decode() for p in path]
-                                for path_length in path_lengths
-                                for path in literal_eval(fh[key][k][path_length][()].decode())
-                            ]})
+                        comment[met] = "Not found in circular_paths"
+                        continue
+
+                    # Check circular paths for given metabolite
+                    circular_paths = self._subset_paths(
+                        "circular_paths", met_found, len_diversity=len_diversity
+                    )
+                    if isinstance(circular_paths, str):
+                        comments[met] = circular_paths
+                    elif isinstance(circular_paths, list):
+                        met_paths[met] = circular_paths
+                    else:
+                        # Otherwise check ...
+                        maybe_synthesised = self.all_synthesized - self.max_synthesized
+                        if maybe_synthesised:  # if non-empty
+                            comment = (
+                                "Problematic: can be synthesized "
+                                "but does not have paths"
+                            )
                         else:
-                            output.update({k: [
-                                [p for p in path]
-                                for path_length in path_lengths
-                                for path in literal_eval(fh[key][k].get(path_length)[()].decode())
-                            ]})
-                return output
+                            comment = (
+                                "Maybe can not be synthesized with max "
+                                f"{self.max_paths_length} length path, because "
+                                "all_synthesized not bigger than max_synthesized"
+                            )
+                        comments[met] = comment
 
-
-def get_all_paths(mq_data_path, metabolites, len_diversity=3):
-    met_paths = {}
-    comments = {}
-    tag = read_mq_data(mq_data_path, "tag")[0]
-    max_paths_length = read_mq_data(mq_data_path, "max_paths_length")[0]
-    name_map = read_mq_data(mq_data_path, "name_map")
-    all_syn = read_mq_data(mq_data_path,"all_synthesized")
-    max_syn = read_mq_data(mq_data_path,"max_synthesized")
-
-    for met in metabolites:
-        # metquest adds model id to the beginning (sometimes - TODO)
-        met_tag = tag + " " + met
-        met_name_map = findKeysByValue(name_map, met)
-        if met_name_map:
-            met_name_map = met_name_map[0]
-        else:
-            met_name_map = ""
-
-        # if metabolite is not in all_synthesized list, then it cannot be synthesized
-        if (met_tag not in all_syn) and (met not in all_syn) and (met_name_map not in all_syn):
-            comments[met] = "can not be synthesized"
-
-        # if metabolite is not in X_synthesized then it cannot be synthesized with max path length of X
-        elif (met_tag not in max_syn) and (met not in max_syn) and (met_name_map not in max_syn):
-            comment = f"can not be synthesized with max {max_paths_length} length path"
-            comments[met] = comment
-        else:
-            # Check linear paths for given metabolite
-            if met_tag in max_syn:
-                met_found = met_tag
-            elif met in max_syn:
-                met_found = met
-            elif met_name_map in max_syn:
-                met_found = met_name_map
-            # Get linear and circular paths from metquest output for a given metabolite
-            linear_paths = read_mq_data(mq_data_path, "max_linear_paths", met_found,
-                                        len_diversity)
-            if type(linear_paths[met_found]) == str:
-                comments[met] = linear_paths[met_found]
-            elif type(linear_paths[met_found]) == list:
-                met_paths[met] = linear_paths[met_found]
-            elif linear_paths[met_found] is None:
-                # Check circular paths for given metabolite
-                circular_paths = read_mq_data(mq_data_path, "max_circular_paths",
-                                              met_found,
-                                              len_diversity)
-                if type(circular_paths[met_found]) == str:
-                    comments[met] = circular_paths[met_found]
-                elif type(circular_paths[met_found]) == list:
-                    met_paths[met] = circular_paths[met_found]
-                elif circular_paths[met_found] is None:
-                    # Otherwise check ...
-                    maybe_synthesised = set(all_syn) - set(max_syn)
-                    if maybe_synthesised:  # if non-empty
-                        comment = "Problematic: can be synthesized but does not have paths"
-                    else:
-                        comment = (
-                            f"Maybe can not be synthesized with max {max_paths_length} length "
-                            f"path, because all_synthesized not bigger than max_synthesized"
-                        )
-                    comments[met] = comment
-
-    return met_paths, comments
+        return met_paths, comments
 
 
 def preprocess_medium(
-    tag: str, nutritional_sources: [str], other_medium: [str], cofactors: [str],
+    tag: str,
+    nutritional_sources: [str],
+    other_medium: [str],
+    cofactors: [str],
 ):
     if cofactors is None:
         cofactors = [
@@ -268,8 +371,8 @@ def run_metquest(
         "all_synthesized": scope_pic,
         "max_paths_length": max_paths_length,
         "max_synthesized": scope,
-        "max_linear_paths": pathway_table,
-        "max_circular_paths": c_path,
+        "linear_paths": pathway_table,
+        "circular_paths": c_path,
         "name_map": name_map,
     }
     return output, graph

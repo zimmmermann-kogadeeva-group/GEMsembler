@@ -18,13 +18,18 @@ class Selected(object):
 
     def __init__(
         self,
-        highest: list,
-        consistent: list,
         compartments: list,
         replace_with_consistent: bool,
+        highest: list = None,
+        consistent: list = None,
         other_present=None,
         other_highest=None,
     ):
+        if highest is None:
+            highest = []
+        if consistent is None:
+            consistent = highest
+
         self.to_one_id = None
         self.from_one_id = None
         self.from_many_other_ids = []
@@ -79,7 +84,7 @@ class Selected(object):
 
 def checkDBConsistency(
     models_same_db: dict,
-    converted_model: dict,
+    converted_models: dict,
     attr_to_check: str,
     replace_with_consistent: bool,
 ):
@@ -91,88 +96,85 @@ def checkDBConsistency(
     list, remove ids outside intersection.
     """
     consistent = defaultdict(dict)
-    for bd, models in models_same_db.items():
-        bd_ids = []
+    for db_type, models in models_same_db.items():
+        # models is a dictionary of model_id - model_type
+        num_model_types = len(set(models.values()))
+
         # no consistency check
-        if len(set(list(models.values()))) <= 1 or bd == "bigg":
-            for m in models.keys():
-                consistent[m] = {
+        if num_model_types == 1 or db_type == "bigg":
+            for model_id in models.keys():
+                consistent[model_id] = {
                     idd: Selected(
-                        getattr(
-                            converted_model.get(m).get(idd),
-                            attr_to_check,
-                        ),
-                        getattr(
-                            converted_model.get(m).get(idd),
-                            attr_to_check,
-                        ),
-                        converted_model.get(m).get(idd).compartments,
+                        species.compartments,
                         replace_with_consistent,
+                        getattr(species, attr_to_check),
                     )
-                    for idd in converted_model.get(m).keys()
+                    for idd, species in converted_models.get(model_id).items()
                 }
         # consistency check
         else:
-            # collecting all original ids
-            for model in models.keys():
-                bd_ids = bd_ids + list(converted_model[model].keys())
-            # looping per original id through all models
-            for iid in list(set(bd_ids)):
-                # list for intersecting present ids from models with different db #[[b1, b2], [b1]]
+            # Get a unique set of ids for metabolites or reactions from all
+            # models associated with the same database
+            all_species_ids = set.union(
+                *[
+                    set(species.keys())  # mb or rcts ids
+                    for model_id, species in converted_models.items()
+                    if model_id in models.keys()
+                ]
+            )
+
+            # looping through all id through all models with the same db type
+            for iid in all_species_ids:
+                # list for intersecting present ids from models with different
+                # db #[[b1, b2], [b1]]
                 bigg_ids = []
                 # dict connecting ids and models for making .in_other_models attr
                 bigg_ids_dict = {}
-                mod_present = []
-                for mod in models.keys():
-                    if converted_model.get(mod).get(iid) is not None:
+                models_present = []
+                for model_id in models.keys():
+                    species = converted_models.get(model_id).get(iid)
+                    if species is not None:
+                        species_attr = getattr(species, attr_to_check)
+
                         # collecting in models ids is present
-                        mod_present.append(mod)
-                        # adding only not empty lists because intersecting #[[b1, b2], []] isn't reasonable
-                        if getattr(
-                            converted_model.get(mod).get(iid),
-                            attr_to_check,
-                        ):
-                            bigg_ids.append(
-                                getattr(
-                                    converted_model.get(mod).get(iid),
-                                    attr_to_check,
-                                )
-                            )
-                            bigg_ids_dict[mod] = getattr(
-                                converted_model.get(mod).get(iid), attr_to_check
-                            )
+                        models_present.append(model_id)
+
+                        # adding only not empty lists because intersecting
+                        # #[[b1, b2], []] isn't reasonable
+                        if species_attr:
+                            bigg_ids.append(species_attr)
+                            bigg_ids_dict[model_id] = species_attr
+
                 # if list for intersection is totally empty no intersection is needed
                 if not bigg_ids:
-                    for pres in mod_present:
+                    for pres in models_present:
                         consistent[pres].update(
                             {
                                 iid: Selected(
-                                    [],
-                                    [],
-                                    converted_model.get(pres).get(iid).compartments,
+                                    converted_models.get(pres).get(iid).compartments,
                                     replace_with_consistent,
-                                    set(mod_present) - {pres},
+                                    other_present=set(models_present) - {pres},
                                 )
                             }
                         )
                 # intersecting result ids for the same original id from models with different db
                 else:
                     common_ids = list(set.intersection(*map(set, bigg_ids)))
-                    for present in mod_present:
+                    for present in models_present:
                         other_ids = {
                             k: v for k, v in bigg_ids_dict.items() if k != present
                         }
                         consistent[present].update(
                             {
                                 iid: Selected(
+                                    converted_models.get(present).get(iid).compartments,
+                                    replace_with_consistent,
                                     getattr(
-                                        converted_model.get(present).get(iid),
+                                        converted_models.get(present).get(iid),
                                         attr_to_check,
                                     ),
                                     common_ids,
-                                    converted_model.get(present).get(iid).compartments,
-                                    replace_with_consistent,
-                                    set(mod_present) - {present},
+                                    set(models_present) - {present},
                                     other_ids,
                                 )
                             }
