@@ -308,8 +308,9 @@ class GatheredModels:
                 if (sel_r.to_one_id == True and sel_r.from_one_id == True) or (
                     sel_r.to_one_id == True
                     and sel_r.from_one_id == False
-                    and orig_r_id
-                    in self.__models[model_id]["duplicated_reactions"]["ID"].tolist()
+                    and ((orig_r_id
+                    in self.__models[model_id]["duplicated_reactions"]["ID"].tolist())
+                         or (sel_r.highest_consistent == ["Biomass"]))
                 ):
                     final_r_sel[model_id].update(
                         {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
@@ -443,6 +444,8 @@ class GatheredModels:
                     stderr=subprocess.PIPE,
                 )
             for model_id, model_data in self.__models.items():
+                if model_data["path_to_genome"] == "":
+                    continue
                 out_blast_file = gene_path / (model_id + "_blast.tsv")
                 model_gene_file, aa_status = self.__conf[model_data["model_type"]][
                     "genome_model_strategy"

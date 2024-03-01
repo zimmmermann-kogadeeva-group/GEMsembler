@@ -463,7 +463,7 @@ class NewReaction(NewElement):
                 for oldrg in oldr.genes:
                     pot_new_g_id = connections.get_new_gene_id(model_id, oldrg.id)
                     gene_convert.update({oldrg.id: pot_new_g_id})
-                    if (not do_notconv) & (gene_folder is not None):
+                    if (not do_notconv) & (connections.g_conversion_tables[model_id] is not None):
                         genes_not_to_add.append(oldrg.id)
                     if pot_new_g_id not in genes_not_to_add:
                         genes_to_add[model_id].append(pot_new_g_id)
