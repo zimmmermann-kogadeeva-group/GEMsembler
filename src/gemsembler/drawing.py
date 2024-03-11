@@ -8,7 +8,6 @@ import seaborn as sns
 from .creation import NewElement, SuperModel
 from .comparison import getCoreGPR, getCoreConnections
 from pyvis.network import Network
-from .downstream import table_one_known_pathway
 
 
 def get_color_palette(sources_number: int) -> dict:
@@ -19,21 +18,21 @@ def get_color_palette(sources_number: int) -> dict:
         "metabolites": sns.light_palette(
             colors[4], sources_number + up + down
         ).as_hex()[up:],
-        "intersection": sns.light_palette(
+        "intersection_r": sns.light_palette(
             colors[3], sources_number + up + down
         ).as_hex()[up:],
-        "1stPath": sns.light_palette(colors[1], sources_number + up + down).as_hex()[
-            up:-down
-        ],
-        "2dPath": sns.light_palette(colors[8], sources_number + up + down).as_hex()[
+        "single_path_r": sns.light_palette(
+            colors[1], sources_number + up + down
+        ).as_hex()[up:-down],
+        "genes": sns.light_palette(colors[8], sources_number + up + down).as_hex()[
             up:-down
         ],
         "metConnect": sns.light_palette(colors[0], sources_number + up + down).as_hex()[
             up:-down
         ],
-        "connect": sns.light_palette(colors[9], sources_number + up + down).as_hex()[
-            up:-down
-        ],
+        "reactionsConnect": sns.light_palette(
+            colors[9], sources_number + up + down
+        ).as_hex()[up:-down],
         "interest": sns.light_palette(colors[2], sources_number + up + down).as_hex()[
             up:-down
         ],
@@ -240,7 +239,9 @@ def draw_one_known_pathway(
     for r_id in pathway.keys():
         if r_id in supermodel.reactions.assembly.keys():
             r = supermodel.reactions.assembly.get(r_id)
-            colname_r = define_node_features(color_brewer, "1stPath", r, n_letter,)
+            colname_r = define_node_features(
+                color_brewer, "single_path_r", r, n_letter,
+            )
             g.add_node(
                 colname_r[0],
                 label=colname_r[1],
@@ -256,7 +257,7 @@ def draw_one_known_pathway(
                     )
                     rea_edge = define_edge_features(
                         color_brewer,
-                        "1stPath",
+                        "single_path_r",
                         "metabolites",
                         rea,
                         colname_rea[1],
@@ -283,7 +284,7 @@ def draw_one_known_pathway(
                         )
                         rea_edge = define_edge_features(
                             color_brewer,
-                            "1stPath",
+                            "single_path_r",
                             "metabolites",
                             rea,
                             colname_rea[1],
@@ -303,7 +304,7 @@ def draw_one_known_pathway(
                         )
                         rea_edge = define_edge_features(
                             color_brewer,
-                            "1stPath",
+                            "single_path_r",
                             "metabolites",
                             rea,
                             f"{tmp_rea} {met_not_int[tmp_rea]}",
@@ -330,16 +331,9 @@ def draw_one_known_pathway(
                     colname_pro = define_node_features(
                         color_brewer, "metabolites", pro, n_letter,
                     )
-
-                    g.add_node(
-                        colname_pro[1],
-                        shape="o",
-                        color=colname_pro[0],
-                        title=colname_pro[2],
-                    )
                     pro_edge = define_edge_features(
                         color_brewer,
-                        "1stPath",
+                        "single_path_r",
                         "metabolites",
                         pro,
                         colname_pro[1],
@@ -364,16 +358,9 @@ def draw_one_known_pathway(
                         colname_pro = define_node_features(
                             color_brewer, "metConnect", pro, n_letter,
                         )
-
-                        g.add_node(
-                            colname_pro[1],
-                            shape="o",
-                            color=colname_pro[0],
-                            title=colname_pro[2],
-                        )
                         pro_edge = define_edge_features(
                             color_brewer,
-                            "1stPath",
+                            "single_path_r",
                             "metabolites",
                             pro,
                             colname_pro[1],
@@ -393,7 +380,7 @@ def draw_one_known_pathway(
                         )
                         pro_edge = define_edge_features(
                             color_brewer,
-                            "1stPath",
+                            "single_path_r",
                             "metabolites",
                             pro,
                             f"{tmp_pro} {met_not_int[tmp_pro]}",
@@ -417,7 +404,7 @@ def draw_one_known_pathway(
             if genes:
                 g_colname = define_node_features(
                     color_brewer,
-                    "2dPath",
+                    "genes",
                     r,
                     n_letter,
                     gene=True,
@@ -488,193 +475,6 @@ def draw_one_known_pathway(
     return g
 
 
-def draw_tca(
-    supermodel: SuperModel,
-    output_name: str,
-    additional_met=False,
-    genes=True,
-    and_as_solid=False,
-    directed=True,
-    met_not_int=None,
-    n_letter=None,
-    wid=None,
-    hei=None,
-    write_table=True,
-    yes_range=1,
-    no_range=1,
-):
-    tca = {
-        "PYK": [("pep_c", "pyr_c")],
-        "PPC": [("pep_c", "oaa_c")],
-        "PPCK": [("pep_c", "oaa_c")],
-        "PEPCK_re": [("pep_c", "oaa_c")],
-        "PC": [("pyr_c", "oaa_c")],
-        "PDH": [("pyr_c", "accoa_c")],
-        "PFL": [("pyr_c", "accoa_c")],
-        "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")],
-        "ACONT": [("cit_c", "icit_c")],
-        "ACONTa": [("cit_c", "acon_C_c")],
-        "ACONTb": [("acon_C_c", "icit_c")],
-        "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
-        "ICDHyr": [("icit_c", "akg_c")],
-        "ICDHx": [("icit_c", "akg_c")],
-        "ICITRED": [("icit_c", "osuc_c")],
-        "OSUCCL": [("osuc_c", "akg_c")],
-        "AKGDH": [("akg_c", "succoa_c")],
-        "OOR2r": [("akg_c", "succoa_c"), ("fdxo_42_c", "fdxr_42_c")],
-        "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
-        "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")],
-        "PDHcr": [("dhlam_c", "lpam_c")],
-        "SUCOAS": [("succoa_c", "succ_c")],
-        "SUCDi": [("succ_c", "fum_c")],
-        "FRD7": [("fum_c", "succ_c")],
-        "FUM": [("fum_c", "mal__L_c")],
-        "MALS": [("glx_c", "mal__L_c")],
-        "MDH": [("mal__L_c", "oaa_c")],
-        "MDH2": [("mal__L_c", "oaa_c")],
-        "MDH3": [("mal__L_c", "oaa_c")],
-    }
-    g = draw_one_known_pathway(
-        supermodel,
-        tca,
-        output_name,
-        additional_met,
-        genes,
-        and_as_solid,
-        directed,
-        met_not_int,
-        n_letter,
-        wid,
-        hei,
-    )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
-        t = table_one_known_pathway(
-            supermodel,
-            list(tca.keys()),
-            t_name,
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
-        )
-        return g, t
-    else:
-        return g
-
-
-def draw_glycolysis(
-    supermodel: SuperModel,
-    output_name: str,
-    additional_met=False,
-    genes=True,
-    and_as_solid=False,
-    directed=True,
-    met_not_int=None,
-    n_letter=None,
-    wid=None,
-    hei=None,
-    write_table=True,
-    yes_range=1,
-    no_range=1,
-):
-    glycolysis = {
-        "HEX1": [("glc__D_c", "g6p_c")],
-        "PGI": [("g6p_c", "f6p_c")],
-        "PFK": [("f6p_c", "fdp_c")],
-        "FBA": [("fdp_c", "g3p_c")],
-        "GAPD": [("g3p_c", "13dpg_c")],
-        "PGK": [("13dpg_c", "3pg_c")],
-        "PGM": [("3pg_c", "2pg_c")],
-        "ENO": [("2pg_c", "pep_c")],
-        "PYK": [("pep_c", "pyr_c")],
-    }
-    g = draw_one_known_pathway(
-        supermodel,
-        glycolysis,
-        output_name,
-        additional_met,
-        genes,
-        and_as_solid,
-        directed,
-        met_not_int,
-        n_letter,
-        wid,
-        hei,
-    )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
-        t = table_one_known_pathway(
-            supermodel,
-            list(glycolysis.keys()),
-            t_name,
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
-        )
-        return g, t
-    else:
-        return g
-
-
-def draw_pentose_phosphate(
-    supermodel: SuperModel,
-    output_name: str,
-    additional_met=False,
-    genes=True,
-    and_as_solid=False,
-    directed=True,
-    met_not_int=None,
-    n_letter=None,
-    wid=None,
-    hei=None,
-    write_table=True,
-    yes_range=1,
-    no_range=1,
-):
-    pentose_phosphate_pathway = {
-        "G6PBDH": [("g6p_B_c", "6pgl_c")],
-        "G6PDH2r": [("g6p_c", "6pgl_c")],
-        "PGL": [("6pgl_c", "6pgc_c")],
-        "GND": [("6pgc_c", "ru5p__D_c")],
-        "RPE": [("ru5p__D_c", "xu5p__D_c")],
-        "RPI": [("ru5p__D_c", "r5p_c")],
-        "TKT1": [("xu5p__D_c", "g3p_c"), ("r5p_c", "s7p_c")],
-        "TALA": [("g3p_c", "f6p_c"), ("s7p_c", "e4p_c")],
-        "TKT2": [("e4p_c", "f6p_c"), ("xu5p__D_c", "g3p_c")],
-        "PGI": [("f6p_c", "g6p_c")],
-        "G6PI": [("g6p_c", "g6p_B_c")],
-    }
-    g = draw_one_known_pathway(
-        supermodel,
-        pentose_phosphate_pathway,
-        output_name,
-        additional_met,
-        genes,
-        and_as_solid,
-        directed,
-        met_not_int,
-        n_letter,
-        wid,
-        hei,
-    )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
-        t = table_one_known_pathway(
-            supermodel,
-            list(pentose_phosphate_pathway.keys()),
-            t_name,
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
-        )
-        return g, t
-    else:
-        return g
-
-
 def draw_biomass(
     supermodel: SuperModel,
     output_name: str,
@@ -705,7 +505,9 @@ def draw_biomass(
         }
     g = nx.DiGraph()
     biomass_r = supermodel.reactions.assembly.get("Biomass")
-    colname_r = define_node_features(color_brewer, "1stPath", biomass_r, n_letter,)
+    colname_r = define_node_features(
+        color_brewer, "single_path_r", biomass_r, n_letter,
+    )
     g.add_node(
         colname_r[0],
         label=colname_r[1],
@@ -728,7 +530,7 @@ def draw_biomass(
             )
             rea_edge = define_edge_features(
                 color_brewer,
-                "1stPath",
+                "single_path_r",
                 "metabolites",
                 rea,
                 colname_rea[1],
@@ -775,7 +577,7 @@ def draw_biomass(
             )
             pro_edge = define_edge_features(
                 color_brewer,
-                "1stPath",
+                "single_path_r",
                 "metabolites",
                 pro,
                 colname_pro[1],
@@ -853,9 +655,7 @@ def draw_notconv_biomass(
             if pro.id not in products.keys():
                 products.update({pro.id: f"{pro.id}\n{typ[:n_letter]}"})
             else:
-                products.update(
-                        {pro.id: f"{products.get(pro.id)}{typ[:n_letter]}"}
-                    )
+                products.update({pro.id: f"{products.get(pro.id)}{typ[:n_letter]}"})
     g.add_node(biomass_r.id, shape="box")
     for r in reactants.values():
         g.add_node(r, shape="o")
@@ -869,157 +669,279 @@ def draw_notconv_biomass(
     return g
 
 
-def drawTwoPathways(
-    supermodel,
-    pathway0,
-    pathway1,
-    met_not_int,
-    colorBrewer,
-    name,
-    directed=False,
-    Nletter=1,
+def draw_one_synt_path(
+    supermodel: SuperModel,
+    path: list,
+    medium: list,
+    met_to_synt: list,
+    output_name: str,
+    draw_met_not_int=False,
+    genes=True,
+    and_as_solid=False,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=None,
+    hei=None,
+    size=25,
 ):
+    if not output_name.endswith(".html"):
+        raise ValueError(
+            "Output file for the plot is of wrong format. Please use html file name."
+        )
+    if met_not_int is None:
+        met_not_int = {
+            "h": 0,
+            "h2o": 0,
+            "h2": 0,
+            "oh1": 0,
+            "o2": 0,
+            "co2": 0,
+            "coa": 0,
+            "ppi": 0,
+            "pi": 0,
+            "amp": 0,
+            "adp": 0,
+            "atp": 0,
+            "cmp": 0,
+            "cdp": 0,
+            "ctp": 0,
+            "gmp": 0,
+            "gdp": 0,
+            "gtp": 0,
+            "ump": 0,
+            "udp": 0,
+            "utp": 0,
+            "nad": 0,
+            "nadh": 0,
+            "nadp": 0,
+            "nadph": 0,
+            "dadp": 0,
+            "damp": 0,
+            "nh3": 0,
+            "nh4": 0,
+            "fadh2": 0,
+            "fad": 0,
+            "ac": 0,
+            "accoa": 0,
+            "h2s": 0,
+            "HC00250": 0,
+        }
+    color_brewer = get_color_palette(len(supermodel.sources))
+    if n_letter is None:
+        n_letter = supermodel.get_short_name_len()
     g = nx.DiGraph()
-    for r_id in pathway1["reactions"]:
-        r = supermodel.reactions.converted.get(r_id)
-        for rea in r.reactants.get("union1"):
-            tmp_rea = rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-            for pro in r.products.get("union1"):
-                tmp_pro = (
-                    pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+    for r_id in path:
+        r = supermodel.reactions.assembly.get(r_id)
+        colname_r = define_node_features(color_brewer, "single_path_r", r, n_letter,)
+        g.add_node(
+            colname_r[0],
+            label=colname_r[1],
+            shape="box",
+            color=colname_r[2],
+            title=colname_r[3],
+        )
+        for rea in r.reactants.get("assembly"):
+            tmp_rea = re.sub("_([cep])$", "", rea.id)
+            if (tmp_rea in met_not_int.keys()) and not draw_met_not_int:
+                continue
+            if (tmp_rea in met_not_int.keys()) and draw_met_not_int:
+                colname_rea = define_node_features(
+                    color_brewer,
+                    "metConnect",
+                    rea,
+                    n_letter,
+                    node_id=f"{tmp_rea} {met_not_int[tmp_rea]}",
+                    label=tmp_rea,
                 )
-                if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
-                    colname_r = define_node_features(
-                        colorBrewer, "greens", r_id, supermodel.reactions, Nletter
-                    )
-                    if rea.id in pathway1["metabolites"]:
-                        colname_rea = define_node_features(
-                            colorBrewer, "reds", rea.id, supermodel.metabolites, Nletter
-                        )
-                        cn_rea = define_edge_features(
-                            colorBrewer, "reds", rea, r.reactants, Nletter
-                        )
-                    else:
-                        colname_rea = define_node_features(
-                            colorBrewer,
-                            "blues",
-                            rea.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_rea = define_edge_features(
-                            colorBrewer, "blues", rea, r.reactants, Nletter
-                        )
-
-                    if pro.id in pathway1["metabolites"]:
-                        colname_pro = define_node_features(
-                            colorBrewer, "reds", pro.id, supermodel.metabolites, Nletter
-                        )
-                        cn_pro = define_edge_features(
-                            colorBrewer, "reds", pro, r.products, Nletter
-                        )
-                    else:
-                        colname_pro = define_node_features(
-                            colorBrewer,
-                            "blues",
-                            pro.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_pro = define_edge_features(
-                            colorBrewer, "blues", pro, r.products, Nletter
-                        )
-                    g.add_node(colname_r[1], shape="box", color=colname_r[0])
-                    g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
-                    g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
-                    g.add_edge(
-                        colname_rea[1],
-                        colname_r[1],
-                        color=cn_rea[0],
-                        font_color="black",
-                    )
-                    g.add_edge(
-                        colname_r[1],
-                        colname_pro[1],
-                        color=cn_pro[0],
-                        font_color="black",
-                    )
-
-    for r_id in pathway0["reactions"]:
-        r = supermodel.reactions.converted.get(r_id)
-        for rea in r.reactants.get("union1"):
-            tmp_rea = rea.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
-            for pro in r.products.get("union1"):
-                tmp_pro = (
-                    pro.id.removesuffix("_c").removesuffix("_e").removesuffix("_p")
+                rea_edge = define_edge_features(
+                    color_brewer,
+                    "single_path_r",
+                    "metabolites",
+                    rea,
+                    f"{tmp_rea} {met_not_int[tmp_rea]}",
+                    r,
+                    colname_r[1],
+                    "reactants",
+                    n_letter,
                 )
-                if (tmp_rea not in met_not_int) & (tmp_pro not in met_not_int):
-                    colname_r = define_node_features(
-                        colorBrewer, "purples", r_id, supermodel.reactions, Nletter
-                    )
-                    if rea.id in pathway0["metabolites"]:
-                        colname_rea = define_node_features(
-                            colorBrewer, "reds", rea.id, supermodel.metabolites, Nletter
-                        )
-                        cn_rea = define_edge_features(
-                            colorBrewer, "reds", rea, r.reactants, Nletter
-                        )
-                    else:
-                        colname_rea = define_node_features(
-                            colorBrewer,
-                            "blues",
-                            rea.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_rea = define_edge_features(
-                            colorBrewer, "blues", rea, r.reactants, Nletter
-                        )
-
-                    if pro.id in pathway0["metabolites"]:
-                        colname_pro = define_node_features(
-                            colorBrewer, "reds", pro.id, supermodel.metabolites, Nletter
-                        )
-                        cn_pro = define_edge_features(
-                            colorBrewer, "reds", pro, r.products, Nletter
-                        )
-                    else:
-                        colname_pro = define_node_features(
-                            colorBrewer,
-                            "blues",
-                            pro.id,
-                            supermodel.metabolites,
-                            Nletter,
-                        )
-                        cn_pro = define_edge_features(
-                            colorBrewer, "blues", pro, r.products, Nletter
-                        )
-                    g.add_node(colname_r[1], shape="box", color=colname_r[0])
-                    g.add_node(colname_rea[1], shape="o", color=colname_rea[0])
-                    g.add_node(colname_pro[1], shape="o", color=colname_pro[0])
-                    g.add_edge(
-                        colname_rea[1],
-                        colname_r[1],
-                        color=cn_rea[0],
-                        font_color="black",
-                    )
-                    g.add_edge(
-                        colname_r[1],
-                        colname_pro[1],
-                        color=cn_pro[0],
-                        font_color="black",
-                    )
-
-    wid, hei = pyautogui.size()
-    pyvis_graph = Network(
-        width="{}px".format(wid),
-        height="{}px".format(hei),
-        directed=directed,
-        notebook=False,
-    )
-    pyvis_graph.from_nx(g)
-    pyvis_graph.show("../Output/" + name + ".html")
+                met_not_int[tmp_rea] = met_not_int[tmp_rea] + 1
+            else:
+                if tmp_rea in medium:
+                    m_pallitra = "metConnect"
+                elif tmp_rea in met_to_synt:
+                    m_pallitra = "interest"
+                else:
+                    m_pallitra = "metabolites"
+                colname_rea = define_node_features(
+                    color_brewer, m_pallitra, rea, n_letter,
+                )
+                rea_edge = define_edge_features(
+                    color_brewer,
+                    "single_path_r",
+                    "metabolites",
+                    rea,
+                    colname_rea[1],
+                    r,
+                    colname_r[1],
+                    "reactants",
+                    n_letter,
+                )
+            g.add_node(
+                colname_rea[0],
+                shape="o",
+                label=colname_rea[1],
+                color=colname_rea[2],
+                title=colname_rea[3],
+            )
+            for e in rea_edge:
+                g.add_edge(
+                    e[0], e[1], color=e[2], font_color="black",
+                )
+        for pro in r.products.get("assembly"):
+            tmp_pro = re.sub("_([cep])$", "", pro.id)
+            if (tmp_pro in met_not_int.keys()) and not draw_met_not_int:
+                continue
+            if (tmp_pro in met_not_int.keys()) and draw_met_not_int:
+                colname_pro = define_node_features(
+                    color_brewer,
+                    "metConnect",
+                    pro,
+                    n_letter,
+                    node_id=f"{tmp_pro} {met_not_int[tmp_pro]}",
+                    label=tmp_pro,
+                )
+                pro_edge = define_edge_features(
+                    color_brewer,
+                    "single_path_r",
+                    "metabolites",
+                    pro,
+                    f"{tmp_pro} {met_not_int[tmp_pro]}",
+                    r,
+                    colname_r[1],
+                    "products",
+                    n_letter,
+                )
+                met_not_int[tmp_pro] = met_not_int[tmp_pro] + 1
+            else:
+                if tmp_pro in medium:
+                    m_pallitra = "metConnect"
+                elif tmp_pro in met_to_synt:
+                    m_pallitra = "interest"
+                else:
+                    m_pallitra = "metabolites"
+                colname_pro = define_node_features(
+                    color_brewer, m_pallitra, pro, n_letter,
+                )
+                pro_edge = define_edge_features(
+                    color_brewer,
+                    "single_path_r",
+                    "metabolites",
+                    pro,
+                    colname_pro[1],
+                    r,
+                    colname_r[1],
+                    "products",
+                    n_letter,
+                )
+            g.add_node(
+                colname_pro[0],
+                shape="o",
+                label=colname_pro[1],
+                color=colname_pro[2],
+                title=colname_pro[3],
+            )
+            for e in pro_edge:
+                g.add_edge(
+                    e[0], e[1], color=e[2], font_color="black",
+                )
+        if genes:
+            g_colname = define_node_features(
+                color_brewer,
+                "genes",
+                r,
+                n_letter,
+                gene=True,
+                and_as_solid=and_as_solid,
+            )
+            g.add_node(
+                g_colname[0],
+                shape="box",
+                label=g_colname[1],
+                color=g_colname[2],
+                title=g_colname[3],
+            )
+            g.add_edge(
+                r_id, g_colname[0], color=g_colname[2], font_color="black",
+            )
+    pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
+    pyvis_graph.write_html(output_name, notebook=False)
     return g
+
+
+def draw_pfba_results(
+    path_pfba_out: dict,
+    supermodel: SuperModel,
+    medium: list,
+    write_output_to_folder: str,
+    draw_pfba_for_models=None,
+    draw_met_not_int=False,
+):
+    if draw_pfba_for_models is None:
+        met_model = {}
+        for mod, res in path_pfba_out.items():
+            for met in res.keys():
+                if met in met_model.keys():
+                    if mod.startswith("core") and (
+                        (not met_model[met][0].startswith("core"))
+                        or (
+                            int(mod.removeprefix("core"))
+                            > int(met_model[met][0].removeprefix("core"))
+                        )
+                    ):
+                        met_model[met] = [mod]
+                    elif mod == "assembly" and (
+                        not met_model[met][0].startswith("core")
+                    ):
+                        met_model[met] = [mod]
+                    elif (not met_model[met][0].startswith("core")) and (
+                        met_model[met][0] != "assembly"
+                    ):
+                        met_model[met].append(mod)
+                else:
+                    met_model[met] = [mod]
+        pd.DataFrame(
+            met_model.items(), columns=["Metabolite", "Most confident pfba"]
+        ).to_csv(
+            f"{write_output_to_folder}/bp_most_confident_pfba_production.tsv",
+            index=False,
+            sep="\t",
+        )
+        for m, mod_conf in met_model.items():
+            for model_id in mod_conf:
+                v = [
+                    vv for vv in path_pfba_out[model_id][m] if not vv.startswith("DM_")
+                ]
+                g = draw_one_synt_path(
+                    supermodel,
+                    v,
+                    medium,
+                    [m.removesuffix("_path_pfba")],
+                    f"{write_output_to_folder}/{m}_{model_id}.html",
+                    draw_met_not_int=draw_met_not_int,
+                )
+    else:
+        for model_id in draw_pfba_for_models:
+            for k, v in path_pfba_out[model_id].items():
+                v = [vv for vv in v if not vv.startswith("DM_")]
+                g = draw_one_synt_path(
+                    supermodel,
+                    v,
+                    medium,
+                    [k.removesuffix("_path_pfba")],
+                    f"{write_output_to_folder}/{k}_{model_id}.html",
+                    draw_met_not_int=draw_met_not_int,
+                )
 
 
 def drawCore(
@@ -1135,7 +1057,7 @@ def drawMetSynthesis(
                                 tmp_pro not in met_not_int
                             ):
                                 colname_r = define_node_features(
-                                    colorBrewer, "1stPath", r, Nletter
+                                    colorBrewer, "single_path_r", r, Nletter
                                 )
                                 cn_rea = define_edge_features(
                                     colorBrewer,
@@ -1154,10 +1076,20 @@ def drawMetSynthesis(
                                     Nletter,
                                 )
                                 cn_rea_2 = define_edge_features(
-                                    colorBrewer, "1stPath", rea, r, r.reactants, Nletter
+                                    colorBrewer,
+                                    "single_path_r",
+                                    rea,
+                                    r,
+                                    r.reactants,
+                                    Nletter,
                                 )
                                 cn_pro_2 = define_edge_features(
-                                    colorBrewer, "1stPath", pro, r, r.products, Nletter
+                                    colorBrewer,
+                                    "single_path_r",
+                                    pro,
+                                    r,
+                                    r.products,
+                                    Nletter,
                                 )
                                 if (rea.id == met_of_int) or (rea.id in sources):
                                     colname_rea = define_node_features(

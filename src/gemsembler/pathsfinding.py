@@ -190,10 +190,15 @@ class MQData(object):
             path_lengths = path_lengths[:len_diversity]
 
         # Return all paths for given path lengths (if specified)
-        return {
-            path_len: self.__get_by_path_length(path_type, mb_id, path_len, map_back)
-            for path_len in path_lengths
-        }
+        # In case paths are there: length bigger than 0
+        # otherwise return empty dict
+        if 0 in path_lengths:
+            return {0: []}
+        else:
+            return {
+                path_len: self.__get_by_path_length(path_type, mb_id, path_len, map_back)
+                for path_len in path_lengths
+            }
 
     # Wrapper function around _subset_paths to allow for getting all paths for
     # all metabolites
@@ -251,6 +256,7 @@ class MQData(object):
                 and (met_name_map not in all_syn)
             ):
                 comments[met] = "can not be synthesized"
+                met_paths[met] = {}
 
             # if metabolite is not in X_synthesized then it cannot be
             # synthesized with max path length of X
@@ -261,39 +267,42 @@ class MQData(object):
             ):
                 comment = f"can not be synthesized with max {self.max_paths_length} length path"
                 comments[met] = comment
+                met_paths[met] = {}
             else:
                 met_found = self._check_mb_id(
                     "linear_paths", met_tag, met, met_name_map
                 )
-                if met_found is None:
-                    comment[met] = "Not found in linear"
-                    continue
-
-                # Check linear paths for given metabolite. Get linear and
-                # circular paths from metquest output for a given metabolite
-                linear_paths = self._subset_paths(
-                    "linear_paths", met_found, len_diversity=len_diversity
-                )
-                if isinstance(linear_paths, str):
-                    comments[met] = linear_paths
-                elif isinstance(linear_paths, list):
-                    met_paths[met] = linear_paths
+                if met_found is not None:
+                    # Check linear paths for given metabolite. Get linear and
+                    # circular paths from metquest output for a given metabolite
+                    linear_paths = self._subset_paths(
+                        "linear_paths", met_found, len_diversity=len_diversity
+                    )
+                    if linear_paths == {0: []}:
+                        comments[met] = "Is in the medium, no need to synthesys"
+                        met_paths[met] = {}
+                    elif isinstance(linear_paths, str):
+                        comments[met] = linear_paths
+                    elif isinstance(linear_paths, dict):
+                        comments[met] = "Found in linear paths"
+                        met_paths[met] = linear_paths
                 else:
                     met_found = self._check_mb_id(
                         "circular_paths", met_tag, met, met_name_map
                     )
-                    if met_found is None:
-                        comment[met] = "Not found in linear"
-                        continue
-
-                    # Check circular paths for given metabolite
-                    circular_paths = self._subset_paths(
-                        "circular_paths", met_found, len_diversity=len_diversity
-                    )
-                    if isinstance(circular_paths, str):
-                        comments[met] = circular_paths
-                    elif isinstance(circular_paths, list):
-                        met_paths[met] = circular_paths
+                    if met_found is not None:
+                        # Check circular paths for given metabolite
+                        circular_paths = self._subset_paths(
+                            "circular_paths", met_found, len_diversity=len_diversity
+                        )
+                        if circular_paths == {0: []}:
+                            comments[met] = "Is in the medium, no need to synthesys"
+                            met_paths[met] = {}
+                        elif isinstance(circular_paths, str):
+                            comments[met] = circular_paths
+                        elif isinstance(circular_paths, dict):
+                            comments[met] = "Found in circular paths"
+                            met_paths[met] = circular_paths
                     else:
                         # Otherwise check ...
                         maybe_synthesised = self.all_synthesized - self.max_synthesized
@@ -309,6 +318,7 @@ class MQData(object):
                                 "all_synthesized not bigger than max_synthesized"
                             )
                         comments[met] = comment
+                        met_paths[met] = {}
 
         return met_paths, comments
 

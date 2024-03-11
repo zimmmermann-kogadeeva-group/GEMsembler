@@ -17,6 +17,9 @@ from .conversion import (
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,
+    remove_zero_for_notconv,
+    replace_square_brackets,
+    no_changes_for_notconv,
 )
 from .creation import SetofNewElements, SetofNewGenes, SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
@@ -92,9 +95,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -108,6 +109,8 @@ class GatheredModels:
                 "wo_periplasmic": True,
                 "conv_strategy": ConvAgora(),
                 "genome_model_strategy": get_genes_not_gapseq,
+                "alter_notconv_m": replace_square_brackets,
+                "alter_notconv_r": no_changes_for_notconv,
             },
             "carveme": {
                 "remove_b": False,
@@ -115,6 +118,8 @@ class GatheredModels:
                 "wo_periplasmic": False,
                 "conv_strategy": ConvCarveme(),
                 "genome_model_strategy": get_genes_not_gapseq,
+                "alter_notconv_m": no_changes_for_notconv,
+                "alter_notconv_r": no_changes_for_notconv,
             },
             "bigg": {
                 "remove_b": False,
@@ -122,6 +127,8 @@ class GatheredModels:
                 "wo_periplasmic": False,
                 "conv_strategy": ConvBigg(),
                 "genome_model_strategy": get_genes_not_gapseq,
+                "alter_notconv_m": no_changes_for_notconv,
+                "alter_notconv_r": no_changes_for_notconv,
             },
             "gapseq": {
                 "remove_b": False,
@@ -129,6 +136,8 @@ class GatheredModels:
                 "wo_periplasmic": False,
                 "conv_strategy": ConvGapseq(),
                 "genome_model_strategy": get_genes_gapseq,
+                "alter_notconv_m": remove_zero_for_notconv,
+                "alter_notconv_r": remove_zero_for_notconv,
             },
             "modelseed": {
                 "remove_b": True,
@@ -136,6 +145,8 @@ class GatheredModels:
                 "wo_periplasmic": True,
                 "conv_strategy": ConvModelseed(),
                 "genome_model_strategy": get_genes_not_gapseq,
+                "alter_notconv_m": remove_zero_for_notconv,
+                "alter_notconv_r": remove_zero_for_notconv,
             },
         }
 
@@ -308,16 +319,25 @@ class GatheredModels:
                 if (sel_r.to_one_id == True and sel_r.from_one_id == True) or (
                     sel_r.to_one_id == True
                     and sel_r.from_one_id == False
-                    and ((orig_r_id
-                    in self.__models[model_id]["duplicated_reactions"]["ID"].tolist())
-                         or (sel_r.highest_consistent == ["Biomass"]))
+                    and (
+                        (
+                            orig_r_id
+                            in self.__models[model_id]["duplicated_reactions"][
+                                "ID"
+                            ].tolist()
+                        )
+                        or (sel_r.highest_consistent == ["Biomass"])
+                    )
                 ):
                     final_r_sel[model_id].update(
                         {orig_r_id: [sel_r.compartments, sel_r.highest_consistent]}
                     )
                 else:
+                    orig_r_id_alt = self.__conf[self.__models[model_id]["model_type"]][
+                        "alter_notconv_r"
+                    ](orig_r_id)
                     final_r_not_sel[model_id].update(
-                        {orig_r_id: [sel_r.compartments, [orig_r_id]]}
+                        {orig_r_id: [sel_r.compartments, [orig_r_id_alt]]}
                     )
                 if (
                     len(
@@ -369,8 +389,11 @@ class GatheredModels:
                             {orig_m_id: [sel_m.compartments, sel_m.highest_consistent]}
                         )
                     else:
+                        orig_m_id_alt = self.__conf[
+                            self.__models[model_id]["model_type"]
+                        ]["alter_notconv_m"](orig_m_id)
                         final_m_not_sel[model_id].update(
-                            {orig_m_id: [sel_m.compartments, [orig_m_id]]}
+                            {orig_m_id: [sel_m.compartments, [orig_m_id_alt]]}
                         )
             if self.periplasmic_reactions[model_id]:
                 for p_r_id, p_r in self.periplasmic_reactions[model_id].items():

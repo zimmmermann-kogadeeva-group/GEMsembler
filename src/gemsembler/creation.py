@@ -395,7 +395,8 @@ class NewReaction(NewElement):
                                 f"and old metabolite without periplasmic story."
                                 f"Model: {model_id}. Old metabolite: {react_prod.id}."
                                 f"New metabolites: "
-                                f"{' '.join([n.id for n in new_reacts_prods])}"
+                                f"{' '.join([n.id for n in new_reacts_prods])}."
+                                f"But {new_reacts_prods[0]} was selected."
                             )
 
     def _find_metabolites(
@@ -463,7 +464,9 @@ class NewReaction(NewElement):
                 for oldrg in oldr.genes:
                     pot_new_g_id = connections.get_new_gene_id(model_id, oldrg.id)
                     gene_convert.update({oldrg.id: pot_new_g_id})
-                    if (not do_notconv) & (connections.g_conversion_tables[model_id] is not None):
+                    if (not do_notconv) & (
+                        connections.g_conversion_tables[model_id] is not None
+                    ):
                         genes_not_to_add.append(oldrg.id)
                     if pot_new_g_id not in genes_not_to_add:
                         genes_to_add[model_id].append(pot_new_g_id)
@@ -503,9 +506,30 @@ class SetofNewElements:
                 for new_id in objects[key][1]:
                     comp = objects[key][0]
                     if new_id in getattr(self, where_to_add).keys():
-                        getattr(self, where_to_add).get(new_id)._update_new_element(
-                            key, comp, mod_id
-                        )
+                        if convered == getattr(self, where_to_add)[new_id].converted:
+                            getattr(self, where_to_add).get(new_id)._update_new_element(
+                                key, comp, mod_id
+                            )
+                        elif (
+                            new_id + "_convert_" + str(convered)
+                            in getattr(self, where_to_add).keys()
+                        ):
+                            getattr(self, where_to_add).get(
+                                new_id + "_convert_" + str(convered)
+                            )._update_new_element(key, comp, mod_id)
+                        else:
+                            new_conv = new_elements[element_type](
+                                new_id + "_convert_" + str(convered),
+                                key,
+                                comp,
+                                mod_id,
+                                model_ids,
+                                convered,
+                                db_info,
+                            )
+                            getattr(self, where_to_add).update(
+                                {new_id + "_convert_" + str(convered): new_conv}
+                            )
                     else:
                         new = new_elements[element_type](
                             new_id, key, comp, mod_id, model_ids, convered, db_info
@@ -812,7 +836,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     connection_knowledge, "products", do_notconv=True
                 )
                 r._find_metabolites(connection_knowledge, do_notconv=True)
-                g_to_add = r._find_gene_and_gpr(connection_knowledge, gene_folder, do_notconv=True)
+                g_to_add = r._find_gene_and_gpr(
+                    connection_knowledge, gene_folder, do_notconv=True
+                )
                 for model_id, gene_ids in g_to_add.items():
                     for g_id in gene_ids:
                         if g_id in self.genes.notconverted.keys():
@@ -1038,7 +1064,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         if do_mix_conv_notconv:
             final_m_all = defaultdict(dict)
             for model_id in final_m_sel.keys():
-                final_m_all[model_id] = final_m_sel[model_id] | final_m_not_sel[model_id]
+                final_m_all[model_id] = (
+                    final_m_sel[model_id] | final_m_not_sel[model_id]
+                )
             m_connection_dicts = self.metabolites._makeForwardBackward(
                 all_models_data,
                 final_m_all,
@@ -1047,8 +1075,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             )
             final_r_all = defaultdict(dict)
             for model_id in final_r_sel.keys():
-                final_r_all[model_id] = final_r_sel[model_id] | final_r_not_sel[
-                    model_id]
+                final_r_all[model_id] = (
+                    final_r_sel[model_id] | final_r_not_sel[model_id]
+                )
             r_connection_dicts = self.reactions._makeForwardBackward(
                 all_models_data, final_r_all, "reactions",
             )

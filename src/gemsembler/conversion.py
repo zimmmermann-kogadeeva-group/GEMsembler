@@ -380,3 +380,18 @@ class ConvBigg(ConvBase):
             main=conv_main,
             metabolite=False,
         )
+
+
+def remove_zero_for_notconv(notconv_id: str):
+    return re.sub("0$", "", notconv_id)
+
+
+def replace_square_brackets(notconv_id: str):
+    if (notconv_id[-3] == "[") and (notconv_id[-1] == "]"):
+        return notconv_id[:-3] + "_" + notconv_id[-2]
+    else:
+        return notconv_id
+
+
+def no_changes_for_notconv(notconv_id: str):
+    return notconv_id
