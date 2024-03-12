@@ -11,8 +11,19 @@ from .drawing import draw_one_known_pathway, draw_pfba_results
 
 
 def write_biomass_precursors_fba_production(
-    out_bp_production_tab, write_output_to_folder: str
+    out_bp_production_tab,
+    write_output_to_folder: str,
+    yticklabels=True,
+    cmap="mako",
+    metric="jaccard",
+    method="single",
+    center=0.3,
+    linewidths=0.003,
+    **kwargs,
 ):
+    """Function to plot heatmap of produced or not produced metabolites.
+    Parameters: table with production, output fold and
+    attributes of seaborn clustermap function."""
     out_bp_production_tab.to_csv(
         f"{write_output_to_folder}/all_biomass_precursors_production.tsv",
         sep="\t",
@@ -32,18 +43,15 @@ def write_biomass_precursors_fba_production(
     num_no_grow.to_csv(
         f"{write_output_to_folder}/core_biomass_precursors_production.tsv", sep="\t",
     )
-    # TODO ask Bartosz about *kargs heir
     bp_heatmap = sns.clustermap(
         num_no_grow,
-        yticklabels=True,
-        cmap="mako",
-        metric="jaccard",
-        method="single",
-        dendrogram_ratio=(0.13, 0.05),
-        figsize=(10, 12),
-        center=0.3,
-        cbar_pos=(0.01, 0.1, 0.05, 0.18),
-        linewidths=0.003,
+        yticklabels=yticklabels,
+        metric=metric,
+        method=method,
+        cmap=cmap,
+        center=center,
+        linewidths=linewidths,
+        **kwargs,
     )
     bp_heatmap.savefig(
         f"{write_output_to_folder}/core_biomass_precursors_production.png"
@@ -385,7 +393,6 @@ def run_growth_full_flux_analysis(
         model.medium = old_medium
         out_bp_production.update({k: model_data})
     out_bp_production_tab = pd.DataFrame(out_bp_production)
-    # TODO if exseption bellow still return
     if write_output_to_folder is not None:
         write_biomass_precursors_fba_production(
             out_bp_production_tab, write_output_to_folder
