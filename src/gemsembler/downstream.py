@@ -2,17 +2,21 @@ import operator
 import re
 import warnings
 from collections import defaultdict
+from pathlib import Path
+
+import dill
 import pandas as pd
 from cobra.flux_analysis import pfba
 from .creation import SuperModel
 from .comparison import getCoreGPR
 import seaborn as sns
-from .drawing import draw_one_known_pathway, draw_pfba_results
+from .drawing import draw_one_known_pathway, draw_pfba_results, draw_one_synt_path
 
 
-def write_biomass_precursors_fba_production(
+def write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
+    file_name=None,
     yticklabels=True,
     cmap="mako",
     metric="jaccard",
@@ -24,25 +28,35 @@ def write_biomass_precursors_fba_production(
     """Function to plot heatmap of produced or not produced metabolites.
     Parameters: table with production, output fold and
     attributes of seaborn clustermap function."""
-    out_bp_production_tab.to_csv(
-        f"{write_output_to_folder}/all_biomass_precursors_production.tsv",
-        sep="\t",
-        index=False,
-    )
+    if file_name is None:
+        out_bp_production_tab.to_csv(
+            f"{write_output_to_folder}/all_metabolites_production.tsv",
+            sep="\t",
+            index=False,
+        )
+    else:
+        out_bp_production_tab.to_csv(
+            f"{write_output_to_folder}/all_{file_name}.tsv", sep="\t", index=False,
+        )
     out_core_bp_production_tab = out_bp_production_tab[
         (out_bp_production_tab != "nan").all(axis=1)
     ]
-    out_core_bp_production_tab.index = out_core_bp_production_tab["biomass_precursors"]
+    out_core_bp_production_tab.index = out_core_bp_production_tab["Metabolites"]
     num = out_core_bp_production_tab[
-        out_core_bp_production_tab.columns.difference(["biomass_precursors"])
+        out_core_bp_production_tab.columns.difference(["Metabolites"])
     ]
-    num_no_grow = num.drop(index="overall_growth")
+    num_no_grow = num.drop(index="overall_growth", errors="ignore")
     num_no_grow = num_no_grow.astype(
         {mod_name: "float" for mod_name in num_no_grow.columns}
     )
-    num_no_grow.to_csv(
-        f"{write_output_to_folder}/core_biomass_precursors_production.tsv", sep="\t",
-    )
+    if file_name is None:
+        num_no_grow.to_csv(
+            f"{write_output_to_folder}/core_metabolites_production.tsv", sep="\t",
+        )
+    else:
+        num_no_grow.to_csv(
+            f"{write_output_to_folder}/core_{file_name}.tsv", sep="\t",
+        )
     bp_heatmap = sns.clustermap(
         num_no_grow,
         yticklabels=yticklabels,
@@ -53,9 +67,10 @@ def write_biomass_precursors_fba_production(
         linewidths=linewidths,
         **kwargs,
     )
-    bp_heatmap.savefig(
-        f"{write_output_to_folder}/core_biomass_precursors_production.png"
-    )
+    if file_name is None:
+        bp_heatmap.savefig(f"{write_output_to_folder}/core_metabolites_production.png")
+    else:
+        bp_heatmap.savefig(f"{write_output_to_folder}/core_{file_name}.png")
 
 
 def table_reactions_confidence(
@@ -314,6 +329,7 @@ def run_growth_full_flux_analysis(
     biomass_r_id=None,
     m_compartment_suffix=None,
     bp_compartment_suffix=None,
+    **kwargs,
 ):
     if biomass_r_id is None:
         biomass_r_id = "Biomass"
@@ -329,7 +345,7 @@ def run_growth_full_flux_analysis(
                 + [react.id for react in m.reactions.get_by_id(biomass_r_id).reactants]
             )
         )
-    out_bp_production = {"biomass_precursors": ["overall_growth"] + biomass_p}
+    out_bp_production = {"Metabolites": ["overall_growth"] + biomass_p}
     flux_res_out = defaultdict(dict)
     path_pfba_out = defaultdict(dict)
     for k, model in models_to_analyse.items():
@@ -394,8 +410,8 @@ def run_growth_full_flux_analysis(
         out_bp_production.update({k: model_data})
     out_bp_production_tab = pd.DataFrame(out_bp_production)
     if write_output_to_folder is not None:
-        write_biomass_precursors_fba_production(
-            out_bp_production_tab, write_output_to_folder
+        write_metabolites_production_output(
+            out_bp_production_tab, write_output_to_folder, **kwargs
         )
     if supermodel_for_draw_pfba is not None:
         if write_output_to_folder is None:
@@ -419,3 +435,93 @@ def run_growth_full_flux_analysis(
         )
 
     return out_bp_production_tab, flux_res_out, path_pfba_out
+
+
+def run_metquest_results_analysis(
+    folder_with_mq_res_folders: str,
+    model_list: list,
+    supermodel: SuperModel,
+    metabolites_ids: list,
+    medium: list,
+    cofactors=None,
+    output_folder=None,
+    draw_mq_path=False,
+    output_folder_mq_paths_plots=None,
+    **kwargs,
+):
+    if output_folder_mq_paths_plots is not None:
+        draw_mq_path = True
+    if (draw_mq_path is True) and (output_folder_mq_paths_plots is None):
+        output_folder_mq_paths_plots = output_folder
+    if cofactors is None:
+        cofactors = [
+            "co2",
+            "hco3",
+            "pi",
+            "ppi",
+            "ACP",
+            "atp",
+            "adp",
+            "amp",
+            "nad",
+            "nadh",
+            "nadp",
+            "nadph",
+            "coa",
+            "cmp",
+            "cdp",
+            "ctp",
+            "gmp",
+            "gdp",
+            "gtp",
+            "ump",
+            "udp",
+            "utp",
+            "fadh2",
+            "fad",
+            "q8",
+            "q8h2",
+            "mqn8",
+            "mql8",
+            "mqn6",
+            "mql6",
+            "thf",
+        ]
+    metquest_all_res_paths = {}
+    folder_with_out_folders = Path(folder_with_mq_res_folders)
+    for mod in model_list:
+        for f in folder_with_out_folders.iterdir():
+            if f.is_dir() and f.name.startswith(mod):
+                metquest_all_res_paths[mod] = f / "shortest_paths.pkl"
+    synthes_out = {"Metabolites": metabolites_ids} | {mod: [] for mod in model_list}
+    for mod in model_list:
+        mq_data = dill.load(open(metquest_all_res_paths[mod], "rb"))
+        for bp in metabolites_ids:
+            if bp not in mq_data["paths"].keys():
+                to_append = "nan"
+            else:
+                if mq_data["paths"][bp]:
+                    to_append = 1
+                elif bp.removesuffix("_c") in medium:
+                    to_append = 0.75
+                elif bp.removesuffix("_c") in cofactors:
+                    to_append = 0.5
+                else:
+                    to_append = 0
+            synthes_out[mod].append(to_append)
+            if (to_append == 1) and (draw_mq_path is True):
+                allalt = set()
+                for altp_len in mq_data["paths"][bp].values():
+                    for altp in altp_len:
+                        allalt = allalt | altp
+                draw_one_synt_path(
+                    supermodel,
+                    list(allalt),
+                    medium,
+                    [bp.removesuffix("_c")],
+                    f"{output_folder_mq_paths_plots}/{bp}_{mod}.html",
+                )
+    synthes_tab_out = pd.DataFrame(synthes_out)
+    if output_folder is not None:
+        write_metabolites_production_output(synthes_tab_out, output_folder, *kwargs)
+    return synthes_tab_out
