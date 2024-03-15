@@ -33,7 +33,6 @@ dependencies = [
     "pyvis",
     "h5py",
     "platformdirs",
-    "pyautogui",
     "pyyaml"
 ]
 

@@ -81,6 +81,14 @@ class MQData(object):
             self.__max_paths_length = fh["max_paths_length"][()]
             self.__tag = fh["tag"][()].decode()
 
+            self.__name_map = {
+                mq_id: orig_id[()].decode() for mq_id, orig_id in fh["name_map"].items()
+            }
+
+            self.__rev_name_map = {
+                orig_id: mq_id for mq_id, orig_id in self.__name_map.items()
+            }
+
     # To minimise memory footprint, only load this data when requested by user
     @property
     def all_synthesized(self):
@@ -93,18 +101,15 @@ class MQData(object):
         with h5py.File(self.__filename, "r") as fh:
             return {x.decode() for x in fh["max_synthesized"]}
 
-    # To minimise memory footprint, only load this data when requested by user
+    # Property to prevent the user from overwriting it
     @property
     def name_map(self):
-        with h5py.File(self.__filename, "r") as fh:
-            return {
-                mq_id: orig_id[()].decode() for mq_id, orig_id in fh["name_map"].items()
-            }
+        return self.__name_map
 
-    # To minimise memory footprint, only load this data when requested by user
+    # Property to prevent the user from overwriting it
     @property
     def reverse_name_map(self):
-        return {orig_id: mq_id for mq_id, orig_id in self.name_map.items()}
+        return self.__rev_name_map
 
     # Property to prevent the user from overwriting it
     @property
@@ -137,7 +142,7 @@ class MQData(object):
         with h5py.File(self.__filename) as fh:
             paths = literal_eval(fh[f"{path_type}/{mb_id}/{path_length}"][()].decode())
             if convert:
-                paths = [{self.name_map[_id] for _id in path} for path in paths]
+                paths = [{self.__name_map[_id] for _id in path} for path in paths]
             return paths
 
     # Function to get all paths for all path lengths given path type and
@@ -228,7 +233,7 @@ class MQData(object):
     # possibilites
     def _get_alt_mb_ids(self, mb_id):
         mb_id_tag = self.__tag + " " + mb_id
-        mb_id_name_map = self.reverse_name_map.get(mb_id, "")
+        mb_id_name_map = self.__rev_name_map.get(mb_id, "")
         return mb_id_tag, mb_id_name_map
 
     # Function to check which of the given metabolites is present in set of ids
