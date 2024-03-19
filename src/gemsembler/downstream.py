@@ -323,6 +323,7 @@ def run_growth_full_flux_analysis(
     models_to_analyse: dict,
     medium: list,
     write_output_to_folder=None,
+    file_name=None,
     draw_pfba_for_models=None,
     supermodel_for_draw_pfba=None,
     draw_met_not_int=False,
@@ -348,6 +349,8 @@ def run_growth_full_flux_analysis(
     out_bp_production = {"Metabolites": ["overall_growth"] + biomass_p}
     flux_res_out = defaultdict(dict)
     path_pfba_out = defaultdict(dict)
+    stat_out = {}
+    bp_synt = []
     for k, model in models_to_analyse.items():
         med_mod = {}
         for e in model.exchanges:
@@ -363,6 +366,8 @@ def run_growth_full_flux_analysis(
         res = model.optimize()
         flux_res_out[k] = {"overall_fba": res}
         model_data = [res.objective_value]
+        model_stat = 0
+        model_med_stat = 0
         all_met = [mm.id for mm in model.metabolites]
         all_r = [rr.id for rr in model.reactions]
         bp_model = [
@@ -383,6 +388,12 @@ def run_growth_full_flux_analysis(
                 )
                 if res_bp.objective_value > 0.001:
                     model_data.append(1)
+                    if bp.removesuffix(bp_compartment_suffix) in medium:
+                        model_med_stat = model_med_stat + 1
+                    else:
+                        model_stat = model_stat + 1
+                    if bp not in bp_synt:
+                        bp_synt.append(bp)
                     pfba_res = pfba(model)
                     flux_res_out[k].update(
                         {bp.removesuffix(bp_compartment_suffix) + "_pfba": pfba_res}
@@ -408,11 +419,21 @@ def run_growth_full_flux_analysis(
                     model.remove_reactions(["DM_" + bp])
         model.medium = old_medium
         out_bp_production.update({k: model_data})
+        stat_out.update({k: model_stat})
+        stat_out.update({"medium_" + k: model_med_stat})
     out_bp_production_tab = pd.DataFrame(out_bp_production)
+    stat_out.update({"not_synthesized": len(set(biomass_p) - set(bp_synt))})
+    stat_out_tab = pd.DataFrame(
+        stat_out.items(),
+        columns=["Metabolites confidence production", "Metabolites amount"],
+    )
     if write_output_to_folder is not None:
         write_metabolites_production_output(
-            out_bp_production_tab, write_output_to_folder, **kwargs
+            out_bp_production_tab, write_output_to_folder, file_name, **kwargs
         )
+        if file_name is None:
+            file_name = write_output_to_folder + "/production_confidence_stat.tsv"
+        stat_out_tab.to_csv(file_name, sep="\t", index=False)
     if supermodel_for_draw_pfba is not None:
         if write_output_to_folder is None:
             raise ValueError(
@@ -434,7 +455,7 @@ def run_growth_full_flux_analysis(
             draw_met_not_int,
         )
 
-    return out_bp_production_tab, flux_res_out, path_pfba_out
+    return out_bp_production_tab, flux_res_out, path_pfba_out, stat_out_tab
 
 
 def run_metquest_results_analysis(
@@ -445,6 +466,7 @@ def run_metquest_results_analysis(
     medium: list,
     cofactors=None,
     output_folder=None,
+    output_file_name=None,
     draw_mq_path=False,
     output_folder_mq_paths_plots=None,
     **kwargs,
@@ -488,6 +510,10 @@ def run_metquest_results_analysis(
             "thf",
         ]
     metquest_all_res_paths = {}
+    stat_out = {}
+    met_synt = []
+    met_med = []
+    met_cof = []
     folder_with_out_folders = Path(folder_with_mq_res_folders)
     for mod in model_list:
         for f in folder_with_out_folders.iterdir():
@@ -495,17 +521,25 @@ def run_metquest_results_analysis(
                 metquest_all_res_paths[mod] = f / "shortest_paths.pkl"
     synthes_out = {"Metabolites": metabolites_ids} | {mod: [] for mod in model_list}
     for mod in model_list:
+        model_stat = 0
         mq_data = dill.load(open(metquest_all_res_paths[mod], "rb"))
         for bp in metabolites_ids:
             if bp not in mq_data["paths"].keys():
                 to_append = "nan"
             else:
-                if mq_data["paths"][bp]:
-                    to_append = 1
-                elif bp.removesuffix("_c") in medium:
+                if bp.removesuffix("_c") in medium:
                     to_append = 0.75
+                    if bp not in met_med:
+                        met_med.append(bp)
                 elif bp.removesuffix("_c") in cofactors:
                     to_append = 0.5
+                    if bp not in met_cof:
+                        met_cof.append(bp)
+                elif mq_data["paths"][bp]:
+                    to_append = 1
+                    model_stat = model_stat + 1
+                    if bp not in met_synt:
+                        met_synt.append(bp)
                 else:
                     to_append = 0
             synthes_out[mod].append(to_append)
@@ -521,7 +555,24 @@ def run_metquest_results_analysis(
                     [bp.removesuffix("_c")],
                     f"{output_folder_mq_paths_plots}/{bp}_{mod}.html",
                 )
+        stat_out.update({mod: model_stat})
     synthes_tab_out = pd.DataFrame(synthes_out)
+    stat_out.update(
+        {
+            "Metabolites in medium": len(met_med),
+            "Metabolites in cofactors": len(met_cof),
+            "Metabolites not synthesized": len(
+                set(metabolites_ids) - set(met_synt) - set(met_med) - set(met_cof)
+            ),
+        }
+    )
+    stat_out_tab = pd.DataFrame(
+        stat_out.items(),
+        columns=["Metabolites confidence production", "Metabolites amount"],
+    )
     if output_folder is not None:
-        write_metabolites_production_output(synthes_tab_out, output_folder, *kwargs)
-    return synthes_tab_out
+        write_metabolites_production_output(synthes_tab_out, output_folder, **kwargs)
+        if output_file_name is None:
+            output_file_name = output_folder + "/production_confidence_stat.tsv"
+        stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
+    return synthes_tab_out, stat_out_tab

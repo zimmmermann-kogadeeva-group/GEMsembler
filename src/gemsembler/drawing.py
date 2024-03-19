@@ -155,10 +155,7 @@ def define_edge_features(
 
 def get_pyvis_from_nx(g, directed, size, width=1920, height=1080):
     pyvis_graph = Network(
-        width=f"{width}px",
-        height=f"{height}px",
-        directed=directed,
-        notebook=False,
+        width=f"{width}px", height=f"{height}px", directed=directed, notebook=False,
     )
     pyvis_graph.from_nx(g)
     for n in pyvis_graph.nodes:
@@ -177,8 +174,8 @@ def draw_one_known_pathway(
     directed=True,
     met_not_int=None,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
     size=25,
 ):
     if not output_name.endswith(".html"):
@@ -237,10 +234,7 @@ def draw_one_known_pathway(
         if r_id in supermodel.reactions.assembly.keys():
             r = supermodel.reactions.assembly.get(r_id)
             colname_r = define_node_features(
-                color_brewer,
-                "single_path_r",
-                r,
-                n_letter,
+                color_brewer, "single_path_r", r, n_letter,
             )
             g.add_node(
                 colname_r[0],
@@ -253,10 +247,7 @@ def draw_one_known_pathway(
                 tmp_rea = re.sub("_([cep])$", "", rea.id)
                 if rea.id in path_met:
                     colname_rea = define_node_features(
-                        color_brewer,
-                        "metabolites",
-                        rea,
-                        n_letter,
+                        color_brewer, "metabolites", rea, n_letter,
                     )
                     rea_edge = define_edge_features(
                         color_brewer,
@@ -278,18 +269,12 @@ def draw_one_known_pathway(
                     )
                     for e in rea_edge:
                         g.add_edge(
-                            e[0],
-                            e[1],
-                            color=e[2],
-                            font_color="black",
+                            e[0], e[1], color=e[2], font_color="black",
                         )
                 elif additional_met:
                     if tmp_rea not in met_not_int.keys():
                         colname_rea = define_node_features(
-                            color_brewer,
-                            "metConnect",
-                            rea,
-                            n_letter,
+                            color_brewer, "metConnect", rea, n_letter,
                         )
                         rea_edge = define_edge_features(
                             color_brewer,
@@ -332,19 +317,13 @@ def draw_one_known_pathway(
                     )
                     for e in rea_edge:
                         g.add_edge(
-                            e[0],
-                            e[1],
-                            color=e[2],
-                            font_color="black",
+                            e[0], e[1], color=e[2], font_color="black",
                         )
             for pro in r.products.get("assembly"):
                 tmp_pro = re.sub("_([cep])$", "", pro.id)
                 if pro.id in path_met:
                     colname_pro = define_node_features(
-                        color_brewer,
-                        "metabolites",
-                        pro,
-                        n_letter,
+                        color_brewer, "metabolites", pro, n_letter,
                     )
                     pro_edge = define_edge_features(
                         color_brewer,
@@ -366,18 +345,12 @@ def draw_one_known_pathway(
                     )
                     for e in pro_edge:
                         g.add_edge(
-                            e[0],
-                            e[1],
-                            color=e[2],
-                            font_color="black",
+                            e[0], e[1], color=e[2], font_color="black",
                         )
                 elif additional_met:
                     if tmp_pro not in met_not_int.keys():
                         colname_pro = define_node_features(
-                            color_brewer,
-                            "metConnect",
-                            pro,
-                            n_letter,
+                            color_brewer, "metConnect", pro, n_letter,
                         )
                         pro_edge = define_edge_features(
                             color_brewer,
@@ -420,10 +393,7 @@ def draw_one_known_pathway(
                     )
                     for e in pro_edge:
                         g.add_edge(
-                            e[0],
-                            e[1],
-                            color=e[2],
-                            font_color="black",
+                            e[0], e[1], color=e[2], font_color="black",
                         )
             if genes:
                 g_colname = define_node_features(
@@ -442,10 +412,7 @@ def draw_one_known_pathway(
                     title=g_colname[3],
                 )
                 g.add_edge(
-                    r_id,
-                    g_colname[0],
-                    color=g_colname[2],
-                    font_color="black",
+                    r_id, g_colname[0], color=g_colname[2], font_color="black",
                 )
         else:
             not_f_col = color_brewer["notFound"][
@@ -492,16 +459,10 @@ def draw_one_known_pathway(
                     title=colname_pro[3],
                 )
                 g.add_edge(
-                    colname_rea[1],
-                    r_id,
-                    color=not_f_col,
-                    font_color="black",
+                    colname_rea[1], r_id, color=not_f_col, font_color="black",
                 )
                 g.add_edge(
-                    r_id,
-                    colname_pro[1],
-                    color=not_f_col,
-                    font_color="black",
+                    r_id, colname_pro[1], color=not_f_col, font_color="black",
                 )
     pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
     pyvis_graph.write_html(output_name, notebook=False)
@@ -514,8 +475,8 @@ def draw_biomass(
     only_difference=False,
     directed=True,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
     size=25,
     write_table=True,
     yes_range=1,
@@ -539,10 +500,7 @@ def draw_biomass(
     g = nx.DiGraph()
     biomass_r = supermodel.reactions.assembly.get("Biomass")
     colname_r = define_node_features(
-        color_brewer,
-        "single_path_r",
-        biomass_r,
-        n_letter,
+        color_brewer, "single_path_r", biomass_r, n_letter,
     )
     g.add_node(
         colname_r[0],
@@ -584,11 +542,7 @@ def draw_biomass(
             )
             for e in rea_edge:
                 g.add_edge(
-                    e[0],
-                    e[1],
-                    color=e[2],
-                    font_color="black",
-                    title=e[3],
+                    e[0], e[1], color=e[2], font_color="black", title=e[3],
                 )
             if write_table:
                 output["Metabolite"].append(colname_rea[0])
@@ -635,11 +589,7 @@ def draw_biomass(
             )
             for e in pro_edge:
                 g.add_edge(
-                    e[0],
-                    e[1],
-                    color=e[2],
-                    font_color="black",
-                    title=e[3],
+                    e[0], e[1], color=e[2], font_color="black", title=e[3],
                 )
             if write_table:
                 output["Metabolite"].append(colname_pro[0])
@@ -669,8 +619,8 @@ def draw_notconv_biomass(
     output_name: str,
     directed=True,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
     size=25,
     write_table=True,
     yes_range=1,
@@ -725,8 +675,8 @@ def draw_one_synt_path(
     directed=True,
     met_not_int=None,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
     size=25,
 ):
     if not output_name.endswith(".html"):
@@ -777,12 +727,7 @@ def draw_one_synt_path(
     g = nx.DiGraph()
     for r_id in path:
         r = supermodel.reactions.assembly.get(r_id)
-        colname_r = define_node_features(
-            color_brewer,
-            "single_path_r",
-            r,
-            n_letter,
-        )
+        colname_r = define_node_features(color_brewer, "single_path_r", r, n_letter,)
         g.add_node(
             colname_r[0],
             label=colname_r[1],
@@ -823,10 +768,7 @@ def draw_one_synt_path(
                 else:
                     m_pallitra = "metabolites"
                 colname_rea = define_node_features(
-                    color_brewer,
-                    m_pallitra,
-                    rea,
-                    n_letter,
+                    color_brewer, m_pallitra, rea, n_letter,
                 )
                 rea_edge = define_edge_features(
                     color_brewer,
@@ -848,10 +790,7 @@ def draw_one_synt_path(
             )
             for e in rea_edge:
                 g.add_edge(
-                    e[0],
-                    e[1],
-                    color=e[2],
-                    font_color="black",
+                    e[0], e[1], color=e[2], font_color="black",
                 )
         for pro in r.products.get("assembly"):
             tmp_pro = re.sub("_([cep])$", "", pro.id)
@@ -886,10 +825,7 @@ def draw_one_synt_path(
                 else:
                     m_pallitra = "metabolites"
                 colname_pro = define_node_features(
-                    color_brewer,
-                    m_pallitra,
-                    pro,
-                    n_letter,
+                    color_brewer, m_pallitra, pro, n_letter,
                 )
                 pro_edge = define_edge_features(
                     color_brewer,
@@ -911,10 +847,7 @@ def draw_one_synt_path(
             )
             for e in pro_edge:
                 g.add_edge(
-                    e[0],
-                    e[1],
-                    color=e[2],
-                    font_color="black",
+                    e[0], e[1], color=e[2], font_color="black",
                 )
         if genes:
             g_colname = define_node_features(
@@ -933,10 +866,7 @@ def draw_one_synt_path(
                 title=g_colname[3],
             )
             g.add_edge(
-                r_id,
-                g_colname[0],
-                color=g_colname[2],
-                font_color="black",
+                r_id, g_colname[0], color=g_colname[2], font_color="black",
             )
     pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
     pyvis_graph.write_html(output_name, notebook=False)
