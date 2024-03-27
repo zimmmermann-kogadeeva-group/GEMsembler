@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 import subprocess
+import sys
 import warnings
 from collections import defaultdict
 from copy import deepcopy
@@ -17,9 +18,9 @@ from .conversion import (
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,
+    no_changes_for_notconv,
     remove_zero_for_notconv,
     replace_square_brackets,
-    no_changes_for_notconv,
 )
 from .creation import SetofNewElements, SetofNewGenes, SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
@@ -32,6 +33,17 @@ from .genes import (
 from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
+
+
+def get_env():
+    """
+    Function to appen additional path to system PATH env var and return dict
+    with new env. In case the package is used in conda env.
+    """
+    add_bin = str(Path(sys.executable).parent)
+    tmp_env = os.environ.copy()
+    tmp_env["PATH"] = f"{tmp_env['PATH']}:{add_bin}"
+    return tmp_env
 
 
 class LoggerContext:
@@ -95,7 +107,9 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -455,6 +469,7 @@ class GatheredModels:
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
+                    env=get_env(),
                 )
             if path_final_genome_aa is not None:
                 subprocess.run(
@@ -465,6 +480,7 @@ class GatheredModels:
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
+                    env=get_env(),
                 )
             for model_id, model_data in self.__models.items():
                 if model_data["path_to_genome"] == "":
@@ -504,6 +520,7 @@ class GatheredModels:
                         check=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        env=get_env(),
                     )
         # Get final tables to create new objects
         (
