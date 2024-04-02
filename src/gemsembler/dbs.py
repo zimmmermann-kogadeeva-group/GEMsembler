@@ -131,7 +131,8 @@ def get_seed_orig_r():
     return df_modelseed_r.pipe(process_modelseed)
 
 
-def process_metanetx(data, db_name, repl_regex):
+def process_with_metanetx(data, db_name, repl_regex):
+    """Get a mapping between `db_name` and bigg using metanetx db."""
     return (
         data.query("source.str.startswith(@db_name) or source.str.startswith('bigg')")
         .copy()
@@ -160,7 +161,7 @@ def get_seed_addit_m():
         names=["source", "ID", "description"],
     )
     return df_metanetx_m.pipe(
-        process_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
+        process_with_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
     )
 
 
@@ -172,7 +173,43 @@ def get_seed_addit_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_r.pipe(process_metanetx, "seed", "(\.reaction|R|):(R_)?")
+    return df_metanetx_r.pipe(process_with_metanetx, "seed", "(\.reaction|R|):(R_)?")
+
+
+def process_metanetx(data, repl_regex):
+    """Get a mapping between metanetx and bigg"""
+    return (
+        data.query("source.str.startswith('bigg') and ID != 'EMPTY'")
+        .assign(source=lambda x: x.source.str.replace(repl_regex, "", regex=True))
+        .rename(columns={"source": "bigg", "ID": "mnx"})
+        .drop_duplicates(subset="bigg")
+        .drop(columns="description")
+        .groupby("mnx")["bigg"]
+        .apply(list)
+        .to_dict()
+    )
+
+
+@cache_file
+def get_mnx_m():
+    df_metanetx_m = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/chem_xref.tsv",
+        "chem_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_m.pipe(process_metanetx, "bigg(\.compound|M|\.metabolite):(M_)?")
+
+
+@cache_file
+def get_mnx_r():
+    df_metanetx_r = download_db(
+        "https://www.metanetx.org/cgi-bin/mnxget/mnxref/reac_xref.tsv",
+        "reac_xref.tsv.gz",
+        comment="#",
+        names=["source", "ID", "description"],
+    )
+    return df_metanetx_r.pipe(process_metanetx, "bigg(\.reaction|R|):(R_)?")
 
 
 @cache_file
@@ -184,7 +221,7 @@ def get_kegg_m():
         names=["source", "ID", "description"],
     )
     return df_metanetx_m.pipe(
-        process_metanetx,
+        process_with_metanetx,
         "kegg",
         "(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
     )
@@ -198,7 +235,7 @@ def get_kegg_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_r.pipe(process_metanetx, "kegg", "(\.reaction|R|):(R_)?")
+    return df_metanetx_r.pipe(process_with_metanetx, "kegg", "(\.reaction|R|):(R_)?")
 
 
 def get_BiGG_lists(metabolites: bool):

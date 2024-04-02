@@ -7,6 +7,8 @@ from .dbs import (
     get_BiGG_lists,
     get_kegg_m,
     get_kegg_r,
+    get_mnx_m,
+    get_mnx_r,
     get_old_bigg_m,
     get_old_bigg_r,
     get_seed_addit_m,
@@ -214,6 +216,44 @@ class ConvModelseed(ConvBase):
             compartment=[x.removesuffix("0") for x in reaction.compartments],
             main=conv_main,
             addit=conv_addit,
+            metabolite=False,
+        )
+
+
+class ConvMetanetx(ConvBase):
+    def __init__(
+        self,
+        main_map_m=None,
+        main_map_r=None,
+        bigg_m=None,
+        bigg_r=None,
+    ):
+        super().__init__(bigg_m, bigg_r)
+
+        # TODO: checks that tables, if given, are of the appropriate format
+        self.__main_map_m__ = main_map_m or get_mnx_m()
+        self.__main_map_r__ = main_map_r or get_mnx_r()
+        self.__comp_regex__ = re.compile("[c@].*$")
+
+    def convert_metabolite(self, metabolite):
+        id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
+        conv_main = self.__main_map_m__.get(id_wo_comp, [])
+
+        return Converted(
+            check_db=self.__bigg_m__,
+            compartment=[metabolite.compartment],
+            main=conv_main,
+            metabolite=True,
+        )
+
+    def convert_reaction(self, reaction):
+        id_wo_comp = self.__comp_regex__.sub("", reaction.id)
+        conv_main = self.__main_map_r__.get(id_wo_comp, [])
+
+        return Converted(
+            check_db=self.__bigg_r__,
+            compartment=list(reaction.compartments),
+            main=conv_main,
             metabolite=False,
         )
 

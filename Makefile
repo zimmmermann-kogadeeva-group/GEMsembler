@@ -2,12 +2,12 @@
 SHELL = /bin/bash
 ACTIVATE = source .venv/bin/activate 
 
-.PHONY: install_packages build upload check isort tags clean data
+.PHONY: venv build upload check isort tags clean data
 
 .venv:
 	python3 -m venv $@
 
-install_packages: .venv
+venv: .venv
 	${ACTIVATE} && pip install -e .
 
 requirements.txt:

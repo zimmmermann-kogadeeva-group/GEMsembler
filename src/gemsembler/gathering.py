@@ -18,6 +18,7 @@ from .conversion import (
     ConvCarveme,
     ConvGapseq,
     ConvModelseed,
+    ConvMetanetx,
     no_changes_for_notconv,
     remove_zero_for_notconv,
     replace_square_brackets,
@@ -144,6 +145,14 @@ class GatheredModels:
                 "alter_notconv_m": no_changes_for_notconv,
                 "alter_notconv_r": no_changes_for_notconv,
             },
+            "metanetx": {
+                "remove_b": False,
+                "db_name": "bigg",
+                "wo_periplasmic": ConvMetanetx(),
+                "genome_model_strategy": get_genes_not_gapseq,
+                "alter_notconv_m": no_changes_for_notconv,
+                "alter_notconv_r": no_changes_for_notconv,
+            }
             "gapseq": {
                 "remove_b": False,
                 "db_name": "modelseed",
