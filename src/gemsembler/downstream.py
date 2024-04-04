@@ -175,8 +175,8 @@ def draw_glycolysis(
         t_name = re.sub(".html$", ".tsv", output_name)
         t = table_reactions_confidence(
             supermodel,
-            list(glycolysis.keys()),
             t_name,
+            list(glycolysis.keys()),
             yes_range,
             no_range,
             genes,
@@ -250,8 +250,8 @@ def draw_tca(
         t_name = re.sub(".html$", ".tsv", output_name)
         t = table_reactions_confidence(
             supermodel,
-            list(tca.keys()),
             t_name,
+            list(tca.keys()),
             yes_range,
             no_range,
             genes,
@@ -307,8 +307,8 @@ def draw_pentose_phosphate(
         t_name = re.sub(".html$", ".tsv", output_name)
         t = table_reactions_confidence(
             supermodel,
-            list(pentose_phosphate_pathway.keys()),
             t_name,
+            list(pentose_phosphate_pathway.keys()),
             yes_range,
             no_range,
             genes,
@@ -461,9 +461,9 @@ def run_growth_full_flux_analysis(
 def run_metquest_results_analysis(
     folder_with_mq_res_folders: str,
     model_list: list,
-    supermodel: SuperModel,
     metabolites_ids: list,
     medium: list,
+    supermodel=None,
     cofactors=None,
     output_folder=None,
     output_file_name=None,
@@ -473,6 +473,11 @@ def run_metquest_results_analysis(
 ):
     if output_folder_mq_paths_plots is not None:
         draw_mq_path = True
+    if (draw_mq_path is True) and (supermodel is None):
+        raise ValueError(
+            "Supermodel is needed to draw pathways, but not provided. "
+            "Please, provide supermodel."
+        )
     if (draw_mq_path is True) and (output_folder_mq_paths_plots is None):
         output_folder_mq_paths_plots = output_folder
     if cofactors is None:

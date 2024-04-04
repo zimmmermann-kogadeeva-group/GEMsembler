@@ -520,6 +520,8 @@ class GatheredModels:
                     db_name = "'aa_db'"
                 if blast_command == "" or db_name == "":
                     warnings.warn("\nWarning! Something wrong with aa/nt in files/DB")
+                elif not model_gene_file:
+                    warnings.warn("\nWarning! Something wrong with gene file")
                 else:
                     subprocess.run(
                         f"{blast_command} -query {model_gene_file} "

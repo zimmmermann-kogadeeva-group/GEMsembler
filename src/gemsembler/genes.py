@@ -120,7 +120,10 @@ def get_genes_gapseq(
         start = gene.id.split("_")[-2]
         end = gene.id.split("_")[-1]
         genomeid = gene.id.removeprefix("gp_").removesuffix("_" + start + "_" + end)
-        genomeid = ".".join(genomeid.rsplit("_", 1))
+        if genomeid not in genomes.keys():
+            genomeid = ".".join(genomeid.rsplit("_", 1))
+        if genomeid not in genomes.keys():
+            return False, False
         start = int(start)
         end = int(end)
         if start < end:
