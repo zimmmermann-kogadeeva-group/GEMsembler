@@ -82,11 +82,11 @@ def table_reactions_confidence(
     genes=True,
     and_as_solid=False,
 ):
+    if pathway_r is None:
+        pathway_r = list(supermodel.reactions.assembly.keys())
     output = {"Reaction": pathway_r, "R_confidence": [], "Status": [], "R_models": []}
     if genes:
         output.update({"GPR_confidence": [], "GPR_core": [], "GPR_assembly": []})
-    if pathway_r is None:
-        pathway_r = list(supermodel.reactions.assembly.keys())
     for r_id in pathway_r:
         if r_id in supermodel.reactions.assembly.keys():
             r = supermodel.reactions.assembly[r_id]
