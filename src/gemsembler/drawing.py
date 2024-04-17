@@ -936,3 +936,104 @@ def draw_pfba_results(
                     f"{write_output_to_folder}/{k}_{model_id}.html",
                     draw_met_not_int=draw_met_not_int,
                 )
+
+
+def draw_met_neighborhood(
+    supermodel: SuperModel,
+    metabolite_id: str,
+    output_name: str,
+    neighborhood_dist=2,
+    highly_connected_t=10,
+    draw_met_not_int=False,
+    genes=True,
+    and_as_solid=False,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=1920,
+    hei=1080,
+    size=25,
+):
+    if metabolite_id not in supermodel.metabolites.assembly.keys():
+        raise ValueError(f"{metabolite_id} is not in the supermodel")
+    if met_not_int is None:
+        met_not_int = {
+            "h": 0,
+            "h2o": 0,
+            "h2": 0,
+            "oh1": 0,
+            "o2": 0,
+            "co2": 0,
+            "coa": 0,
+            "ppi": 0,
+            "pi": 0,
+            "amp": 0,
+            "adp": 0,
+            "atp": 0,
+            "cmp": 0,
+            "cdp": 0,
+            "ctp": 0,
+            "gmp": 0,
+            "gdp": 0,
+            "gtp": 0,
+            "ump": 0,
+            "udp": 0,
+            "utp": 0,
+            "nad": 0,
+            "nadh": 0,
+            "nadp": 0,
+            "nadph": 0,
+            "dadp": 0,
+            "damp": 0,
+            "nh3": 0,
+            "nh4": 0,
+            "fadh2": 0,
+            "fad": 0,
+            "ac": 0,
+            "accoa": 0,
+            "h2s": 0,
+            "HC00250": 0,
+        }
+    all_r = set()
+    med_high_connect = []
+    all_m = [metabolite_id]
+    for i in range(neighborhood_dist):
+        new_all_m = set()
+        for m_id in all_m:
+            tmp_m = re.sub("_([cep])$", "", m_id)
+            if tmp_m in met_not_int.keys():
+                continue
+            met = supermodel.metabolites.assembly.get(m_id)
+            reactions = [r.id for r in met.reactions["assembly"]]
+            if len(reactions) > highly_connected_t:
+                reactions = []
+                med_high_connect.append(re.sub("_([cep])$", "", met.id))
+            all_r = all_r | set(reactions)
+            for r_id in reactions:
+                if r_id == "Biomass":
+                    continue
+                new_all_m = new_all_m | set(
+                    [
+                        m.id
+                        for m in supermodel.reactions.assembly[r_id]
+                        .metabolites["assembly"]
+                        .keys()
+                    ]
+                )
+        all_m = new_all_m
+    draw_one_synt_path(
+        supermodel,
+        list(all_r),
+        med_high_connect,
+        [re.sub("_([cep])$", "", metabolite_id)],
+        output_name,
+        draw_met_not_int,
+        genes,
+        and_as_solid,
+        directed,
+        met_not_int,
+        n_letter,
+        wid,
+        hei,
+        size,
+    )
