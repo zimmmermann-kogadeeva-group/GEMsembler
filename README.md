@@ -1,6 +1,6 @@
 # GEMsembler
 
-img scr ="https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler/-/blob/master/gemsembler_long.gif"
+!["GEMsembler"](https://git.embl.de/grp-zimmermann-kogadeeva/GEMsembler/-/blob/master/gemsembler_long.gif)
 
 GEMsembler tool for assembling and comparing several types of Genome-Scale Metabolic
 Models. 
