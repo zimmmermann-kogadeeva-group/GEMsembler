@@ -108,9 +108,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -437,6 +435,7 @@ class GatheredModels:
         assembly_id=None,
         path_final_genome_nt=None,
         path_final_genome_aa=None,
+        evalue_threshold=0.001,
         do_mix_conv_notconv=False,
         and_as_solid=False,
     ):
@@ -526,7 +525,8 @@ class GatheredModels:
                     subprocess.run(
                         f"{blast_command} -query {model_gene_file} "
                         f"-db {Path(db_path, db_name)} "
-                        f"-max_target_seqs 1 -outfmt '6' -out {out_blast_file}",
+                        f"-max_target_seqs 1 -evalue {evalue_threshold} "
+                        f"-outfmt '6' -out {out_blast_file}",
                         shell=True,
                         check=True,
                         stdout=subprocess.PIPE,

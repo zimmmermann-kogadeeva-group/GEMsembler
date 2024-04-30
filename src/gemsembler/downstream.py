@@ -2,6 +2,7 @@ import operator
 import re
 import warnings
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 
 import dill
@@ -36,27 +37,16 @@ def write_metabolites_production_output(
         )
     else:
         out_bp_production_tab.to_csv(
-            f"{write_output_to_folder}/all_{file_name}.tsv", sep="\t", index=False,
+            f"{write_output_to_folder}/{file_name}.tsv", sep="\t", index=False,
         )
-    out_core_bp_production_tab = out_bp_production_tab[
-        (out_bp_production_tab != "nan").all(axis=1)
-    ]
-    out_core_bp_production_tab.index = out_core_bp_production_tab["Metabolites"]
-    num = out_core_bp_production_tab[
-        out_core_bp_production_tab.columns.difference(["Metabolites"])
+    out_bp_production_tab.index = out_bp_production_tab["Metabolites"]
+    num = out_bp_production_tab[
+        out_bp_production_tab.columns.difference(["Metabolites"])
     ]
     num_no_grow = num.drop(index="overall_growth", errors="ignore")
     num_no_grow = num_no_grow.astype(
         {mod_name: "float" for mod_name in num_no_grow.columns}
     )
-    if file_name is None:
-        num_no_grow.to_csv(
-            f"{write_output_to_folder}/core_metabolites_production.tsv", sep="\t",
-        )
-    else:
-        num_no_grow.to_csv(
-            f"{write_output_to_folder}/core_{file_name}.tsv", sep="\t",
-        )
     bp_heatmap = sns.clustermap(
         num_no_grow,
         yticklabels=yticklabels,
@@ -68,9 +58,9 @@ def write_metabolites_production_output(
         **kwargs,
     )
     if file_name is None:
-        bp_heatmap.savefig(f"{write_output_to_folder}/core_metabolites_production.png")
+        bp_heatmap.savefig(f"{write_output_to_folder}/all_metabolites_production.png")
     else:
-        bp_heatmap.savefig(f"{write_output_to_folder}/core_{file_name}.png")
+        bp_heatmap.savefig(f"{write_output_to_folder}/{file_name}.png")
 
 
 def table_reactions_confidence(
@@ -321,7 +311,7 @@ def draw_pentose_phosphate(
 
 def run_growth_full_flux_analysis(
     models_to_analyse: dict,
-    medium: list,
+    medium: dict,
     write_output_to_folder=None,
     file_name=None,
     draw_pfba_for_models=None,
@@ -356,9 +346,17 @@ def run_growth_full_flux_analysis(
         for e in model.exchanges:
             if (
                 list(e.metabolites.keys())[0].id.removesuffix(m_compartment_suffix)
-                in medium
+                in medium.keys()
             ):
-                med_mod.update({e.id: 1000})
+                med_mod.update(
+                    {
+                        e.id: medium[
+                            list(e.metabolites.keys())[0].id.removesuffix(
+                                m_compartment_suffix
+                            )
+                        ]
+                    }
+                )
             else:
                 med_mod.update({e.id: 0})
         old_medium = model.medium
@@ -375,49 +373,47 @@ def run_growth_full_flux_analysis(
         ]
         for bp in biomass_p:
             if bp not in all_met:
-                model_data.append("nan")
-            else:
-                demand_added = False
-                if ("DM_" + bp) not in all_r:
-                    model.add_boundary(model.metabolites.get_by_id(bp), type="demand")
-                    demand_added = True
-                model.objective = model.demands.get_by_id("DM_" + bp)
-                res_bp = model.optimize()
-                flux_res_out[k].update(
-                    {bp.removesuffix(bp_compartment_suffix) + "_fba": res_bp}
-                )
-                if res_bp.objective_value > 0.001:
-                    model_data.append(1)
-                    if bp.removesuffix(bp_compartment_suffix) in medium:
-                        model_med_stat = model_med_stat + 1
-                    else:
-                        model_stat = model_stat + 1
-                    if bp not in bp_synt:
-                        bp_synt.append(bp)
-                    pfba_res = pfba(model)
-                    flux_res_out[k].update(
-                        {bp.removesuffix(bp_compartment_suffix) + "_pfba": pfba_res}
-                    )
-                    reactions = list(
-                        pfba_res.to_frame()[
-                            (pfba_res.to_frame()["fluxes"] > 0.001)
-                            | (pfba_res.to_frame()["fluxes"] < -0.001)
-                        ].index
-                    )
-                    path_pfba_out[k].update(
-                        {
-                            bp.removesuffix(bp_compartment_suffix)
-                            + "_path_pfba": reactions
-                        }
-                    )
+                model_data.append(-0.5)
+                continue
+            demand_added = False
+            if ("DM_" + bp) not in all_r:
+                model.add_boundary(model.metabolites.get_by_id(bp), type="demand")
+                demand_added = True
+            model.objective = model.demands.get_by_id("DM_" + bp)
+            res_bp = model.optimize()
+            flux_res_out[k].update(
+                {bp.removesuffix(bp_compartment_suffix) + "_fba": res_bp}
+            )
+            if res_bp.objective_value > 0.001:
+                model_data.append(1)
+                if bp.removesuffix(bp_compartment_suffix) in medium.keys():
+                    model_med_stat = model_med_stat + 1
                 else:
-                    if bp in bp_model:
-                        model_data.append(0)
-                    else:
-                        model_data.append(0.5)
-                if demand_added:
-                    model.remove_reactions(["DM_" + bp])
+                    model_stat = model_stat + 1
+                if bp not in bp_synt:
+                    bp_synt.append(bp)
+                pfba_res = pfba(model)
+                flux_res_out[k].update(
+                    {bp.removesuffix(bp_compartment_suffix) + "_pfba": pfba_res}
+                )
+                reactions = list(
+                    pfba_res.to_frame()[
+                        (pfba_res.to_frame()["fluxes"] > 0.001)
+                        | (pfba_res.to_frame()["fluxes"] < -0.001)
+                    ].index
+                )
+                path_pfba_out[k].update(
+                    {bp.removesuffix(bp_compartment_suffix) + "_path_pfba": reactions}
+                )
+            else:
+                if bp in bp_model:
+                    model_data.append(0)
+                else:
+                    model_data.append(0.5)
+            if demand_added:
+                model.remove_reactions(["DM_" + bp])
         model.medium = old_medium
+        model.objective = model.reactions.get_by_id(biomass_r_id)
         out_bp_production.update({k: model_data})
         stat_out.update({k: model_stat})
         stat_out.update({"medium_" + k: model_med_stat})
@@ -449,7 +445,7 @@ def run_growth_full_flux_analysis(
         draw_pfba_results(
             path_pfba_out,
             supermodel_for_draw_pfba,
-            medium,
+            list(medium.keys()),
             write_output_to_folder,
             draw_pfba_for_models,
             draw_met_not_int,
@@ -530,7 +526,7 @@ def run_metquest_results_analysis(
         mq_data = dill.load(open(metquest_all_res_paths[mod], "rb"))
         for bp in metabolites_ids:
             if bp not in mq_data["paths"].keys():
-                to_append = "nan"
+                to_append = -0.5
             else:
                 if bp.removesuffix("_c") in medium:
                     to_append = 0.75

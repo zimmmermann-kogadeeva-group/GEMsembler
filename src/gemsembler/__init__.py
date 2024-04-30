@@ -1,6 +1,5 @@
 from importlib.resources import files
-
-from .anticreation import get_model_of_interest
+from .anticreation import get_model_of_interest, get_models_with_all_confidence_levels
 from .creation import read_supermodel_from_pkl
 from .data import BU, LP
 from .gathering import GatheredModels, load_sbml_model

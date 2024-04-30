@@ -7,6 +7,45 @@ import seaborn as sns
 from .creation import NewElement, SuperModel
 from .comparison import getCoreGPR, getCoreConnections
 from pyvis.network import Network
+from copy import deepcopy
+
+MET_NOT_INT_GLOBAL = {
+    "h": 0,
+    "h2o": 0,
+    "h2": 0,
+    "oh1": 0,
+    "o2": 0,
+    "co2": 0,
+    "coa": 0,
+    "ppi": 0,
+    "pi": 0,
+    "amp": 0,
+    "adp": 0,
+    "atp": 0,
+    "cmp": 0,
+    "cdp": 0,
+    "ctp": 0,
+    "gmp": 0,
+    "gdp": 0,
+    "gtp": 0,
+    "ump": 0,
+    "udp": 0,
+    "utp": 0,
+    "nad": 0,
+    "nadh": 0,
+    "nadp": 0,
+    "nadph": 0,
+    "dadp": 0,
+    "damp": 0,
+    "nh3": 0,
+    "nh4": 0,
+    "fadh2": 0,
+    "fad": 0,
+    "ac": 0,
+    "accoa": 0,
+    "h2s": 0,
+    "HC00250": 0,
+}
 
 
 def get_color_palette(sources_number: int) -> dict:
@@ -183,43 +222,7 @@ def draw_one_known_pathway(
             "Output file for the plot is of wrong format. Please use html file name."
         )
     if met_not_int is None:
-        met_not_int = {
-            "h": 0,
-            "h2o": 0,
-            "h2": 0,
-            "oh1": 0,
-            "o2": 0,
-            "co2": 0,
-            "coa": 0,
-            "ppi": 0,
-            "pi": 0,
-            "amp": 0,
-            "adp": 0,
-            "atp": 0,
-            "cmp": 0,
-            "cdp": 0,
-            "ctp": 0,
-            "gmp": 0,
-            "gdp": 0,
-            "gtp": 0,
-            "ump": 0,
-            "udp": 0,
-            "utp": 0,
-            "nad": 0,
-            "nadh": 0,
-            "nadp": 0,
-            "nadph": 0,
-            "dadp": 0,
-            "damp": 0,
-            "nh3": 0,
-            "nh4": 0,
-            "fadh2": 0,
-            "fad": 0,
-            "ac": 0,
-            "accoa": 0,
-            "h2s": 0,
-            "HC00250": 0,
-        }
+        met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
     color_brewer = get_color_palette(len(supermodel.sources))
     if n_letter is None:
         n_letter = supermodel.get_short_name_len()
@@ -684,43 +687,7 @@ def draw_one_synt_path(
             "Output file for the plot is of wrong format. Please use html file name."
         )
     if met_not_int is None:
-        met_not_int = {
-            "h": 0,
-            "h2o": 0,
-            "h2": 0,
-            "oh1": 0,
-            "o2": 0,
-            "co2": 0,
-            "coa": 0,
-            "ppi": 0,
-            "pi": 0,
-            "amp": 0,
-            "adp": 0,
-            "atp": 0,
-            "cmp": 0,
-            "cdp": 0,
-            "ctp": 0,
-            "gmp": 0,
-            "gdp": 0,
-            "gtp": 0,
-            "ump": 0,
-            "udp": 0,
-            "utp": 0,
-            "nad": 0,
-            "nadh": 0,
-            "nadp": 0,
-            "nadph": 0,
-            "dadp": 0,
-            "damp": 0,
-            "nh3": 0,
-            "nh4": 0,
-            "fadh2": 0,
-            "fad": 0,
-            "ac": 0,
-            "accoa": 0,
-            "h2s": 0,
-            "HC00250": 0,
-        }
+        met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
     color_brewer = get_color_palette(len(supermodel.sources))
     if n_letter is None:
         n_letter = supermodel.get_short_name_len()
@@ -957,49 +924,15 @@ def draw_met_neighborhood(
     if metabolite_id not in supermodel.metabolites.assembly.keys():
         raise ValueError(f"{metabolite_id} is not in the supermodel")
     if met_not_int is None:
-        met_not_int = {
-            "h": 0,
-            "h2o": 0,
-            "h2": 0,
-            "oh1": 0,
-            "o2": 0,
-            "co2": 0,
-            "coa": 0,
-            "ppi": 0,
-            "pi": 0,
-            "amp": 0,
-            "adp": 0,
-            "atp": 0,
-            "cmp": 0,
-            "cdp": 0,
-            "ctp": 0,
-            "gmp": 0,
-            "gdp": 0,
-            "gtp": 0,
-            "ump": 0,
-            "udp": 0,
-            "utp": 0,
-            "nad": 0,
-            "nadh": 0,
-            "nadp": 0,
-            "nadph": 0,
-            "dadp": 0,
-            "damp": 0,
-            "nh3": 0,
-            "nh4": 0,
-            "fadh2": 0,
-            "fad": 0,
-            "ac": 0,
-            "accoa": 0,
-            "h2s": 0,
-            "HC00250": 0,
-        }
+        met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
     all_r = set()
+    all_g = set()
     med_high_connect = []
-    all_m = [metabolite_id]
+    all_m = {metabolite_id}
+    dist_m = [metabolite_id]
     for i in range(neighborhood_dist):
         new_all_m = set()
-        for m_id in all_m:
+        for m_id in dist_m:
             tmp_m = re.sub("_([cep])$", "", m_id)
             if tmp_m in met_not_int.keys():
                 continue
@@ -1020,8 +953,15 @@ def draw_met_neighborhood(
                         .keys()
                     ]
                 )
-        all_m = new_all_m
-    draw_one_synt_path(
+                all_g = all_g | set(
+                    [
+                        g.id
+                        for g in supermodel.reactions.assembly[r_id].genes["assembly"]
+                    ]
+                )
+        dist_m = new_all_m
+        all_m = all_m | new_all_m
+    graph = draw_one_synt_path(
         supermodel,
         list(all_r),
         med_high_connect,
@@ -1037,3 +977,4 @@ def draw_met_neighborhood(
         hei,
         size,
     )
+    return graph, all_r, all_g, all_m

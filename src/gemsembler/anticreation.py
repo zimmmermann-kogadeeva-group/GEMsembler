@@ -136,7 +136,9 @@ def get_model_of_interest(
             out_reaction.lower_bound = r_lower_bound.get(interest_level_r)[0]
             out_reaction.upper_bound = r_upper_bound.get(interest_level_r)[0]
         for met, k in r_metabolites.get(interest_level_r).items():
-            out_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
+            out_met = Metabolite(
+                met.id, name=met.name, compartment=met.compartments["assembly"][0]
+            )
             out_reaction.add_metabolites({out_met: k})
         if r_gene_reaction_rule.get(gene_interest_level):
             out_reaction.gene_reaction_rule = r_gene_reaction_rule.get(
