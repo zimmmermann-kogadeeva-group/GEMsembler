@@ -452,7 +452,6 @@ class NewReaction(NewElement):
     ):
         genes_to_add = defaultdict(list)
         for model_id in self.in_models["models_list"]:
-            genes_not_to_add = ["not_found"]
             old_rs = connections.get_old_rs(model_id, self.id, do_notconv)
             if not old_rs:
                 continue
@@ -464,13 +463,7 @@ class NewReaction(NewElement):
                 for oldrg in oldr.genes:
                     pot_new_g_id = connections.get_new_gene_id(model_id, oldrg.id)
                     gene_convert.update({oldrg.id: pot_new_g_id})
-                    if (not do_notconv) & (
-                        connections.g_conversion_tables[model_id] is not None
-                    ):
-                        genes_not_to_add.append(oldrg.id)
-                    if pot_new_g_id not in genes_not_to_add:
-                        genes_to_add[model_id].append(pot_new_g_id)
-                        genes_not_to_add.append(pot_new_g_id)
+                    genes_to_add[model_id].append(pot_new_g_id)
                 old_gpr = oldr.gene_reaction_rule
                 new_gpr, mix_gpr = makeNewGPR(old_gpr, gene_convert)
                 if new_gpr:
@@ -821,8 +814,9 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             r._find_metabolites(connection_knowledge)
             g_to_add = r._find_gene_and_gpr(connection_knowledge, gene_folder)
             for model_id, gene_ids in g_to_add.items():
-                for g_id in gene_ids:
-                    r.genes[model_id].append(self.genes.assembly[g_id])
+                for g_id in list(set(gene_ids)):
+                    if g_id in self.genes.assembly.keys():
+                        r.genes[model_id].append(self.genes.assembly[g_id])
         for gene in self.genes.assembly.values():
             gene._find_reactions(all_models_data, connection_knowledge)
         if not do_mix:
@@ -840,7 +834,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     connection_knowledge, gene_folder, do_notconv=True
                 )
                 for model_id, gene_ids in g_to_add.items():
-                    for g_id in gene_ids:
+                    for g_id in list(set(gene_ids)):
                         if g_id in self.genes.notconverted.keys():
                             r.genes[model_id].append(self.genes.notconverted[g_id])
             for gene in self.genes.notconverted.values():

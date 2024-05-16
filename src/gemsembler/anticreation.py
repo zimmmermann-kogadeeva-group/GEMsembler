@@ -1,3 +1,4 @@
+import warnings
 from copy import deepcopy
 from pathlib import Path
 from pprint import pprint
@@ -64,6 +65,7 @@ def get_model_of_interest(
     output_name=None,
     gene_interest_level=None,
     biomass_interest_level=None,
+    simple_biomass_products=True,
     extend_zero_bounds=True,
     gapfill_transport=True,
     reactions_include: [NewElement] = None,
@@ -85,21 +87,19 @@ def get_model_of_interest(
             f"Interest level {interest_level} is not determined yet. "
             f"Please run corresponding supermodel comparison first."
         )
-    if supermodel.reactions.assembly.get("Biomass") not in in_reactions:
-        in_reactions = list(in_reactions) + [
-            supermodel.reactions.assembly.get("Biomass")
-        ]
     if reactions_include:
         in_reactions = list(set(in_reactions) | set(reactions_include))
     else:
         reactions_include = []
     if reactions_exclude:
         in_reactions = list(set(in_reactions) - set(reactions_exclude))
+    if supermodel.reactions.assembly.get("Biomass") in in_reactions:
+        in_reactions = list(
+            set(list(in_reactions)) - {supermodel.reactions.assembly.get("Biomass")}
+        )
     for r in in_reactions:
         if r in reactions_include:
             interest_level_r = "assembly"
-        elif r.id == "Biomass":
-            interest_level_r = biomass_interest_level
         else:
             interest_level_r = interest_level
         if interest_level_r in supermodel.sources + ["assembly"]:
@@ -147,6 +147,54 @@ def get_model_of_interest(
         else:
             out_reaction.gene_reaction_rule = ""
         outmodel.add_reactions([out_reaction])
+    biomass_reaction = Reaction("Biomass")
+    if biomass_interest_level in supermodel.sources + ["assembly"]:
+        biomass_reaction.upper_bound = supermodel.reactions.assembly[
+            "Biomass"
+        ].upper_bound.get(biomass_interest_level)[0]
+        biomass_reaction.lower_bound = supermodel.reactions.assembly[
+            "Biomass"
+        ].lower_bound.get(biomass_interest_level)[0]
+        bio_r_metabolites = supermodel.reactions.assembly["Biomass"].metabolites
+    else:
+        biomass_reaction.upper_bound = (
+            supermodel.reactions.assembly["Biomass"]
+            .upper_bound["comparison"]
+            .get(biomass_interest_level)[0]
+        )
+        biomass_reaction.lower_bound = (
+            supermodel.reactions.assembly["Biomass"]
+            .lower_bound["comparison"]
+            .get(biomass_interest_level)[0]
+        )
+        bio_r_metabolites = supermodel.reactions.assembly["Biomass"].metabolites[
+            "comparison"
+        ]
+    if simple_biomass_products:
+        biomass_prod_id = ["adp_c", "h_c", "pi_c", "ppi_c"]
+        for met, k in bio_r_metabolites.get(biomass_interest_level).items():
+            if met.id in biomass_prod_id:
+                biomass_prod_id.remove(met.id)
+                bio_met = Metabolite(
+                    met.id, name=met.name, compartment=met.compartments["assembly"][0]
+                )
+                biomass_reaction.add_metabolites({bio_met: k})
+            if k < 0:
+                bio_met = Metabolite(
+                    met.id, name=met.name, compartment=met.compartments["assembly"][0]
+                )
+                biomass_reaction.add_metabolites({bio_met: k})
+        if biomass_prod_id:
+            warnings.warn(
+                f"Some expected biomass products are not found: {' '.join(biomass_prod_id)}"
+            )
+    else:
+        for met, k in bio_r_metabolites.get(biomass_interest_level).items():
+            bio_met = Metabolite(
+                met.id, name=met.name, compartment=met.compartments["assembly"][0]
+            )
+            biomass_reaction.add_metabolites({bio_met: k})
+    outmodel.add_reactions([biomass_reaction])
     outmodel.objective = "Biomass"
     if gapfill_transport:
         gapfill_transport_r(outmodel, supermodel)
@@ -162,6 +210,7 @@ def get_models_with_all_confidence_levels(
     output_dir=None,
     gene_interest_level=None,
     biomass_interest_level=None,
+    simple_biomass_products=True,
     extend_zero_bounds=True,
     gapfill_transport=True,
     reactions_include: [NewElement] = None,
@@ -185,6 +234,7 @@ def get_models_with_all_confidence_levels(
                     output_name=output_dir_lev,
                     gene_interest_level=gene_interest_level,
                     biomass_interest_level=biomass_interest_level,
+                    simple_biomass_products=simple_biomass_products,
                     extend_zero_bounds=extend_zero_bounds,
                     gapfill_transport=gapfill_transport,
                     reactions_include=reactions_include,

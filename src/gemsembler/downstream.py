@@ -2,7 +2,6 @@ import operator
 import re
 import warnings
 from collections import defaultdict
-from copy import deepcopy
 from pathlib import Path
 
 import dill
@@ -131,8 +130,9 @@ def draw_glycolysis(
     directed=True,
     met_not_int=None,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
+    size=25,
     write_table=True,
     yes_range=1,
     no_range=1,
@@ -160,6 +160,7 @@ def draw_glycolysis(
         n_letter,
         wid,
         hei,
+        size,
     )
     if write_table:
         t_name = re.sub(".html$", ".tsv", output_name)
@@ -186,8 +187,9 @@ def draw_tca(
     directed=True,
     met_not_int=None,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
+    size=25,
     write_table=True,
     yes_range=1,
     no_range=1,
@@ -235,6 +237,7 @@ def draw_tca(
         n_letter,
         wid,
         hei,
+        size,
     )
     if write_table:
         t_name = re.sub(".html$", ".tsv", output_name)
@@ -261,8 +264,9 @@ def draw_pentose_phosphate(
     directed=True,
     met_not_int=None,
     n_letter=None,
-    wid=None,
-    hei=None,
+    wid=1920,
+    hei=1080,
+    size=25,
     write_table=True,
     yes_range=1,
     no_range=1,
@@ -292,6 +296,7 @@ def draw_pentose_phosphate(
         n_letter,
         wid,
         hei,
+        size,
     )
     if write_table:
         t_name = re.sub(".html$", ".tsv", output_name)
