@@ -707,9 +707,13 @@ def draw_one_synt_path(
             if (tmp_rea in met_not_int.keys()) and not draw_met_not_int:
                 continue
             if (tmp_rea in met_not_int.keys()) and draw_met_not_int:
+                if tmp_rea in met_to_synt:
+                    m_pallitra = "interest"
+                else:
+                    m_pallitra = "metConnect"
                 colname_rea = define_node_features(
                     color_brewer,
-                    "metConnect",
+                    m_pallitra,
                     rea,
                     n_letter,
                     node_id=f"{tmp_rea} {met_not_int[tmp_rea]}",
@@ -764,9 +768,13 @@ def draw_one_synt_path(
             if (tmp_pro in met_not_int.keys()) and not draw_met_not_int:
                 continue
             if (tmp_pro in met_not_int.keys()) and draw_met_not_int:
+                if tmp_pro in met_to_synt:
+                    m_pallitra = "interest"
+                else:
+                    m_pallitra = "metConnect"
                 colname_pro = define_node_features(
                     color_brewer,
-                    "metConnect",
+                    m_pallitra,
                     pro,
                     n_letter,
                     node_id=f"{tmp_pro} {met_not_int[tmp_pro]}",
@@ -934,7 +942,7 @@ def draw_met_neighborhood(
         new_all_m = set()
         for m_id in dist_m:
             tmp_m = re.sub("_([cep])$", "", m_id)
-            if tmp_m in met_not_int.keys():
+            if (tmp_m in met_not_int.keys()) & (not draw_met_not_int):
                 continue
             met = supermodel.metabolites.assembly.get(m_id)
             reactions = [r.id for r in met.reactions["assembly"]]
