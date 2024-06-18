@@ -177,7 +177,10 @@ class NewMetabolite(NewElement):
             new_id, old_id, compartments, source, possible_sources, converted
         )
         if converted:
-            id_noc = re.sub("_([cep])$", "", new_id)
+            all_comp_bigg = "".join(
+                list(set([i[-1] for i in m_database_info["bigg_id"].to_list()]))
+            )
+            id_noc = re.sub(f"_([{all_comp_bigg}])$", "", new_id)
             name = m_database_info[m_database_info["universal_bigg_id"] == id_noc][
                 "name"
             ].values[0]

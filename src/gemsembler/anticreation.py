@@ -100,6 +100,7 @@ def get_model_of_interest(
     for r in in_reactions:
         if r in reactions_include:
             interest_level_r = "assembly"
+            gene_interest_level = "assembly"
         else:
             interest_level_r = interest_level
         if interest_level_r in supermodel.sources + ["assembly"]:
