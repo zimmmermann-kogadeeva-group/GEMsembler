@@ -203,6 +203,52 @@ def get_pyvis_from_nx(g, directed, size, width=1920, height=1080):
     return pyvis_graph
 
 
+def draw_notconv_biomass(
+    supermodel: SuperModel,
+    output_name: str,
+    directed=True,
+    n_letter=None,
+    wid=1920,
+    hei=1080,
+    size=25,
+):
+    if not output_name.endswith(".html"):
+        raise ValueError(
+            "Output file for the plot is of wrong format. Please use html file name."
+        )
+    if n_letter is None:
+        n_letter = supermodel.get_short_name_len()
+    g = nx.DiGraph()
+    biomass_r = supermodel.reactions.notconverted.get("Biomass")
+    reactants = {}
+    products = {}
+    for typ in supermodel.sources:
+        for rea in biomass_r.reactants.get(typ):
+            if rea.id not in reactants.keys():
+                reactants.update({rea.id: f"{rea.id}\n{typ[:n_letter]}"})
+            else:
+                if rea.id in rea.annotation.get(typ):
+                    reactants.update(
+                        {rea.id: f"{reactants.get(rea.id)}{typ[:n_letter]}"}
+                    )
+        for pro in biomass_r.products.get(typ):
+            if pro.id not in products.keys():
+                products.update({pro.id: f"{pro.id}\n{typ[:n_letter]}"})
+            else:
+                products.update({pro.id: f"{products.get(pro.id)}{typ[:n_letter]}"})
+    g.add_node(biomass_r.id, shape="box")
+    for r in reactants.values():
+        g.add_node(r, shape="o")
+        g.add_edge(r, biomass_r.id, font_color="black")
+    for p in products.values():
+        g.add_node(p, shape="o")
+        g.add_edge(biomass_r.id, p, font_color="black")
+
+    pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
+    pyvis_graph.write_html(output_name, notebook=False)
+    return g
+
+
 def draw_one_known_pathway(
     supermodel: SuperModel,
     pathway: dict,
@@ -472,200 +518,6 @@ def draw_one_known_pathway(
     return g
 
 
-def draw_biomass(
-    supermodel: SuperModel,
-    output_name: str,
-    only_difference=False,
-    directed=True,
-    n_letter=None,
-    wid=1920,
-    hei=1080,
-    size=25,
-    write_table=True,
-    yes_range=1,
-    no_range=1,
-):
-    if not output_name.endswith(".html"):
-        raise ValueError(
-            "Output file for the plot is of wrong format. Please use html file name."
-        )
-    color_brewer = get_color_palette(len(supermodel.sources))
-    if n_letter is None:
-        n_letter = supermodel.get_short_name_len()
-    if write_table:
-        output = {
-            "Metabolite": [],
-            "Type": [],
-            "Met_confidence": [],
-            "Biomass_confidence": [],
-            "Status": [],
-        }
-    g = nx.DiGraph()
-    biomass_r = supermodel.reactions.assembly.get("Biomass")
-    colname_r = define_node_features(
-        color_brewer, "single_path_r", biomass_r, n_letter,
-    )
-    g.add_node(
-        colname_r[0],
-        label=colname_r[1],
-        shape="box",
-        color=colname_r[2],
-        title=colname_r[3],
-    )
-    core_rea = []
-    if only_difference:
-        core_rea = getCoreConnections(
-            biomass_r.reactants,
-            len(supermodel.sources),
-            operator.ge,
-            supermodel.sources,
-        )
-    for rea in biomass_r.reactants.get("assembly"):
-        if rea not in core_rea:
-            colname_rea = define_node_features(
-                color_brewer, "metabolites", rea, n_letter
-            )
-            rea_edge = define_edge_features(
-                color_brewer,
-                "single_path_r",
-                "metabolites",
-                rea,
-                colname_rea[1],
-                biomass_r,
-                colname_r[1],
-                "reactants",
-                n_letter,
-            )
-            g.add_node(
-                colname_rea[0],
-                shape="o",
-                label=colname_rea[1],
-                color=colname_rea[2],
-                title=colname_rea[3],
-            )
-            for e in rea_edge:
-                g.add_edge(
-                    e[0], e[1], color=e[2], font_color="black", title=e[3],
-                )
-            if write_table:
-                output["Metabolite"].append(colname_rea[0])
-                output["Type"].append("reactant")
-                output["Met_confidence"].append(f"Core{rea.in_models['models_amount']}")
-                cr = int(rea_edge[0][3].split(":\n")[0].split(" ")[-1])
-                output["Biomass_confidence"].append(f"Core{cr}")
-                if cr >= len(supermodel.sources) - yes_range:
-                    output["Status"].append("yes")
-                elif cr <= no_range:
-                    output["Status"].append("no")
-                else:
-                    output["Status"].append("q")
-    core_pro = []
-    if only_difference:
-        core_pro = getCoreConnections(
-            biomass_r.products,
-            len(supermodel.sources),
-            operator.ge,
-            supermodel.sources,
-        )
-    for pro in biomass_r.products.get("assembly"):
-        if pro not in core_pro:
-            colname_pro = define_node_features(
-                color_brewer, "metabolites", pro, n_letter
-            )
-            pro_edge = define_edge_features(
-                color_brewer,
-                "single_path_r",
-                "metabolites",
-                pro,
-                colname_pro[1],
-                biomass_r,
-                colname_r[1],
-                "products",
-                n_letter,
-            )
-            g.add_node(
-                colname_pro[0],
-                shape="o",
-                label=colname_pro[1],
-                color=colname_pro[2],
-                title=colname_pro[3],
-            )
-            for e in pro_edge:
-                g.add_edge(
-                    e[0], e[1], color=e[2], font_color="black", title=e[3],
-                )
-            if write_table:
-                output["Metabolite"].append(colname_pro[0])
-                output["Type"].append("product")
-                output["Met_confidence"].append(f"Core{pro.in_models['models_amount']}")
-                cp = int(pro_edge[0][3].split(":\n")[0].split(" ")[-1])
-                output["Biomass_confidence"].append(f"Core{cp}")
-                if cp >= len(supermodel.sources) - yes_range:
-                    output["Status"].append("yes")
-                elif cp <= no_range:
-                    output["Status"].append("no")
-                else:
-                    output["Status"].append("q")
-    pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
-    pyvis_graph.write_html(output_name, notebook=False)
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
-        output_tb = pd.DataFrame(output)
-        output_tb.to_csv(t_name, sep="\t", index=False)
-        return g, output_tb
-    else:
-        return g
-
-
-def draw_notconv_biomass(
-    supermodel: SuperModel,
-    output_name: str,
-    directed=True,
-    n_letter=None,
-    wid=1920,
-    hei=1080,
-    size=25,
-    write_table=True,
-    yes_range=1,
-    no_range=1,
-):
-    if not output_name.endswith(".html"):
-        raise ValueError(
-            "Output file for the plot is of wrong format. Please use html file name."
-        )
-    if n_letter is None:
-        n_letter = supermodel.get_short_name_len()
-    g = nx.DiGraph()
-    biomass_r = supermodel.reactions.notconverted.get("Biomass")
-    reactants = {}
-    products = {}
-    for typ in supermodel.sources:
-        for rea in biomass_r.reactants.get(typ):
-            if rea.id not in reactants.keys():
-                reactants.update({rea.id: f"{rea.id}\n{typ[:n_letter]}"})
-            else:
-                if rea.id in rea.annotation.get(typ):
-                    reactants.update(
-                        {rea.id: f"{reactants.get(rea.id)}{typ[:n_letter]}"}
-                    )
-        for pro in biomass_r.products.get(typ):
-            if pro.id not in products.keys():
-                products.update({pro.id: f"{pro.id}\n{typ[:n_letter]}"})
-            else:
-                products.update({pro.id: f"{products.get(pro.id)}{typ[:n_letter]}"})
-    g.add_node(biomass_r.id, shape="box")
-    for r in reactants.values():
-        g.add_node(r, shape="o")
-        g.add_edge(r, biomass_r.id, font_color="black")
-    for p in products.values():
-        g.add_node(p, shape="o")
-        g.add_edge(biomass_r.id, p, font_color="black")
-
-    pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
-    pyvis_graph.write_html(output_name, notebook=False)
-    return g
-
-
 def draw_one_synt_path(
     supermodel: SuperModel,
     path: list,
@@ -707,7 +559,7 @@ def draw_one_synt_path(
             if (tmp_rea in met_not_int.keys()) and not draw_met_not_int:
                 continue
             if (tmp_rea in met_not_int.keys()) and draw_met_not_int:
-                if tmp_rea in met_to_synt:
+                if rea.id in met_to_synt:
                     m_pallitra = "interest"
                 else:
                     m_pallitra = "metConnect"
@@ -734,7 +586,7 @@ def draw_one_synt_path(
             else:
                 if tmp_rea in medium:
                     m_pallitra = "metConnect"
-                elif tmp_rea in met_to_synt:
+                elif rea.id in met_to_synt:
                     m_pallitra = "interest"
                 else:
                     m_pallitra = "metabolites"
@@ -768,7 +620,7 @@ def draw_one_synt_path(
             if (tmp_pro in met_not_int.keys()) and not draw_met_not_int:
                 continue
             if (tmp_pro in met_not_int.keys()) and draw_met_not_int:
-                if tmp_pro in met_to_synt:
+                if pro.id in met_to_synt:
                     m_pallitra = "interest"
                 else:
                     m_pallitra = "metConnect"
@@ -795,7 +647,7 @@ def draw_one_synt_path(
             else:
                 if tmp_pro in medium:
                     m_pallitra = "metConnect"
-                elif tmp_pro in met_to_synt:
+                elif pro.id in met_to_synt:
                     m_pallitra = "interest"
                 else:
                     m_pallitra = "metabolites"
@@ -846,143 +698,3 @@ def draw_one_synt_path(
     pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
     pyvis_graph.write_html(output_name, notebook=False)
     return g
-
-
-def draw_pfba_results(
-    path_pfba_out: dict,
-    supermodel: SuperModel,
-    medium: list,
-    write_output_to_folder: str,
-    draw_pfba_for_models=None,
-    draw_met_not_int=False,
-):
-    if draw_pfba_for_models is None:
-        met_model = {}
-        for mod, res in path_pfba_out.items():
-            for met in res.keys():
-                if met in met_model.keys():
-                    if mod.startswith("core") and (
-                        (not met_model[met][0].startswith("core"))
-                        or (
-                            int(mod.removeprefix("core"))
-                            > int(met_model[met][0].removeprefix("core"))
-                        )
-                    ):
-                        met_model[met] = [mod]
-                    elif mod == "assembly" and (
-                        not met_model[met][0].startswith("core")
-                    ):
-                        met_model[met] = [mod]
-                    elif (not met_model[met][0].startswith("core")) and (
-                        met_model[met][0] != "assembly"
-                    ):
-                        met_model[met].append(mod)
-                else:
-                    met_model[met] = [mod]
-        pd.DataFrame(
-            met_model.items(), columns=["Metabolite", "Most confident pfba"]
-        ).to_csv(
-            f"{write_output_to_folder}/bp_most_confident_pfba_production.tsv",
-            index=False,
-            sep="\t",
-        )
-        for m, mod_conf in met_model.items():
-            for model_id in mod_conf:
-                v = [
-                    vv for vv in path_pfba_out[model_id][m] if not vv.startswith("DM_")
-                ]
-                g = draw_one_synt_path(
-                    supermodel,
-                    v,
-                    medium,
-                    [m.removesuffix("_path_pfba")],
-                    f"{write_output_to_folder}/{m}_{model_id}.html",
-                    draw_met_not_int=draw_met_not_int,
-                )
-    else:
-        for model_id in draw_pfba_for_models:
-            for k, v in path_pfba_out[model_id].items():
-                v = [vv for vv in v if not vv.startswith("DM_")]
-                g = draw_one_synt_path(
-                    supermodel,
-                    v,
-                    medium,
-                    [k.removesuffix("_path_pfba")],
-                    f"{write_output_to_folder}/{k}_{model_id}.html",
-                    draw_met_not_int=draw_met_not_int,
-                )
-
-
-def draw_met_neighborhood(
-    supermodel: SuperModel,
-    metabolite_id: str,
-    output_name: str,
-    neighborhood_dist=2,
-    highly_connected_t=10,
-    draw_met_not_int=False,
-    genes=True,
-    and_as_solid=False,
-    directed=True,
-    met_not_int=None,
-    n_letter=None,
-    wid=1920,
-    hei=1080,
-    size=25,
-):
-    if metabolite_id not in supermodel.metabolites.assembly.keys():
-        raise ValueError(f"{metabolite_id} is not in the supermodel")
-    if met_not_int is None:
-        met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
-    all_r = set()
-    all_g = set()
-    med_high_connect = []
-    all_m = {metabolite_id}
-    dist_m = [metabolite_id]
-    for i in range(neighborhood_dist):
-        new_all_m = set()
-        for m_id in dist_m:
-            tmp_m = re.sub("_([cep])$", "", m_id)
-            if (tmp_m in met_not_int.keys()) & (not draw_met_not_int):
-                continue
-            met = supermodel.metabolites.assembly.get(m_id)
-            reactions = [r.id for r in met.reactions["assembly"]]
-            if len(reactions) > highly_connected_t:
-                reactions = []
-                med_high_connect.append(re.sub("_([cep])$", "", met.id))
-            all_r = all_r | set(reactions)
-            for r_id in reactions:
-                if r_id == "Biomass":
-                    continue
-                new_all_m = new_all_m | set(
-                    [
-                        m.id
-                        for m in supermodel.reactions.assembly[r_id]
-                        .metabolites["assembly"]
-                        .keys()
-                    ]
-                )
-                all_g = all_g | set(
-                    [
-                        g.id
-                        for g in supermodel.reactions.assembly[r_id].genes["assembly"]
-                    ]
-                )
-        dist_m = new_all_m
-        all_m = all_m | new_all_m
-    graph = draw_one_synt_path(
-        supermodel,
-        list(all_r),
-        med_high_connect,
-        [re.sub("_([cep])$", "", metabolite_id)],
-        output_name,
-        draw_met_not_int,
-        genes,
-        and_as_solid,
-        directed,
-        met_not_int,
-        n_letter,
-        wid,
-        hei,
-        size,
-    )
-    return graph, all_r, all_g, all_m
