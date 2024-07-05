@@ -265,7 +265,7 @@ def get_locus_tag_genes(
 def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: str):
     gene_path = output_folder / "tmp_gene_conversion"
     path = gene_path / "ncbi_assembly"
-    path.mkdir(exist_ok=True)
+    path.mkdir(parents=True, exist_ok=True)
     ngd.download(
         assembly_accessions=assembly_id,
         output=path,
