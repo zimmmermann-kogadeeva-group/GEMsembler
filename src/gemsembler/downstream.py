@@ -87,11 +87,6 @@ def table_reactions_confidence(
     if pathway_r is None:
         pathway_r = list(supermodel.reactions.assembly.keys())
     output = {"Reaction": pathway_r, "R_confidence": [], "Status": [], "R_models": []}
-    if genes:
-        output.update({"GPR_confidence": [], "GPR_core": [], "GPR_assembly": []})
-    if add_original_models:
-        for source in supermodel.sources:
-            output.update({source: []})
     if path_r_dist is not None:
         if len(set(pathway_r) & set(list(path_r_dist.keys()))) != len(pathway_r):
             raise ValueError(
@@ -100,6 +95,11 @@ def table_reactions_confidence(
                 f"Please check pathway_r and path_r_dist input"
             )
         output.update({f"Distance from {path_r_dist['metabolite']}": []})
+    if genes:
+        output.update({"GPR_confidence": [], "GPR_core": [], "GPR_assembly": []})
+    if add_original_models:
+        for source in supermodel.sources:
+            output.update({source: []})
     for r_id in pathway_r:
         if r_id in supermodel.reactions.assembly.keys():
             r = supermodel.reactions.assembly[r_id]
@@ -184,7 +184,7 @@ def pathway_of_interest(
         if met_not_int is None:
             met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
         pathway_r_dict = {}
-        for r_id in pathway_r_dict:
+        for r_id in pathway_r:
             pathway_r_dict[r_id] = []
             r = supermodel.reactions.assembly[r_id]
             for rea in r.reactants["assembly"]:
@@ -217,10 +217,10 @@ def pathway_of_interest(
             supermodel,
             write_table_to_file,
             pathway_r_list,
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
+            yes_range=yes_range,
+            no_range=no_range,
+            genes=genes,
+            and_as_solid=and_as_solid,
         )
     if draw_pathway_to_file and write_table_to_file:
         return g, t
@@ -267,9 +267,8 @@ def biosynthesis_pathway_with_media_and_metabolite(
 
 def glycolysis(
     supermodel: SuperModel,
-    output_name: str,
-    draw_pathway=True,
-    write_table=True,
+    draw_pathway_to_file=None,
+    write_table_to_file=None,
     additional_met=False,
     genes=True,
     and_as_solid=False,
@@ -293,11 +292,11 @@ def glycolysis(
         "ENO": [("2pg_c", "pep_c")],
         "PYK": [("pep_c", "pyr_c")],
     }
-    if draw_pathway:
+    if draw_pathway_to_file is not None:
         g = draw_one_known_pathway(
             supermodel,
             glycolysis,
-            output_name,
+            draw_pathway_to_file,
             additional_met,
             genes,
             and_as_solid,
@@ -308,30 +307,28 @@ def glycolysis(
             hei,
             size,
         )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
+    if write_table_to_file:
         t = table_reactions_confidence(
             supermodel,
-            t_name,
+            write_table_to_file,
             list(glycolysis.keys()),
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
+            yes_range=yes_range,
+            no_range=no_range,
+            genes=genes,
+            and_as_solid=and_as_solid,
         )
-    if draw_pathway and write_table:
+    if draw_pathway_to_file and write_table_to_file:
         return g, t
-    elif draw_pathway and not write_table:
+    elif draw_pathway_to_file and not write_table_to_file:
         return g
-    elif not draw_pathway and write_table:
+    elif not draw_pathway_to_file and write_table_to_file:
         return t
 
 
 def tca(
     supermodel: SuperModel,
-    output_name: str,
-    draw_pathway=True,
-    write_table=True,
+    draw_pathway_to_file=None,
+    write_table_to_file=None,
     additional_met=False,
     genes=True,
     and_as_solid=False,
@@ -375,11 +372,11 @@ def tca(
         "MDH2": [("mal__L_c", "oaa_c")],
         "MDH3": [("mal__L_c", "oaa_c")],
     }
-    if draw_pathway:
+    if draw_pathway_to_file:
         g = draw_one_known_pathway(
             supermodel,
             tca,
-            output_name,
+            draw_pathway_to_file,
             additional_met,
             genes,
             and_as_solid,
@@ -390,30 +387,28 @@ def tca(
             hei,
             size,
         )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
+    if write_table_to_file:
         t = table_reactions_confidence(
             supermodel,
-            t_name,
+            write_table_to_file,
             list(tca.keys()),
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
+            yes_range=yes_range,
+            no_range=no_range,
+            genes=genes,
+            and_as_solid=and_as_solid,
         )
-    if draw_pathway and write_table:
+    if draw_pathway_to_file and write_table_to_file:
         return g, t
-    elif draw_pathway and not write_table:
+    elif draw_pathway_to_file and not write_table_to_file:
         return g
-    elif not draw_pathway and write_table:
+    elif not draw_pathway_to_file and write_table_to_file:
         return t
 
 
 def pentose_phosphate(
     supermodel: SuperModel,
-    output_name: str,
-    draw_pathway=True,
-    write_table=True,
+    draw_pathway_to_file=None,
+    write_table_to_file=None,
     additional_met=False,
     genes=True,
     and_as_solid=False,
@@ -439,11 +434,11 @@ def pentose_phosphate(
         "PGI": [("f6p_c", "g6p_c")],
         "G6PI": [("g6p_c", "g6p_B_c")],
     }
-    if draw_pathway:
+    if draw_pathway_to_file:
         g = draw_one_known_pathway(
             supermodel,
             pentose_phosphate_pathway,
-            output_name,
+            draw_pathway_to_file,
             additional_met,
             genes,
             and_as_solid,
@@ -454,31 +449,29 @@ def pentose_phosphate(
             hei,
             size,
         )
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
+    if write_table_to_file:
         t = table_reactions_confidence(
             supermodel,
-            t_name,
+            write_table_to_file,
             list(pentose_phosphate_pathway.keys()),
-            yes_range,
-            no_range,
-            genes,
-            and_as_solid,
+            yes_range=yes_range,
+            no_range=no_range,
+            genes=genes,
+            and_as_solid=and_as_solid,
         )
-    if draw_pathway and write_table:
+    if draw_pathway_to_file and write_table_to_file:
         return g, t
-    elif draw_pathway and not write_table:
+    elif draw_pathway_to_file and not write_table_to_file:
         return g
-    elif not draw_pathway and write_table:
+    elif not draw_pathway_to_file and write_table_to_file:
         return t
 
 
 def biomass(
     supermodel: SuperModel,
-    output_name: str,
     only_difference=False,
-    draw_plot=True,
-    write_table=True,
+    draw_plot_to_file=None,
+    write_table_to_file=None,
     directed=True,
     n_letter=None,
     wid=1920,
@@ -487,14 +480,14 @@ def biomass(
     yes_range=1,
     no_range=1,
 ):
-    if not output_name.endswith(".html"):
+    if (draw_plot_to_file is not None) and (not draw_plot_to_file.endswith(".html")):
         raise ValueError(
             "Output file for the plot is of wrong format. Please use html file name."
         )
     color_brewer = get_color_palette(len(supermodel.sources))
     if n_letter is None:
         n_letter = supermodel.get_short_name_len()
-    if write_table:
+    if write_table_to_file is not None:
         output = {
             "Metabolite": [],
             "Type": [],
@@ -551,7 +544,7 @@ def biomass(
                 g.add_edge(
                     e[0], e[1], color=e[2], font_color="black", title=e[3],
                 )
-            if write_table:
+            if write_table_to_file is not None:
                 output["Metabolite"].append(colname_rea[0])
                 output["Type"].append("reactant")
                 output["Met_confidence"].append(f"Core{rea.in_models['models_amount']}")
@@ -563,6 +556,16 @@ def biomass(
                     output["Status"].append("no")
                 else:
                     output["Status"].append("q")
+                short_s_bp = rea_edge[0][3].split(":\n")[1]
+                l = int(len(short_s_bp) / cr)
+                sources_bp = [
+                    short_s_bp[i : i + l] for i in range(0, len(short_s_bp), l)
+                ]
+                for source in supermodel.sources:
+                    if source[:l] in sources_bp:
+                        output[source].append("+")
+                    else:
+                        output[source].append("-")
     core_pro = []
     if only_difference:
         core_pro = getCoreConnections(
@@ -598,7 +601,7 @@ def biomass(
                 g.add_edge(
                     e[0], e[1], color=e[2], font_color="black", title=e[3],
                 )
-            if write_table:
+            if write_table_to_file is not None:
                 output["Metabolite"].append(colname_pro[0])
                 output["Type"].append("product")
                 output["Met_confidence"].append(f"Core{pro.in_models['models_amount']}")
@@ -620,18 +623,17 @@ def biomass(
                         output[source].append("+")
                     else:
                         output[source].append("-")
-    if draw_plot:
+    if draw_plot_to_file:
         pyvis_graph = get_pyvis_from_nx(g, directed, size, wid, hei)
-        pyvis_graph.write_html(output_name, notebook=False)
-    if write_table:
-        t_name = re.sub(".html$", ".tsv", output_name)
+        pyvis_graph.write_html(draw_plot_to_file, notebook=False)
+    if write_table_to_file is not None:
         output_tb = pd.DataFrame(output)
-        output_tb.to_csv(t_name, sep="\t", index=False)
-        if draw_plot:
+        output_tb.to_csv(write_table_to_file, sep="\t", index=False)
+        if draw_plot_to_file:
             return g, output_tb
         else:
             return output_tb
-    elif draw_plot:
+    elif draw_plot_to_file:
         return g
 
 
