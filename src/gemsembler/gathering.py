@@ -438,6 +438,7 @@ class GatheredModels:
         evalue_threshold=0.001,
         do_mix_conv_notconv=False,
         and_as_solid=False,
+        do_old_locus_tag=True,
     ):
         # Check if assembly and final genome are present.
         # If not, throw a warning.
@@ -467,7 +468,9 @@ class GatheredModels:
                 (
                     path_final_genome_nt,
                     path_final_genome_aa,
-                ) = get_final_fasta_with_ncbi_assemble(output_folder, assembly_id)
+                ) = get_final_fasta_with_ncbi_assemble(
+                    output_folder, assembly_id, do_old_locus_tag=do_old_locus_tag
+                )
             if path_final_genome_nt is not None:
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "

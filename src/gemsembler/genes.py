@@ -164,6 +164,7 @@ def get_genes_not_gapseq(
             old_id = line.strip().split(" ")[0][1:]
             if model_type == "carveme":
                 new_id = "_".join(old_id.rsplit(".", 1))
+                new_id = new_id.replace(":", "_")
             elif model_type == "agora":
                 new_id = old_id.removeprefix("fig|")
             elif model_type == "modelseed":
@@ -262,7 +263,9 @@ def get_locus_tag_genes(
     out_aa.close()
 
 
-def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: str):
+def get_final_fasta_with_ncbi_assemble(
+    output_folder: PosixPath, assembly_id: str, do_old_locus_tag=True
+):
     gene_path = output_folder / "tmp_gene_conversion"
     path = gene_path / "ncbi_assembly"
     path.mkdir(parents=True, exist_ok=True)
@@ -309,7 +312,12 @@ def get_final_fasta_with_ncbi_assemble(output_folder: PosixPath, assembly_id: st
     final_nt_faa = os.path.join(output_folder, f"final_nt_{assembly_id}.faa")
     final_aa_faa = os.path.join(output_folder, f"final_aa_{assembly_id}.faa")
     get_locus_tag_genes(
-        cds_faa, prot_faa, feat, final_nt_faa, final_aa_faa, do_old_locus_tag=True
+        cds_faa,
+        prot_faa,
+        feat,
+        final_nt_faa,
+        final_aa_faa,
+        do_old_locus_tag=do_old_locus_tag,
     )
     return final_nt_faa, final_aa_faa
 
@@ -318,10 +326,10 @@ def makeNewGPR(gpr: str, g_id_convert: dict):
     new_gpr = gpr
     mix_gpr = gpr
     for old_id, new_id in g_id_convert.items():
-        new_id = new_id.replace(".", "_")
-        old_id = old_id.replace(".", "_")
-        new_gpr = new_gpr.replace(".", "_")
-        mix_gpr = mix_gpr.replace(".", "_")
+        new_id = new_id.replace(".", "_").replace('"', "").replace(":", "_")
+        old_id = old_id.replace(".", "_").replace('"', "").replace(":", "_")
+        new_gpr = new_gpr.replace(".", "_").replace('"', "").replace(":", "_")
+        mix_gpr = mix_gpr.replace(".", "_").replace('"', "").replace(":", "_")
         if new_id[0].isdigit():
             new_id = "g_" + new_id
 

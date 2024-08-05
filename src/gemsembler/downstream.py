@@ -9,6 +9,8 @@ import dill
 import networkx as nx
 import pandas as pd
 from cobra.flux_analysis import pfba
+from matplotlib import pyplot as plt
+
 from .creation import SuperModel
 from .comparison import getCoreGPR, getCoreConnections
 import seaborn as sns
@@ -27,6 +29,8 @@ def write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
     file_name=None,
+    met_names=True,
+    id_instead_long_name=20,
     yticklabels=True,
     cmap="mako",
     metric="jaccard",
@@ -48,15 +52,35 @@ def write_metabolites_production_output(
         out_bp_production_tab.to_csv(
             f"{write_output_to_folder}/{file_name}.tsv", sep="\t", index=False,
         )
-    out_bp_production_tab.index = out_bp_production_tab["Metabolites"]
-    num = out_bp_production_tab[
-        out_bp_production_tab.columns.difference(["Metabolites"])
-    ]
+    if met_names:
+        if id_instead_long_name is not None:
+            short_names = []
+            for i in range(len(out_bp_production_tab["Metabolite names"])):
+                if (
+                    len(out_bp_production_tab["Metabolite names"].to_list()[i])
+                    > id_instead_long_name
+                ):
+                    short_names.append(
+                        out_bp_production_tab["Metabolites"].to_list()[i]
+                    )
+                else:
+                    short_names.append(
+                        out_bp_production_tab["Metabolite names"].to_list()[i]
+                    )
+            out_bp_production_tab.index = short_names
+        else:
+            out_bp_production_tab.index = out_bp_production_tab["Metabolite names"]
+    else:
+        out_bp_production_tab.index = out_bp_production_tab["Metabolites"]
+
+    num = out_bp_production_tab.drop(columns=["Metabolites", "Metabolite names"])
+
     num_no_grow = num.drop(index="overall_growth", errors="ignore")
+
     num_no_grow = num_no_grow.astype(
         {mod_name: "float" for mod_name in num_no_grow.columns}
     )
-    bp_heatmap = sns.clustermap(
+    bp_clusterpmap = sns.clustermap(
         num_no_grow,
         yticklabels=yticklabels,
         metric=metric,
@@ -66,10 +90,44 @@ def write_metabolites_production_output(
         linewidths=linewidths,
         **kwargs,
     )
+    plt.close()
+    fig, heatmap_ax = plt.subplots(figsize=(7, 14))
+    fig.subplots_adjust(left=0.4, top=0.99)
+    cbar_ax = fig.add_axes([0.02, 0.11, 0.17, 0.02])
+    bp_heatmap = sns.heatmap(
+        num_no_grow.astype(int).iloc[
+            bp_clusterpmap.dendrogram_row.reordered_ind,
+            bp_clusterpmap.dendrogram_col.reordered_ind,
+        ],
+        ax=heatmap_ax,
+        cmap=sns.color_palette("mako", 6),
+        cbar_ax=cbar_ax,
+        cbar_kws=dict(orientation="horizontal"),
+        vmin=-0.5,
+        vmax=5.5,
+        lw=1,
+    )
+    heatmap_ax.set_ylabel("Metabolite synthesis", labelpad=0)
+    cbar = heatmap_ax.collections[0].colorbar
+    cbar.ax.set_title("Possible status")
+    cbar.set_ticks([0, 1, 2, 3, 4, 5])
+    cbar.set_ticklabels(
+        [
+            "absent",
+            "not synthesized",
+            "not in biomass",
+            "cofactor",
+            "media",
+            "synthesized",
+        ],
+        rotation=-45,
+        ha="left",
+    )
     if file_name is None:
-        bp_heatmap.savefig(f"{write_output_to_folder}/all_metabolites_production.png")
+        fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png")
     else:
-        bp_heatmap.savefig(f"{write_output_to_folder}/{file_name}" f"")
+        fig.savefig(f"{write_output_to_folder}/{file_name}" f"")
+    return [fig, bp_clusterpmap]
 
 
 def table_reactions_confidence(
@@ -754,6 +812,20 @@ def fba_growth_met_production(
                 )
             )
     out_bp_production = {"Metabolites": ["overall_growth"] + met_of_interest}
+    metname_of_interest = []
+    for metid in met_of_interest:
+        found = False
+        for m in models_to_analyse.values():
+            m_metid_all = [mm.id for mm in m.metabolites]
+            if metid in m_metid_all:
+                metname_of_interest.append(m.metabolites.get_by_id(metid).name)
+                found = True
+                break
+        if not found:
+            metname_of_interest.append(metid)
+    out_bp_production.update(
+        {"Metabolite names": ["overall_growth"] + metname_of_interest}
+    )
     flux_res_out = defaultdict(dict)
     path_pfba_out = defaultdict(dict)
     stat_out = {}
@@ -779,7 +851,7 @@ def fba_growth_met_production(
         ]
         for bp in met_of_interest:
             if bp not in all_met:
-                model_data.append(-0.5)
+                model_data.append(0)
                 continue
             demand_added = False
             if ("DM_" + bp) not in all_r:
@@ -789,7 +861,7 @@ def fba_growth_met_production(
             res_bp = model.optimize()
             flux_res_out[k].update({bp + "_fba": res_bp})
             if res_bp.objective_value > 0.001:
-                model_data.append(1)
+                model_data.append(5)
                 if re.sub("_([cep])$", "", bp) in medium_no_comp:
                     model_med_stat = model_med_stat + 1
                 else:
@@ -806,10 +878,11 @@ def fba_growth_met_production(
                 )
                 path_pfba_out[k].update({bp + "_path_pfba": reactions})
             else:
+                path_pfba_out[k].update({bp + "_path_pfba": ["No_path"]})
                 if (bp not in bp_model) and biomass_precursors:
-                    model_data.append(0.5)
+                    model_data.append(2)
                 else:
-                    model_data.append(0)
+                    model_data.append(1)
             if demand_added:
                 model.remove_reactions(["DM_" + bp])
         model.medium = old_medium
@@ -821,129 +894,244 @@ def fba_growth_met_production(
     return out_bp_production, flux_res_out, path_pfba_out, stat_out
 
 
-def write_pfba_results(
-    path_pfba_out: dict,
+def write_pfba_mq_results(
+    path_pfba_mq_out: dict,
     supermodel: SuperModel,
     medium: list,
-    write_output_to_folder: str,
-    draw_pfba_for_models=None,
+    output_folder: str,
+    draw_pfba_mq_for_models=None,
     draw_met_not_int=False,
-    draw_pfba=True,
-    table_pfba=True,
+    draw_pfba_mq=True,
+    table_pfba_mq=True,
+    draw_confidence=True,
+    output_folder_mq_paths_plots=None,
+    output_folder_mq_paths_tables=None,
+    confidence_table=None,
+    confidence_plot=None,
     calc_r_dist=True,
     check_distance=5,
+    met_order=None,
     **kwargs,
 ):
-    if draw_pfba_for_models is None:
+    if (draw_pfba_mq is True) and (output_folder_mq_paths_plots is None):
+        if output_folder_mq_paths_tables is not None:
+            output_folder_mq_paths_plots = output_folder_mq_paths_tables
+        else:
+            output_folder_mq_paths_plots = output_folder
+    if (table_pfba_mq is True) and (output_folder_mq_paths_tables is None):
+        if output_folder_mq_paths_plots is not None:
+            output_folder_mq_paths_tables = output_folder_mq_paths_plots
+        else:
+            output_folder_mq_paths_tables = output_folder
+    if draw_pfba_mq_for_models is None:
         met_model = {}
-        for mod, res in path_pfba_out.items():
+        all_met = []
+        for mod, res in path_pfba_mq_out.items():
             for met in res.keys():
-                if met in met_model.keys():
-                    if mod.startswith("core") and (
-                        (not met_model[met][0].startswith("core"))
-                        or (
-                            int(mod.removeprefix("core"))
-                            > int(met_model[met][0].removeprefix("core"))
-                        )
-                    ):
-                        met_model[met] = [mod]
-                    elif mod == "assembly" and (
-                        not met_model[met][0].startswith("core")
-                    ):
-                        met_model[met] = [mod]
-                    elif (not met_model[met][0].startswith("core")) and (
-                        met_model[met][0] != "assembly"
-                    ):
-                        met_model[met].append(mod)
-                else:
-                    met_model[met] = [mod]
+                met_no_suff = met.removesuffix("_path_pfba")
+                if met_no_suff not in all_met:
+                    all_met.append(met_no_suff)
+                if res[met] != ["No_path"]:
+                    if met_no_suff in met_model.keys():
+                        if mod.startswith("core") and (
+                            (not met_model[met_no_suff][0].startswith("core"))
+                            or (
+                                int(mod.removeprefix("core"))
+                                > int(met_model[met_no_suff][0].removeprefix("core"))
+                            )
+                        ):
+                            met_model[met_no_suff] = [mod]
+                        elif mod == "assembly" and (
+                            not met_model[met_no_suff][0].startswith("core")
+                        ):
+                            met_model[met_no_suff] = [mod]
+                        elif (not met_model[met_no_suff][0].startswith("core")) and (
+                            met_model[met_no_suff][0] != "assembly"
+                        ):
+                            met_model[met_no_suff].append(mod)
+                    else:
+                        met_model[met_no_suff] = [mod]
         pd.DataFrame(
-            met_model.items(), columns=["Metabolite", "Most confident pfba"]
+            met_model.items(), columns=["Metabolite", "Most confident path"]
         ).to_csv(
-            f"{write_output_to_folder}/bp_most_confident_pfba_production.tsv",
+            f"{output_folder}/bp_most_confident_met_production.tsv",
             index=False,
             sep="\t",
         )
-        for m, mod_conf in met_model.items():
-            for model_id in mod_conf:
-                v = [
-                    vv for vv in path_pfba_out[model_id][m] if not vv.startswith("DM_")
-                ]
-                if draw_pfba:
-                    g = draw_one_synt_path(
-                        supermodel,
-                        v,
-                        medium,
-                        [m.removesuffix("_path_pfba")],
-                        f"{write_output_to_folder}/{m}_{model_id}.html",
-                        draw_met_not_int=draw_met_not_int,
-                    )
-                if table_pfba:
-                    if calc_r_dist:
-                        r_dist_dict = calc_dist_for_synt_path(
-                            v, m.removesuffix("_path_pfba"), supermodel, check_distance
-                        )
-                        t = table_reactions_confidence(
-                            supermodel,
-                            f"{write_output_to_folder}/{m}_{model_id}.tsv",
-                            v,
-                            r_dist_dict,
-                            **kwargs,
-                        )
-
-                    else:
-                        t = table_reactions_confidence(
-                            supermodel,
-                            f"{write_output_to_folder}/{m}_{model_id}.tsv",
-                            v,
-                            **kwargs,
-                        )
     else:
-        for model_id in draw_pfba_for_models:
-            for k, v in path_pfba_out[model_id].items():
-                v = [vv for vv in v if not vv.startswith("DM_")]
-                if draw_pfba:
-                    g = draw_one_synt_path(
-                        supermodel,
-                        v,
-                        medium,
-                        [k.removesuffix("_path_pfba")],
-                        f"{write_output_to_folder}/{k}_{model_id}.html",
-                        draw_met_not_int=draw_met_not_int,
+        met_model = {}
+        all_met = []
+        for mod, res in path_pfba_mq_out.items():
+            for met in res.keys():
+                met_no_suff = met.removesuffix("_path_pfba")
+                if met_no_suff not in all_met:
+                    all_met.append(met_no_suff)
+                if res[met] != ["No_path"]:
+                    met_model[met_no_suff] = mod
+    if draw_confidence:
+        confidence_paths = {
+            "ID": [],
+            "Reactions/GPRs": [],
+            "Metabolite synthesis": [],
+            "Confidence": [],
+        }
+        if met_order is not None:
+            all_met = met_order
+    for m in all_met:
+        if m not in met_model.keys():
+            if draw_confidence:
+                confidence_paths["ID"].append("No_r")
+                confidence_paths["Reactions/GPRs"].append("Reactions")
+                confidence_paths["Metabolite synthesis"].append(m)
+                confidence_paths["Confidence"].append(0)
+                confidence_paths["ID"].append("No_gpr")
+                confidence_paths["Reactions/GPRs"].append("GPRs")
+                confidence_paths["Metabolite synthesis"].append(m)
+                confidence_paths["Confidence"].append(0)
+            continue
+        for model_id in met_model[m]:
+            v = [vv for vv in path_pfba_mq_out[model_id][m] if not vv.startswith("DM_")]
+            if draw_pfba_mq:
+                g = draw_one_synt_path(
+                    supermodel,
+                    v,
+                    medium,
+                    [m],
+                    f"{output_folder_mq_paths_plots}/{m}_{model_id}.html",
+                    draw_met_not_int=draw_met_not_int,
+                )
+            if table_pfba_mq:
+                if calc_r_dist:
+                    r_dist_dict = calc_dist_for_synt_path(
+                        v, m, supermodel, check_distance
                     )
-                if table_pfba:
-                    if calc_r_dist:
-                        r_dist_dict = calc_dist_for_synt_path(
-                            v, k.removesuffix("_path_pfba"), supermodel, check_distance
-                        )
-                        t = table_reactions_confidence(
-                            supermodel,
-                            f"{write_output_to_folder}/{k}_{model_id}.tsv",
-                            v,
-                            r_dist_dict,
-                            **kwargs,
-                        )
-
+                    t = table_reactions_confidence(
+                        supermodel,
+                        f"{output_folder_mq_paths_tables}/{m}_{model_id}.tsv",
+                        v,
+                        r_dist_dict,
+                        **kwargs,
+                    )
+                else:
+                    t = table_reactions_confidence(
+                        supermodel,
+                        f"{output_folder_mq_paths_tables}/{m}_{model_id}.tsv",
+                        v,
+                        **kwargs,
+                    )
+            if draw_confidence:
+                for vr in v:
+                    confidence_paths["ID"].append(vr)
+                    confidence_paths["Reactions/GPRs"].append("Reactions")
+                    confidence_paths["Metabolite synthesis"].append(m)
+                    confidence_paths["Confidence"].append(
+                        supermodel.reactions.assembly[vr].in_models["models_amount"]
+                    )
+                    if not supermodel.reactions.assembly[vr].gene_reaction_rule[
+                        "assembly"
+                    ]:
+                        confidence_paths["ID"].append("No_gpr")
+                        confidence_paths["Reactions/GPRs"].append("GPRs")
+                        confidence_paths["Metabolite synthesis"].append(m)
+                        confidence_paths["Confidence"].append(0)
                     else:
-                        t = table_reactions_confidence(
-                            supermodel,
-                            f"{write_output_to_folder}/{k}_{model_id}.tsv",
-                            v,
-                            **kwargs,
-                        )
+                        for i in range(
+                            supermodel.reactions.assembly[vr].in_models[
+                                "models_amount"
+                            ],
+                            0,
+                            -1,
+                        ):
+                            gpr_core = getCoreGPR(
+                                supermodel.reactions.assembly[vr].gene_reaction_rule,
+                                i,
+                                operator.ge,
+                                supermodel.reactions.assembly[vr].in_models[
+                                    "models_list"
+                                ],
+                                False,
+                            )
+                            if gpr_core:
+                                confidence_paths["ID"].append(gpr_core[0])
+                                confidence_paths["Reactions/GPRs"].append("GPRs")
+                                confidence_paths["Metabolite synthesis"].append(
+                                    m.removesuffix("_path_pfba")
+                                )
+                                confidence_paths["Confidence"].append(i)
+                                break
+    if draw_confidence:
+        confidence_paths_tab = pd.DataFrame(confidence_paths)
+        if confidence_table is not None:
+            confidence_paths_tab.to_csv(
+                f"{confidence_table}", index=False, sep="\t",
+            )
+        else:
+            confidence_paths_tab.to_csv(
+                f"{output_folder}/confidence_met_production_paths.tsv",
+                index=False,
+                sep="\t",
+            )
+        g = (
+            sns.FacetGrid(
+                data=confidence_paths_tab,
+                col="Reactions/GPRs",
+                height=10,
+                aspect=0.5,
+                legend_out=True,
+            )
+            .map_dataframe(
+                sns.histplot,
+                stat="count",
+                multiple="stack",
+                y="Metabolite synthesis",
+                kde=False,
+                palette="viridis",
+                hue="Confidence",
+                element="bars",
+                legend=True,
+            )
+            .set_titles(col_template="{col_name}")
+            .set(
+                ylim=(
+                    confidence_paths_tab.get("Metabolite synthesis").unique().shape[0]
+                    - 0.5,
+                    -0.5,
+                )
+            )
+        )
+        g.axes[0, 1].legend(
+            handles=[x[0] for x in g.axes[0, 1].containers],
+            labels=[5, 4, 3, 2, 1, 0],
+            loc="center right",
+            bbox_to_anchor=(1.4, 0.1),
+            title="Confidence",
+        )
+        g.figure.subplots_adjust(left=0.1, right=0.8, bottom=0.1, top=0.97)
+        if confidence_plot is not None:
+            g.savefig(confidence_plot)
+        else:
+            g.savefig(f"{output_folder}/confidence_met_production_paths.png")
+        return [g]
+    else:
+        return []
 
 
 def run_growth_full_flux_analysis(
     models_to_analyse: dict,
     medium: dict,
+    supermodel: SuperModel,
+    output_folder: str,
     biomass_precursors=True,
     metabolites_of_interest=None,
-    write_output_to_folder=None,
-    file_name=None,
-    draw_pfba_for_models=None,
-    supermodel_for_write_pfba=None,
+    output_file_name=None,
+    model_to_further_analyse=None,
     draw_pfba=True,
     table_pfba=True,
+    draw_confidence=True,
+    output_folder_mq_paths_plots=None,
+    output_folder_mq_paths_tables=None,
+    calc_dist_path=True,
+    check_distance=5,
     draw_met_not_int=False,
     biomass_r_id=None,
     **kwargs,
@@ -965,37 +1153,46 @@ def run_growth_full_flux_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    if write_output_to_folder is not None:
-        write_metabolites_production_output(
-            out_bp_production_tab, write_output_to_folder, file_name, **kwargs
-        )
-        if file_name is None:
-            file_name = write_output_to_folder + "/production_confidence_stat.tsv"
-        stat_out_tab.to_csv(file_name, sep="\t", index=False)
-    if supermodel_for_write_pfba is not None:
-        if write_output_to_folder is None:
-            raise ValueError(
-                "Output folder is not provided. "
-                "Please provide output folder "
-                "if you want to draw or write pfba pathways."
-            )
-        if draw_pfba_for_models is None:
+    production_plots = write_metabolites_production_output(
+        out_bp_production_tab, output_folder, output_file_name, **kwargs
+    )
+    met_order = out_bp_production_tab.iloc[
+        production_plots[1].dendrogram_row.reordered_ind
+    ]["Metabolites"].to_list()
+    if output_file_name is None:
+        output_file_name = output_folder + "/production_confidence_stat.tsv"
+    stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
+    if draw_pfba or table_pfba or draw_confidence:
+        if model_to_further_analyse is None:
             warnings.warn(
                 "Models for which to draw pfba of biomass precursors is not provided. "
                 "So for each biomass precursor the model with "
                 "the highest confidence level will be used."
             )
-        write_pfba_results(
+        write_pfba_mq_results(
             path_pfba_out,
-            supermodel_for_write_pfba,
+            supermodel,
             list(medium.keys()),
-            write_output_to_folder,
-            draw_pfba_for_models,
+            output_folder,
+            model_to_further_analyse,
             draw_met_not_int,
             draw_pfba,
             table_pfba,
+            draw_confidence,
+            output_folder_mq_paths_plots,
+            output_folder_mq_paths_tables,
+            calc_dist_path,
+            check_distance,
+            met_order,
+            **kwargs,
         )
-    return out_bp_production_tab, flux_res_out, path_pfba_out, stat_out_tab
+    return (
+        out_bp_production_tab,
+        production_plots,
+        flux_res_out,
+        path_pfba_out,
+        stat_out_tab,
+    )
 
 
 def run_metquest_results_analysis(
@@ -1003,42 +1200,26 @@ def run_metquest_results_analysis(
     model_list: list,
     metabolites_ids: list,
     medium: list,
-    supermodel=None,
+    supermodel: SuperModel,
+    output_folder: str,
     cofactors=None,
-    output_folder=None,
     output_file_name=None,
+    model_to_further_analyse=None,
     draw_mq_path=False,
     table_mq_path=False,
-    calc_dist_path=True,
-    check_distance=5,
+    draw_confidence=False,
     output_folder_mq_paths_plots=None,
     output_folder_mq_paths_tables=None,
+    calc_dist_path=True,
+    check_distance=5,
+    draw_met_not_int=False,
+    check_in_biomass_precursors=False,
     **kwargs,
 ):
     if output_folder_mq_paths_plots is not None:
         draw_mq_path = True
     if output_folder_mq_paths_tables is not None:
         table_mq_path = True
-    if (draw_mq_path is True) and (supermodel is None):
-        raise ValueError(
-            "Supermodel is needed to draw pathways, but not provided. "
-            "Please, provide supermodel."
-        )
-    if (table_mq_path is True) and (supermodel is None):
-        raise ValueError(
-            "Supermodel is needed to write tables of the pathways, but not provided. "
-            "Please, provide supermodel."
-        )
-    if (draw_mq_path is True) and (output_folder_mq_paths_plots is None):
-        if output_folder_mq_paths_tables is not None:
-            output_folder_mq_paths_plots = output_folder_mq_paths_tables
-        else:
-            output_folder_mq_paths_plots = output_folder
-    if (table_mq_path is True) and (output_folder_mq_paths_tables is None):
-        if output_folder_mq_paths_plots is not None:
-            output_folder_mq_paths_tables = output_folder_mq_paths_plots
-        else:
-            output_folder_mq_paths_tables = output_folder
     if cofactors is None:
         cofactors = [
             "co2_c",
@@ -1073,6 +1254,15 @@ def run_metquest_results_analysis(
             "mql6_c",
             "thf_c",
         ]
+    if check_in_biomass_precursors:
+        all_models_bp = {}
+        for model in model_list:
+            all_models_bp[model] = [
+                m.id
+                for m in supermodel.reactions.assembly["Biomass"].reactants.get(
+                    model, []
+                )
+            ]
     metquest_all_res_paths = {}
     stat_out = {}
     met_synt = []
@@ -1083,63 +1273,54 @@ def run_metquest_results_analysis(
         for f in folder_with_out_folders.iterdir():
             if f.is_dir() and f.name.startswith(mod):
                 metquest_all_res_paths[mod] = f / "shortest_paths.pkl"
-    synthes_out = {"Metabolites": metabolites_ids} | {mod: [] for mod in model_list}
+    metabolites_names = []
+    for mid in metabolites_ids:
+        if mid in supermodel.metabolites.assembly.keys():
+            metabolites_names.append(supermodel.metabolites.assembly[mid].name)
+        else:
+            metabolites_names.append(mid)
+    synthes_out = {
+        "Metabolites": metabolites_ids,
+        "Metabolite names": metabolites_names,
+    } | {mod: [] for mod in model_list}
+    met_interest_mq_paths = {}
     for mod in model_list:
+        met_interest_mq_paths[mod] = {}
         model_stat = 0
         mq_data = dill.load(open(metquest_all_res_paths[mod], "rb"))
         for bp in metabolites_ids:
             if bp not in mq_data["paths"].keys():
-                to_append = -0.5
+                to_append = 0
             else:
                 if bp in medium:
-                    to_append = 0.75
+                    to_append = 4
                     if bp not in met_med:
                         met_med.append(bp)
                 elif bp in cofactors:
-                    to_append = 0.5
+                    to_append = 3
                     if bp not in met_cof:
                         met_cof.append(bp)
                 elif mq_data["paths"][bp]:
-                    to_append = 1
+                    to_append = 5
                     model_stat = model_stat + 1
                     if bp not in met_synt:
                         met_synt.append(bp)
+                elif check_in_biomass_precursors:
+                    if bp not in all_models_bp[mod]:
+                        to_append = 2
+                    else:
+                        to_append = 1
                 else:
-                    to_append = 0
+                    to_append = 1
             synthes_out[mod].append(to_append)
-            if (to_append == 1) and (draw_mq_path is True):
+            if to_append == 5:
                 allalt = set()
                 for altp_len in mq_data["paths"][bp].values():
                     for altp in altp_len:
                         allalt = allalt | altp
-                draw_one_synt_path(
-                    supermodel,
-                    list(allalt),
-                    medium,
-                    [bp],
-                    f"{output_folder_mq_paths_plots}/{bp}_{mod}.html",
-                )
-            if (to_append == 1) and (table_mq_path is True):
-                allalt = set()
-                for altp_len in mq_data["paths"][bp].values():
-                    for altp in altp_len:
-                        allalt = allalt | altp
-                if calc_dist_path:
-                    r_dist_dict = calc_dist_for_synt_path(
-                        list(allalt), bp, supermodel, check_distance
-                    )
-                    table_reactions_confidence(
-                        supermodel,
-                        f"{output_folder_mq_paths_tables}/{bp}_{mod}.tsv",
-                        list(allalt),
-                        r_dist_dict,
-                    )
-                else:
-                    table_reactions_confidence(
-                        supermodel,
-                        f"{output_folder_mq_paths_tables}/{bp}_{mod}.tsv",
-                        list(allalt),
-                    )
+                met_interest_mq_paths[mod].update({bp: list(allalt)})
+            else:
+                met_interest_mq_paths[mod].update({bp: ["No_path"]})
         stat_out.update({mod: model_stat})
     synthes_tab_out = pd.DataFrame(synthes_out)
     stat_out.update(
@@ -1155,9 +1336,31 @@ def run_metquest_results_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    if output_folder is not None:
-        write_metabolites_production_output(synthes_tab_out, output_folder, **kwargs)
-        if output_file_name is None:
-            output_file_name = output_folder + "/production_confidence_stat.tsv"
-        stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
-    return synthes_tab_out, stat_out_tab
+    production_plots = write_metabolites_production_output(
+        synthes_tab_out, output_folder, **kwargs
+    )
+    met_order = synthes_tab_out.iloc[production_plots[1].dendrogram_row.reordered_ind][
+        "Metabolites"
+    ].to_list()
+    if output_file_name is None:
+        output_file_name = output_folder + "/production_confidence_stat.tsv"
+    stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
+    if draw_mq_path or table_mq_path or draw_confidence:
+        write_pfba_mq_results(
+            met_interest_mq_paths,
+            supermodel,
+            medium,
+            output_folder,
+            model_to_further_analyse,
+            draw_met_not_int,
+            draw_mq_path,
+            table_mq_path,
+            draw_confidence,
+            output_folder_mq_paths_plots,
+            output_folder_mq_paths_tables,
+            calc_dist_path,
+            check_distance,
+            met_order,
+            **kwargs,
+        )
+    return synthes_tab_out, production_plots, stat_out_tab, met_interest_mq_paths
