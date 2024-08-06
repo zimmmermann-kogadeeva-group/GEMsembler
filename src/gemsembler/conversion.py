@@ -280,7 +280,7 @@ class ConvAgora(ConvBase):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
         conv_main = self.__main_map_m__.get(id_wo_comp, [])
         annot = metabolite.annotation.get(self.__annot_m__, "")
-        annot_bigg = metabolite.annotation.get("bigg.metabolite", "")
+        annot_bigg = metabolite.annotation.get("bigg.metabolite", [])
 
         # Make sure required annotation is a list
         if isinstance(annot, str):
