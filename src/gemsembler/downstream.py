@@ -28,7 +28,8 @@ from .drawing import (
 def write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
-    file_name=None,
+    plot_file_name=None,
+    table_file_name=None,
     met_names=True,
     id_instead_long_name=20,
     yticklabels=True,
@@ -42,7 +43,7 @@ def write_metabolites_production_output(
     """Function to plot heatmap of produced or not produced metabolites.
     Parameters: table with production, output fold and
     attributes of seaborn clustermap function."""
-    if file_name is None:
+    if table_file_name is None:
         out_bp_production_tab.to_csv(
             f"{write_output_to_folder}/all_metabolites_production.tsv",
             sep="\t",
@@ -50,7 +51,7 @@ def write_metabolites_production_output(
         )
     else:
         out_bp_production_tab.to_csv(
-            f"{write_output_to_folder}/{file_name}.tsv", sep="\t", index=False,
+            table_file_name, sep="\t", index=False,
         )
     if met_names:
         if id_instead_long_name is not None:
@@ -123,10 +124,10 @@ def write_metabolites_production_output(
         rotation=-45,
         ha="left",
     )
-    if file_name is None:
+    if plot_file_name is None:
         fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png")
     else:
-        fig.savefig(f"{write_output_to_folder}/{file_name}" f"")
+        fig.savefig(plot_file_name)
     return [fig, bp_clusterpmap]
 
 
@@ -1124,6 +1125,9 @@ def run_growth_full_flux_analysis(
     biomass_precursors=True,
     metabolites_of_interest=None,
     output_file_name=None,
+    production_plot=None,
+    production_table=None,
+    stat_file=None,
     model_to_further_analyse=None,
     draw_pfba=True,
     table_pfba=True,
@@ -1156,14 +1160,18 @@ def run_growth_full_flux_analysis(
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
     production_plots = write_metabolites_production_output(
-        out_bp_production_tab, output_folder, output_file_name, **kwargs
+        out_bp_production_tab,
+        output_folder,
+        production_plot,
+        production_table,
+        **kwargs,
     )
     met_order = out_bp_production_tab.iloc[
         production_plots[1].dendrogram_row.reordered_ind
     ]["Metabolites"].to_list()
-    if output_file_name is None:
-        output_file_name = output_folder + "/production_confidence_stat.tsv"
-    stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
+    if stat_file is None:
+        stat_file = output_folder + "/production_confidence_stat.tsv"
+    stat_out_tab.to_csv(stat_file, sep="\t", index=False)
     if draw_pfba or table_pfba or draw_confidence:
         if model_to_further_analyse is None:
             warnings.warn(
@@ -1207,7 +1215,9 @@ def run_metquest_results_analysis(
     supermodel: SuperModel,
     output_folder: str,
     cofactors=None,
-    output_file_name=None,
+    production_plot=None,
+    production_table=None,
+    stat_file=None,
     model_to_further_analyse=None,
     draw_mq_path=False,
     table_mq_path=False,
@@ -1343,14 +1353,14 @@ def run_metquest_results_analysis(
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
     production_plots = write_metabolites_production_output(
-        synthes_tab_out, output_folder, **kwargs
+        synthes_tab_out, output_folder, production_plot, production_table, **kwargs
     )
     met_order = synthes_tab_out.iloc[production_plots[1].dendrogram_row.reordered_ind][
         "Metabolites"
     ].to_list()
-    if output_file_name is None:
-        output_file_name = output_folder + "/production_confidence_stat.tsv"
-    stat_out_tab.to_csv(output_file_name, sep="\t", index=False)
+    if stat_file is None:
+        stat_file = output_folder + "/production_confidence_stat.tsv"
+    stat_out_tab.to_csv(stat_file, sep="\t", index=False)
     if draw_mq_path or table_mq_path or draw_confidence:
         write_pfba_mq_results(
             met_interest_mq_paths,
