@@ -460,7 +460,7 @@ def tca(
         "ICITRED": [("icit_c", "osuc_c")],
         "OSUCCL": [("osuc_c", "akg_c")],
         "AKGDH": [("akg_c", "succoa_c")],
-        "OOR2r": [("akg_c", "succoa_c"), ("fdxo_42_c", "fdxr_42_c")],
+        "OOR2r": [("akg_c", "succoa_c")],
         "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
         "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")],
         "PDHcr": [("dhlam_c", "lpam_c")],
@@ -942,7 +942,7 @@ def write_pfba_mq_results(
     supermodel: SuperModel,
     medium: list,
     output_folder: str,
-    draw_pfba_mq_for_models=None,
+    draw_pfba_mq_for_model=None,
     draw_met_not_int=False,
     draw_pfba_mq=True,
     table_pfba_mq=True,
@@ -972,7 +972,7 @@ def write_pfba_mq_results(
             output_folder_mq_paths_tables = output_folder_mq_paths_plots
         else:
             output_folder_mq_paths_tables = output_folder
-    if draw_pfba_mq_for_models is None:
+    if draw_pfba_mq_for_model is None:
         met_model = {}
         all_met = []
         for mod, res in path_pfba_mq_out.items():
@@ -1010,13 +1010,12 @@ def write_pfba_mq_results(
     else:
         met_model = {}
         all_met = []
-        for mod, res in path_pfba_mq_out.items():
-            for met in res.keys():
-                met_no_suff = met.removesuffix("_path_pfba")
-                if met_no_suff not in all_met:
-                    all_met.append(met_no_suff)
-                if res[met] != ["No_path"]:
-                    met_model[met_no_suff] = mod
+        for met in path_pfba_mq_out[draw_pfba_mq_for_model].keys():
+            met_no_suff = met.removesuffix("_path_pfba")
+            if met_no_suff not in all_met:
+                all_met.append(met_no_suff)
+            if path_pfba_mq_out[draw_pfba_mq_for_model][met] != ["No_path"]:
+                met_model[met_no_suff] = [draw_pfba_mq_for_model]
     if draw_confidence:
         confidence_paths = {
             "ID": [],
@@ -1152,7 +1151,9 @@ def write_pfba_mq_results(
         )
         g.axes[0, 1].legend(
             handles=[x[0] for x in g.axes[0, 1].containers],
-            labels=[5, 4, 3, 2, 1, 0],
+            labels=list(
+                confidence_paths_tab["Confidence"].sort_values(ascending=False).unique()
+            ),
             loc="center right",
             bbox_to_anchor=(1.4, 0.1),
             title="Confidence",

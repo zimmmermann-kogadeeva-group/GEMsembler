@@ -222,11 +222,7 @@ class ConvModelseed(ConvBase):
 
 class ConvMetanetx(ConvBase):
     def __init__(
-        self,
-        main_map_m=None,
-        main_map_r=None,
-        bigg_m=None,
-        bigg_r=None,
+        self, main_map_m=None, main_map_r=None, bigg_m=None, bigg_r=None,
     ):
         super().__init__(bigg_m, bigg_r)
 
@@ -284,10 +280,14 @@ class ConvAgora(ConvBase):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
         conv_main = self.__main_map_m__.get(id_wo_comp, [])
         annot = metabolite.annotation.get(self.__annot_m__, "")
+        annot_bigg = metabolite.annotation.get("bigg.metabolite", "")
 
         # Make sure required annotation is a list
         if isinstance(annot, str):
             annot = [annot]
+
+        if isinstance(annot_bigg, str):
+            annot_bigg = [annot_bigg]
 
         if not isinstance(annot, list):
             raise ValueError(
@@ -299,7 +299,10 @@ class ConvAgora(ConvBase):
 
         conv_addit = [y for x in annot for y in self.__addit_map_m__.get(x, [])]
         conv_pattern = ["__".join(id_wo_comp.rsplit("_", 1))]
-        conv_noconv = [id_wo_comp]
+        if annot_bigg:
+            conv_for_annot = annot_bigg
+        else:
+            conv_for_annot = [id_wo_comp]
 
         return Converted(
             check_db=self.__bigg_m__,
@@ -307,7 +310,7 @@ class ConvAgora(ConvBase):
             main=conv_main,
             addit=conv_addit,
             pattern=conv_pattern,
-            annot=conv_noconv,
+            annot=conv_for_annot,
             metabolite=True,
         )
 
