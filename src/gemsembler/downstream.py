@@ -89,7 +89,6 @@ def write_metabolites_production_output(
         cmap=cmap,
         center=center,
         linewidths=linewidths,
-        **kwargs,
     )
     plt.close()
     fig, heatmap_ax = plt.subplots(figsize=(7, 14))
@@ -107,6 +106,7 @@ def write_metabolites_production_output(
         vmin=-0.5,
         vmax=5.5,
         lw=1,
+        **kwargs,
     )
     heatmap_ax.set_ylabel("Metabolite synthesis", labelpad=0)
     cbar = heatmap_ax.collections[0].colorbar
@@ -298,11 +298,36 @@ def biosynthesis_pathway_with_media_and_metabolite(
     write_pathway_table_to_file=None,
     calc_dist_from_synt_met=True,
     check_distance=5,
-    **kwargs,
+    yes_range=1,
+    no_range=1,
+    genes=True,
+    and_as_solid=False,
+    add_original_models=True,
+    write_table=True,
+    draw_met_not_int=False,
+    directed=True,
+    met_not_int=None,
+    n_letter=None,
+    wid=1920,
+    hei=1080,
+    size=25,
 ):
     if draw_pathway_to_file is not None:
         g = draw_one_synt_path(
-            supermodel, pathway, medium, [met_to_synt], draw_pathway_to_file, **kwargs
+            supermodel,
+            pathway,
+            medium,
+            [met_to_synt],
+            draw_pathway_to_file,
+            draw_met_not_int,
+            genes,
+            and_as_solid,
+            directed,
+            met_not_int,
+            n_letter,
+            wid,
+            hei,
+            size,
         )
     if write_pathway_table_to_file is not None:
         if calc_dist_from_synt_met:
@@ -310,11 +335,28 @@ def biosynthesis_pathway_with_media_and_metabolite(
                 pathway, met_to_synt, supermodel, check_distance
             )
             t = table_reactions_confidence(
-                supermodel, write_pathway_table_to_file, pathway, r_dist_dict, **kwargs
+                supermodel,
+                write_pathway_table_to_file,
+                pathway,
+                r_dist_dict,
+                yes_range,
+                no_range,
+                genes,
+                and_as_solid,
+                add_original_models,
+                write_table,
             )
         else:
             t = table_reactions_confidence(
-                supermodel, write_pathway_table_to_file, pathway, **kwargs
+                supermodel,
+                write_pathway_table_to_file,
+                pathway,
+                yes_range=yes_range,
+                no_range=no_range,
+                genes=genes,
+                and_as_solid=and_as_solid,
+                add_original_models=add_original_models,
+                write_table=write_table,
             )
     if draw_pathway_to_file and write_pathway_table_to_file:
         return g, t
@@ -912,6 +954,12 @@ def write_pfba_mq_results(
     calc_r_dist=True,
     check_distance=5,
     met_order=None,
+    yes_range=1,
+    no_range=1,
+    genes=True,
+    and_as_solid=False,
+    add_original_models=True,
+    write_table=True,
     **kwargs,
 ):
     if (draw_pfba_mq is True) and (output_folder_mq_paths_plots is None):
@@ -1006,20 +1054,21 @@ def write_pfba_mq_results(
                     r_dist_dict = calc_dist_for_synt_path(
                         v, m, supermodel, check_distance
                     )
-                    t = table_reactions_confidence(
-                        supermodel,
-                        f"{output_folder_mq_paths_tables}/{m}_{model_id}.tsv",
-                        v,
-                        r_dist_dict,
-                        **kwargs,
-                    )
                 else:
-                    t = table_reactions_confidence(
-                        supermodel,
-                        f"{output_folder_mq_paths_tables}/{m}_{model_id}.tsv",
-                        v,
-                        **kwargs,
-                    )
+                    r_dist_dict = None
+                t = table_reactions_confidence(
+                    supermodel,
+                    f"{output_folder_mq_paths_tables}/{m}_{model_id}.tsv",
+                    v,
+                    r_dist_dict,
+                    yes_range,
+                    no_range,
+                    genes,
+                    and_as_solid,
+                    add_original_models,
+                    write_table,
+                )
+
             if draw_confidence:
                 for vr in v:
                     confidence_paths["ID"].append(vr)
@@ -1090,6 +1139,7 @@ def write_pfba_mq_results(
                 hue="Confidence",
                 element="bars",
                 legend=True,
+                **kwargs,
             )
             .set_titles(col_template="{col_name}")
             .set(
@@ -1124,7 +1174,6 @@ def run_growth_full_flux_analysis(
     output_folder: str,
     biomass_precursors=True,
     metabolites_of_interest=None,
-    output_file_name=None,
     production_plot=None,
     production_table=None,
     stat_file=None,
@@ -1140,6 +1189,8 @@ def run_growth_full_flux_analysis(
     check_distance=5,
     draw_met_not_int=False,
     biomass_r_id=None,
+    met_names=True,
+    id_instead_long_name=20,
     **kwargs,
 ):
     (
@@ -1164,6 +1215,8 @@ def run_growth_full_flux_analysis(
         output_folder,
         production_plot,
         production_table,
+        met_names=met_names,
+        id_instead_long_name=id_instead_long_name,
         **kwargs,
     )
     met_order = out_bp_production_tab.iloc[
@@ -1230,6 +1283,8 @@ def run_metquest_results_analysis(
     check_distance=5,
     draw_met_not_int=False,
     check_in_biomass_precursors=False,
+    met_names=True,
+    id_instead_long_name=20,
     **kwargs,
 ):
     if output_folder_mq_paths_plots is not None:
@@ -1353,7 +1408,13 @@ def run_metquest_results_analysis(
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
     production_plots = write_metabolites_production_output(
-        synthes_tab_out, output_folder, production_plot, production_table, **kwargs
+        synthes_tab_out,
+        output_folder,
+        production_plot,
+        production_table,
+        met_names=met_names,
+        id_instead_long_name=id_instead_long_name,
+        **kwargs,
     )
     met_order = synthes_tab_out.iloc[production_plots[1].dendrogram_row.reordered_ind][
         "Metabolites"
