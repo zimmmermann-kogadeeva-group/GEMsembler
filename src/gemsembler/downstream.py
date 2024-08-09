@@ -817,13 +817,21 @@ def get_met_neighborhood(
 
 
 def calc_dist_for_synt_path(
-    pathway_rs: list, met_of_interest: str, supermodel: SuperModel, check_distance=5,
+    pathway_rs: list,
+    met_of_interest: str,
+    supermodel: SuperModel,
+    check_distance=5,
+    draw_met_not_int=False,
 ):
     path_r_dist = {r: ">5" for r in pathway_rs}
     path_r_dist.update({"metabolite": met_of_interest})
     for i in range(1, check_distance + 1):
         all_r, all_g, all_m = get_met_neighborhood(
-            supermodel, met_of_interest, neighborhood_dist=i, highly_connected_t=50
+            supermodel,
+            met_of_interest,
+            neighborhood_dist=i,
+            highly_connected_t=50,
+            draw_met_not_int=draw_met_not_int,
         )
         r_intersect = list(set(pathway_rs) & set(all_r))
         for ri in r_intersect:
@@ -874,6 +882,7 @@ def fba_growth_met_production(
     stat_out = {}
     bp_synt = []
     for k, model in models_to_analyse.items():
+        print(f"Running FBA block for {k} model")
         med_mod = {}
         for e in model.exchanges:
             if list(e.metabolites.keys())[0].id in medium.keys():
@@ -919,9 +928,9 @@ def fba_growth_met_production(
                         | (pfba_res.to_frame()["fluxes"] < -0.001)
                     ].index
                 )
-                path_pfba_out[k].update({bp + "_path_pfba": reactions})
+                path_pfba_out[k].update({bp: reactions})
             else:
-                path_pfba_out[k].update({bp + "_path_pfba": ["No_path"]})
+                path_pfba_out[k].update({bp: ["No_path"]})
                 if (bp not in bp_model) and biomass_precursors:
                     model_data.append(2)
                 else:
@@ -977,29 +986,28 @@ def write_pfba_mq_results(
         all_met = []
         for mod, res in path_pfba_mq_out.items():
             for met in res.keys():
-                met_no_suff = met.removesuffix("_path_pfba")
-                if met_no_suff not in all_met:
-                    all_met.append(met_no_suff)
+                if met not in all_met:
+                    all_met.append(met)
                 if res[met] != ["No_path"]:
-                    if met_no_suff in met_model.keys():
+                    if met in met_model.keys():
                         if mod.startswith("core") and (
-                            (not met_model[met_no_suff][0].startswith("core"))
+                            (not met_model[met][0].startswith("core"))
                             or (
                                 int(mod.removeprefix("core"))
-                                > int(met_model[met_no_suff][0].removeprefix("core"))
+                                > int(met_model[met][0].removeprefix("core"))
                             )
                         ):
-                            met_model[met_no_suff] = [mod]
+                            met_model[met] = [mod]
                         elif mod == "assembly" and (
-                            not met_model[met_no_suff][0].startswith("core")
+                            not met_model[met][0].startswith("core")
                         ):
-                            met_model[met_no_suff] = [mod]
-                        elif (not met_model[met_no_suff][0].startswith("core")) and (
-                            met_model[met_no_suff][0] != "assembly"
+                            met_model[met] = [mod]
+                        elif (not met_model[met][0].startswith("core")) and (
+                            met_model[met][0] != "assembly"
                         ):
-                            met_model[met_no_suff].append(mod)
+                            met_model[met].append(mod)
                     else:
-                        met_model[met_no_suff] = [mod]
+                        met_model[met] = [mod]
         pd.DataFrame(
             met_model.items(), columns=["Metabolite", "Most confident path"]
         ).to_csv(
@@ -1011,11 +1019,10 @@ def write_pfba_mq_results(
         met_model = {}
         all_met = []
         for met in path_pfba_mq_out[draw_pfba_mq_for_model].keys():
-            met_no_suff = met.removesuffix("_path_pfba")
-            if met_no_suff not in all_met:
-                all_met.append(met_no_suff)
+            if met not in all_met:
+                all_met.append(met)
             if path_pfba_mq_out[draw_pfba_mq_for_model][met] != ["No_path"]:
-                met_model[met_no_suff] = [draw_pfba_mq_for_model]
+                met_model[met] = [draw_pfba_mq_for_model]
     if draw_confidence:
         confidence_paths = {
             "ID": [],
@@ -1220,9 +1227,11 @@ def run_growth_full_flux_analysis(
         id_instead_long_name=id_instead_long_name,
         **kwargs,
     )
-    met_order = out_bp_production_tab.iloc[
-        production_plots[1].dendrogram_row.reordered_ind
-    ]["Metabolites"].to_list()
+    met_order = (
+        out_bp_production_tab.drop(index="overall_growth", errors="ignore")
+        .iloc[production_plots[1].dendrogram_row.reordered_ind]["Metabolites"]
+        .to_list()
+    )
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
@@ -1329,12 +1338,20 @@ def run_metquest_results_analysis(
     if check_in_biomass_precursors:
         all_models_bp = {}
         for model in model_list:
-            all_models_bp[model] = [
-                m.id
-                for m in supermodel.reactions.assembly["Biomass"].reactants.get(
-                    model, []
-                )
-            ]
+            if model in supermodel.sources + ["assembly"]:
+                all_models_bp[model] = [
+                    m.id
+                    for m in supermodel.reactions.assembly["Biomass"].reactants.get(
+                        model, []
+                    )
+                ]
+            else:
+                all_models_bp[model] = [
+                    m.id
+                    for m in supermodel.reactions.assembly["Biomass"]
+                    .reactants["comparison"]
+                    .get(model, [])
+                ]
     metquest_all_res_paths = {}
     stat_out = {}
     met_synt = []

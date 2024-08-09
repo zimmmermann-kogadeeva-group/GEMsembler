@@ -584,7 +584,7 @@ def draw_one_synt_path(
                 )
                 met_not_int[tmp_rea] = met_not_int[tmp_rea] + 1
             else:
-                if tmp_rea in medium:
+                if rea.id in medium:
                     m_pallitra = "metConnect"
                 elif rea.id in met_to_synt:
                     m_pallitra = "interest"
@@ -645,7 +645,7 @@ def draw_one_synt_path(
                 )
                 met_not_int[tmp_pro] = met_not_int[tmp_pro] + 1
             else:
-                if tmp_pro in medium:
+                if pro.id in medium:
                     m_pallitra = "metConnect"
                 elif pro.id in met_to_synt:
                     m_pallitra = "interest"
