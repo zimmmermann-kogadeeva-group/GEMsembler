@@ -293,7 +293,7 @@ def get_final_fasta_with_ncbi_assemble(
             file_formats="cds-fasta,protein-fasta,features",
             flat_output=True,
         )
-        cds_faa = ""
+    cds_faa = ""
     prot_faa = ""
     feat = ""
     for file in os.listdir(path):

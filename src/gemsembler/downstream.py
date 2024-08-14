@@ -821,6 +821,7 @@ def calc_dist_for_synt_path(
     met_of_interest: str,
     supermodel: SuperModel,
     check_distance=5,
+    highly_connected_t=50,
     draw_met_not_int=False,
 ):
     path_r_dist = {r: ">5" for r in pathway_rs}
@@ -830,7 +831,7 @@ def calc_dist_for_synt_path(
             supermodel,
             met_of_interest,
             neighborhood_dist=i,
-            highly_connected_t=50,
+            highly_connected_t=highly_connected_t,
             draw_met_not_int=draw_met_not_int,
         )
         r_intersect = list(set(pathway_rs) & set(all_r))

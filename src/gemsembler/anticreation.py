@@ -100,9 +100,10 @@ def get_model_of_interest(
     for r in in_reactions:
         if r in reactions_include:
             interest_level_r = "assembly"
-            gene_interest_level = "assembly"
+            gene_interest_level_r = "assembly"
         else:
             interest_level_r = interest_level
+            gene_interest_level_r = gene_interest_level
         if interest_level_r in supermodel.sources + ["assembly"]:
             r_upper_bound = r.upper_bound
             r_lower_bound = r.lower_bound
@@ -111,7 +112,7 @@ def get_model_of_interest(
             r_upper_bound = r.upper_bound["comparison"]
             r_lower_bound = r.lower_bound["comparison"]
             r_metabolites = r.metabolites["comparison"]
-        if gene_interest_level in supermodel.sources + ["assembly"]:
+        if gene_interest_level_r in supermodel.sources + ["assembly"]:
             r_gene_reaction_rule = r.gene_reaction_rule
         else:
             r_gene_reaction_rule = r.gene_reaction_rule["comparison"]
@@ -141,9 +142,9 @@ def get_model_of_interest(
                 met.id, name=met.name, compartment=met.compartments["assembly"][0]
             )
             out_reaction.add_metabolites({out_met: k})
-        if r_gene_reaction_rule.get(gene_interest_level):
+        if r_gene_reaction_rule.get(gene_interest_level_r):
             out_reaction.gene_reaction_rule = r_gene_reaction_rule.get(
-                gene_interest_level
+                gene_interest_level_r
             )[0]
         else:
             out_reaction.gene_reaction_rule = ""
