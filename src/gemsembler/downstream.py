@@ -11,6 +11,8 @@ import pandas as pd
 from cobra.flux_analysis import pfba
 from matplotlib import pyplot as plt
 
+plt.rcParams["svg.fonttype"] = "none"
+
 from .creation import SuperModel
 from .comparison import getCoreGPR, getCoreConnections
 import seaborn as sns
@@ -38,6 +40,7 @@ def write_metabolites_production_output(
     method="single",
     center=0.3,
     linewidths=0.003,
+    dpi=300,
     **kwargs,
 ):
     """Function to plot heatmap of produced or not produced metabolites.
@@ -125,9 +128,9 @@ def write_metabolites_production_output(
         ha="left",
     )
     if plot_file_name is None:
-        fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png")
+        fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png", dpi=dpi)
     else:
-        fig.savefig(plot_file_name)
+        fig.savefig(plot_file_name, dpi=dpi)
     return [fig, bp_clusterpmap]
 
 
@@ -970,6 +973,7 @@ def write_pfba_mq_results(
     and_as_solid=False,
     add_original_models=True,
     write_table=True,
+    dpi=300,
     **kwargs,
 ):
     if (draw_pfba_mq is True) and (output_folder_mq_paths_plots is None):
@@ -1168,9 +1172,9 @@ def write_pfba_mq_results(
         )
         g.figure.subplots_adjust(left=0.1, right=0.8, bottom=0.1, top=0.97)
         if confidence_plot is not None:
-            g.savefig(confidence_plot)
+            g.savefig(confidence_plot, dpi=dpi)
         else:
-            g.savefig(f"{output_folder}/confidence_met_production_paths.png")
+            g.savefig(f"{output_folder}/confidence_met_production_paths.png", dpi=dpi)
         return [g]
     else:
         return []
@@ -1200,6 +1204,7 @@ def run_growth_full_flux_analysis(
     biomass_r_id=None,
     met_names=True,
     id_instead_long_name=20,
+    dpi=300,
     **kwargs,
 ):
     (
@@ -1226,6 +1231,7 @@ def run_growth_full_flux_analysis(
         production_table,
         met_names=met_names,
         id_instead_long_name=id_instead_long_name,
+        dpi=dpi,
         **kwargs,
     )
     met_order = (
@@ -1260,6 +1266,7 @@ def run_growth_full_flux_analysis(
             calc_dist_path,
             check_distance,
             met_order,
+            dpi,
             **kwargs,
         )
     return (
@@ -1296,6 +1303,7 @@ def run_metquest_results_analysis(
     check_in_biomass_precursors=False,
     met_names=True,
     id_instead_long_name=20,
+    dpi=300,
     **kwargs,
 ):
     if output_folder_mq_paths_plots is not None:
@@ -1433,6 +1441,7 @@ def run_metquest_results_analysis(
         production_table,
         met_names=met_names,
         id_instead_long_name=id_instead_long_name,
+        dpi=dpi,
         **kwargs,
     )
     met_order = synthes_tab_out.iloc[production_plots[1].dendrogram_row.reordered_ind][
@@ -1459,6 +1468,7 @@ def run_metquest_results_analysis(
             calc_dist_path,
             check_distance,
             met_order,
+            dpi,
             **kwargs,
         )
     return synthes_tab_out, production_plots, stat_out_tab, met_interest_mq_paths
