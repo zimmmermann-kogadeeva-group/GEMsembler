@@ -1146,7 +1146,7 @@ def write_pfba_mq_results(
                 multiple="stack",
                 y="Metabolite synthesis",
                 kde=False,
-                palette="viridis",
+                palette="grey",
                 hue="Confidence",
                 element="bars",
                 legend=True,
