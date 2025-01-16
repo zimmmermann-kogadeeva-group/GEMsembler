@@ -81,6 +81,29 @@ def get_color_palette(sources_number: int) -> dict:
     return out_colors
 
 
+def custom_histplot(data, y, hue, **kwargs):
+    unique_confidences = list(data["Confidence"].sort_values(ascending=False).unique())
+    num_levels = len(unique_confidences)
+    if data["Reactions/GPRs"].iloc[0] == "Reactions":
+        base_color = sns.color_palette("bright")[1]
+    else:
+        base_color = sns.color_palette("bright")[8]
+    palette_colors = sns.light_palette(base_color, n_colors=num_levels).as_hex()[::-1]
+    palette = {level: color for level, color in zip(unique_confidences, palette_colors)}
+
+    sns.histplot(
+        data=data,
+        stat="count",
+        multiple="stack",
+        y=y,
+        hue=hue,
+        kde=False,
+        element="bars",
+        palette=palette,
+        **kwargs,
+    )
+
+
 def define_node_features(
     colordata: dict,
     pallitra: str,

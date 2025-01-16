@@ -10,6 +10,7 @@ import networkx as nx
 import pandas as pd
 from cobra.flux_analysis import pfba
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 
 plt.rcParams["svg.fonttype"] = "none"
 
@@ -23,6 +24,7 @@ from .drawing import (
     define_edge_features,
     define_node_features,
     get_color_palette,
+    custom_histplot,
     MET_NOT_INT_GLOBAL,
 )
 
@@ -56,6 +58,8 @@ def write_metabolites_production_output(
         out_bp_production_tab.to_csv(
             table_file_name, sep="\t", index=False,
         )
+    if len(out_bp_production_tab.columns) <= 3:
+        return []
     if met_names:
         if id_instead_long_name is not None:
             short_names = []
@@ -1141,16 +1145,7 @@ def write_pfba_mq_results(
                 legend_out=True,
             )
             .map_dataframe(
-                sns.histplot,
-                stat="count",
-                multiple="stack",
-                y="Metabolite synthesis",
-                kde=False,
-                palette="grey",
-                hue="Confidence",
-                element="bars",
-                legend=True,
-                **kwargs,
+                custom_histplot, y="Metabolite synthesis", hue="Confidence", **kwargs,
             )
             .set_titles(col_template="{col_name}")
             .set(
@@ -1161,14 +1156,30 @@ def write_pfba_mq_results(
                 )
             )
         )
+        uniq_r = list(
+            confidence_paths_tab[confidence_paths_tab["Reactions/GPRs"] == "Reactions"][
+                "Confidence"
+            ]
+            .sort_values(ascending=False)
+            .unique()
+        )
+        uniq_gpr = list(
+            confidence_paths_tab[confidence_paths_tab["Reactions/GPRs"] == "GPRs"][
+                "Confidence"
+            ]
+            .sort_values(ascending=False)
+            .unique()
+        )
         g.axes[0, 1].legend(
-            handles=[x[0] for x in g.axes[0, 1].containers],
-            labels=list(
-                confidence_paths_tab["Confidence"].sort_values(ascending=False).unique()
-            ),
+            handles=[x[0] for x in g.axes[0, 0].containers]
+            + [mpatches.Patch(color="none", label="")]
+            * abs(len(uniq_r) - len(uniq_gpr))
+            + [x[0] for x in g.axes[0, 1].containers],
+            labels=uniq_r + [""] * abs(len(uniq_r) - len(uniq_gpr)) + uniq_gpr,
+            ncol=2,
             loc="center right",
             bbox_to_anchor=(1.4, 0.1),
-            title="Confidence",
+            title="Confidence level\nReactions   GPRs",
         )
         g.figure.subplots_adjust(left=0.1, right=0.8, bottom=0.1, top=0.97)
         if confidence_plot is not None:
@@ -1234,11 +1245,16 @@ def run_growth_full_flux_analysis(
         dpi=dpi,
         **kwargs,
     )
-    met_order = (
-        out_bp_production_tab.drop(index="overall_growth", errors="ignore")
-        .iloc[production_plots[1].dendrogram_row.reordered_ind]["Metabolites"]
-        .to_list()
-    )
+    if not production_plots:
+        met_order = out_bp_production_tab.drop(index="overall_growth", errors="ignore")[
+            "Metabolites"
+        ].to_list()
+    else:
+        met_order = (
+            out_bp_production_tab.drop(index="overall_growth", errors="ignore")
+            .iloc[production_plots[1].dendrogram_row.reordered_ind]["Metabolites"]
+            .to_list()
+        )
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
@@ -1444,9 +1460,12 @@ def run_metquest_results_analysis(
         dpi=dpi,
         **kwargs,
     )
-    met_order = synthes_tab_out.iloc[production_plots[1].dendrogram_row.reordered_ind][
-        "Metabolites"
-    ].to_list()
+    if not production_plots:
+        met_order = synthes_tab_out["Metabolites"].to_list()
+    else:
+        met_order = synthes_tab_out.iloc[
+            production_plots[1].dendrogram_row.reordered_ind
+        ]["Metabolites"].to_list()
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
