@@ -7,6 +7,8 @@ Models.
 
 **THIS IS A BETA VERSION! BUGS CAN BE EXPECTED**
 
+**Version 0.9.0 is incompatible with previous versions**
+
 ## Installation
 
 Install with the following command:
