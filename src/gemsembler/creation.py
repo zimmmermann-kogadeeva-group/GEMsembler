@@ -1,7 +1,9 @@
 import itertools
 import operator
 import re
-import resource
+
+# import resource #Windows_Fix
+import json
 import sys
 import warnings
 from collections import defaultdict
@@ -123,28 +125,70 @@ class NewElement:
 
     def __init__(
         self,
-        new_id: str,
-        old_id: str,
-        compartments: [str],
-        source: str,
-        possible_sources: [str],
-        converted: bool,
+        is_loading,
+        args_dict  # structure: {"Type": "NameOfClass", "args":{"new_ids":......}}
+        #       new_id: str, # Old input
+        #       old_id: str,#
+        #       compartments: [str],
+        #       source: str,
+        #       possible_sources: [str],
+        #       converted: bool,
     ):
-        self.id = new_id
-        self.compartments = {"assembly": compartments}
+        if args_dict["type"] != "NewElement":  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the NewElement objects are from different object ({args_dict['type']})!"
+            )
+            # warnings.warn(f"") # for warning
+
+        args = args_dict["args"]
+
+        if is_loading:
+            self.id = args["new_id"]
+            self.compartments = args["compartments"]
+            self.sources = args["sources"]
+            self.in_models = args["in_models"]
+            self.annotation = args["annotation"]
+            self.converted = args["converted"]
+            return
+
+        # else: initial init
+        self.id = args["new_id"]
+        self.compartments = {"assembly": args["compartments"]}
         self.sources = {}
-        self.in_models = {"models_amount": 1, "models_list": [source]}
+        self.in_models = {"models_amount": 1, "models_list": [args["source"]]}
         self.annotation = {}
-        self.converted = converted
-        for ps in possible_sources:
-            if ps == source:
-                self.compartments.update({ps: compartments})
+        self.converted = args["converted"]
+        for ps in args["possible_sources"]:
+            if ps == args["source"]:
+                self.compartments.update({ps: args["compartments"]})
                 self.sources.update({ps: 1})
-                self.annotation.update({ps: [old_id]})
+                self.annotation.update({ps: [args["old_id"]]})
             else:
                 self.compartments.update({ps: []})
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
+        return
+
+    def _args_to_dict(self):  # GGE
+        out_json_dict = {}
+        out_json_dict["new_id"] = self.id
+        out_json_dict["compartments"] = self.compartments
+        out_json_dict["sources"] = self.sources
+        out_json_dict["in_models"] = self.in_models
+        out_json_dict["annotation"] = self.annotation
+        out_json_dict["converted"] = self.converted
+        return out_json_dict
+
+    def _to_json(self):  # GGE
+        return json.dumps(self._args_to_dict())
+
+    def _get_replace_tag(self):  # GGE
+        tag = ""
+        if self.converted:
+            tag = "~"
+        else:
+            tag = "%"  # unique tag for not converted, as they could have similar id as converted one
+        return f"{tag}{self.id}"
 
     def _update_new_element(
         self, id_to_update: str, compart_to_update: [str], source: str,
@@ -165,31 +209,116 @@ class NewElement:
 class NewMetabolite(NewElement):
     def __init__(
         self,
-        new_id: str,
-        old_id: str,
-        compartments: [str],
-        source: str,
-        possible_sources: [str],
-        converted: bool,
-        m_database_info: pd.core.frame.DataFrame,
+        is_loading,
+        args_dict
+        # structure: {"type": "NewMetaboliteOrReaction", "args":{"new_ids": , "old_id": , "compartments": , "source": , "possible_sources", "converted": , "db_info": }}
+        #        new_id: str, # Old input
+        #        old_id: str,
+        #        compartments: [str],
+        #        source: str,
+        #        possible_sources: [str],
+        #        converted: bool,
+        #        m_database_info: pd.core.frame.DataFrame, -> args["db_info"]
     ):
-        super().__init__(
-            new_id, old_id, compartments, source, possible_sources, converted
-        )
-        if converted:
-            all_comp_bigg = "".join(
-                list(set([i[-1] for i in m_database_info["bigg_id"].to_list()]))
+        if (
+            args_dict["type"] != "NewMetaboliteOrReaction"
+            and args_dict["type"] != "NewMetabolite"
+        ):  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the NewMetabolite objects are from different object ({args_dict['type']})!"
             )
-            id_noc = re.sub(f"_([{all_comp_bigg}])$", "", new_id)
-            name = m_database_info[m_database_info["universal_bigg_id"] == id_noc][
+
+        args = args_dict["args"]
+
+        super().__init__(is_loading, {"type": "NewElement", "args": args})
+
+        if is_loading:
+            self.name = args["name"]
+            self.reactions = args["reactions"]
+            self.formula = args["formula"]
+            return
+
+        # else: initial init
+        if args["converted"]:
+            all_comp_bigg = "".join(
+                list(set([i[-1] for i in args["db_info"]["bigg_id"].to_list()]))
+            )
+            id_noc = re.sub(f"_([{all_comp_bigg}])$", "", args["new_id"])
+            name = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
                 "name"
             ].values[0]
         else:
             name = "Not converted"
         self.name = name
-        self.reactions = {k: [] for k in possible_sources}
+        self.reactions = {k: [] for k in args["possible_sources"]}
         self.reactions.update({"assembly": [], "comparison": {}})
-        self.formula = {k: [] for k in possible_sources}
+        self.formula = {k: [] for k in args["possible_sources"]}
+
+    def _args_to_dict(self):  # GGE
+        out_json_dict = super()._args_to_dict()
+        out_json_dict["name"] = self.name
+        out_json_dict["reactions"] = self.reactions
+        out_json_dict["formula"] = self.formula
+        out_json_dict["type"] = "NewMetabolite"
+        return out_json_dict
+
+    def _to_json(self):  # GGE
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {}
+        keys_with_problems = ["reactions"]
+        for key in args_dict_out.keys():
+            if key not in keys_with_problems:
+                json_dict_out[key] = args_dict_out[key]
+
+        # Rewriting pointers to objects with just their names (ids?)
+        json_dict_out["reactions"] = {}
+
+        for c_key, c_val in args_dict_out["reactions"].items():
+            if not c_val:  # dict or list is empty
+                json_dict_out["reactions"][c_key] = c_val
+                continue
+            elif type(c_val) is list:
+                json_dict_out["reactions"][c_key] = []
+                for l in c_val:
+                    json_dict_out["reactions"][c_key].append(f"{l._get_replace_tag()}")
+                continue
+            elif type(c_val) is dict:
+                json_dict_out["reactions"][c_key] = {}
+                for c_key2, c_val2 in c_val.items():
+                    json_dict_out["reactions"][c_key][c_key2] = []
+                    for el in c_val2:
+                        json_dict_out["reactions"][c_key][c_key2].append(
+                            f"{el._get_replace_tag()}"
+                        )
+
+        return json.dumps(json_dict_out)
+
+    def _replace_tags_with_objects(self, all_objects_by_id: dict):  # GGE
+        new_reactions = {}
+        for c_key, c_val in self.reactions.items():
+            if not c_val:  # dict or list is empty
+                new_reactions[c_key] = c_val
+            elif type(c_val) is list:
+                new_reactions[c_key] = []
+                for l in range(len(c_val)):
+                    if c_val[l] in all_objects_by_id:
+                        new_reactions[c_key].append(all_objects_by_id[c_val[l]])
+                    else:
+                        new_reactions[c_key].append(c_val[l])
+            elif type(c_val) is dict:
+                new_reactions[c_key] = {}
+                for c_key2, c_val2 in c_val.items():
+                    new_reactions[c_key][c_key2] = []
+                    for el in range(len(c_val2)):
+                        if c_val2[el] in all_objects_by_id:
+                            new_reactions[c_key][c_key2].append(
+                                all_objects_by_id[c_val2[el]]
+                            )
+                        else:
+                            new_reactions[c_key][c_key2].append(c_val2[el])
+        self.reactions = new_reactions
+
+        return
 
     def _find_reactions(self, connections: KnowledgeConnectingOldNew, do_notconv=False):
         for model_id in self.sources.keys():
@@ -233,25 +362,53 @@ class NewMetabolite(NewElement):
 class NewReaction(NewElement):
     def __init__(
         self,
-        new_id: str,
-        old_id: str,
-        compartments: [str],
-        source: str,
-        possible_sources: [str],
-        converted: bool,
-        r_database_info: pd.core.frame.DataFrame,
+        is_loading,
+        args_dict
+        # structure: {"type": "NewMetaboliteOrReaction", "args":{"new_ids": , "old_id": , "compartments": , "source": , "possible_sources", "converted": , "db_info": }}
+        #        new_id: str,  # Old input
+        #        old_id: str,
+        #        compartments: [str],
+        #        source: str,
+        #        possible_sources: [str],
+        #        converted: bool,
+        #        r_database_info: pd.core.frame.DataFrame,  -> args["db_info"]
     ):
-        super().__init__(
-            new_id, old_id, compartments, source, possible_sources, converted
+        if (
+            args_dict["type"] != "NewMetaboliteOrReaction"
+            and args_dict["type"] != "NewReaction"
+        ):  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the NewReaction objects are from different object ({args_dict['type']})!"
+            )
+
+        args = args_dict["args"]
+
+        super().__init__(  # GGE template for testing - continue later
+            is_loading, {"type": "NewElement", "args": args}
         )
-        if converted:
-            id_noc = new_id.replace("sink_", "DM_")
-            name = r_database_info[r_database_info["bigg_id"] == id_noc]["name"]
+
+        if is_loading:
+            self.name = args["name"]
+            self.reaction = args["reaction"]
+            self.reactants = args["reactants"]
+            self.products = args["products"]
+            self.metabolites = args["metabolites"]
+            self.lower_bound = args["lower_bound"]
+            self.upper_bound = args["upper_bound"]
+            self.subsystem = args["subsystem"]
+            self.genes = args["genes"]
+            self.gene_reaction_rule = args["gene_reaction_rule"]
+            return
+
+        # else: initial init
+        if args["converted"]:
+            id_noc = args["new_id"].replace("sink_", "DM_")
+            name = args["db_info"][args["db_info"]["bigg_id"] == id_noc]["name"]
             if (not name.empty) and (not name.isnull().values.any()):
                 name = name.values[0]
             else:
                 name = ""
-            equation = r_database_info[r_database_info["bigg_id"] == id_noc][
+            equation = args["db_info"][args["db_info"]["bigg_id"] == id_noc][
                 "reaction_string"
             ]
             if not equation.empty:
@@ -263,7 +420,7 @@ class NewReaction(NewElement):
             equation = None
         self.name = name
         self.reaction = equation
-        base_keys = possible_sources + ["assembly"]
+        base_keys = args["possible_sources"] + ["assembly"]
         self.reactants = {k: [] for k in base_keys}
         self.reactants.update({"comparison": {}})
         self.products = {k: [] for k in base_keys}
@@ -273,12 +430,214 @@ class NewReaction(NewElement):
         self.lower_bound.update({"comparison": {}})
         self.upper_bound = {k: [] for k in base_keys}
         self.upper_bound.update({"comparison": {}})
-        self.subsystem = {k: [] for k in possible_sources}
+        self.subsystem = {k: [] for k in args["possible_sources"]}
         self.genes = {k: [] for k in base_keys}
         self.genes.update({"comparison": {}})
         self.gene_reaction_rule = {k: [] for k in base_keys}
-        self.gene_reaction_rule.update({k + "_mixed": [] for k in possible_sources})
+        self.gene_reaction_rule.update(
+            {k + "_mixed": [] for k in args["possible_sources"]}
+        )
         self.gene_reaction_rule.update({"comparison": {}})
+
+    def _args_to_dict(self):  # GGE
+        out_json_dict = super()._args_to_dict()
+        out_json_dict["name"] = self.name
+        out_json_dict["reaction"] = self.reaction
+        out_json_dict["lower_bound"] = self.lower_bound
+        out_json_dict["upper_bound"] = self.upper_bound
+        out_json_dict["subsystem"] = self.subsystem
+        out_json_dict["gene_reaction_rule"] = self.gene_reaction_rule
+        # DICTS WITH LINKS TO OBJECTS
+        out_json_dict["metabolites"] = self.metabolites
+        out_json_dict["products"] = self.products
+        out_json_dict["reactants"] = self.reactants
+        out_json_dict["genes"] = self.genes
+        out_json_dict["type"] = "NewReaction"
+        return out_json_dict
+
+    def _to_json(self):  # GGE
+        # Can't just say json_dict_out = args_dict_out and than edit json_dict_out - we will also edit the args_dict_out dict
+        # To solve this pointer problem, I chose the folowing way (GGE)
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {}
+        keys_with_problems = ["reactants", "metabolites", "genes", "products"]
+        for key in args_dict_out.keys():
+            if key not in keys_with_problems:
+                json_dict_out[key] = args_dict_out[key]
+
+        # Rewriting pointers to objects with just their ids
+        json_dict_out["reactants"] = {}
+        json_dict_out["metabolites"] = {}
+        json_dict_out["genes"] = {}
+        json_dict_out["products"] = {}
+        for a_key, a_val in args_dict_out[
+            "reactants"
+        ].items():  # vals are dicts or lists
+            if not a_val:  # dict or list is empty
+                json_dict_out["reactants"][a_key] = a_val
+            elif type(a_val) is list:
+                json_dict_out["reactants"][a_key] = []
+                for elm in a_val:
+                    json_dict_out["reactants"][a_key].append(
+                        f"{elm._get_replace_tag()}"
+                    )
+            elif type(a_val) is dict:
+                json_dict_out["reactants"][a_key] = {}
+                for child_key in a_val.keys():
+                    json_dict_out["reactants"][a_key][child_key] = []
+                    for elem in a_val[child_key]:
+                        json_dict_out["reactants"][a_key][child_key].append(
+                            f"{elem._get_replace_tag()}"
+                        )
+            else:
+                raise ValueError(
+                    f"NewReaction.to_json: Unexpected type of value for 'reactants'! ({type(a_val)})!"
+                )
+
+        for a_key, a_val in args_dict_out[
+            "metabolites"
+        ].items():  # vals are dicts or lists
+            if not a_val:  # dict or list is empty
+                json_dict_out["metabolites"][a_key] = a_val
+            elif type(a_val) is dict:
+                json_dict_out["metabolites"][a_key] = {}
+                lockal_dict = json_dict_out["metabolites"][a_key]
+                for (
+                    a_key2,
+                    a_val2,
+                ) in a_val.items():  # GGE here the key is object, and value is normal
+                    new_key2 = ""
+                    if type(a_key2) is not NewMetabolite:
+                        new_key2 = a_key2
+                    else:
+                        new_key2 = f"{a_key2._get_replace_tag()}"
+                    if type(a_val2) is not dict:
+                        lockal_dict[new_key2] = a_val2
+                    else:
+                        lockal_dict[new_key2] = {}
+                        for a_key3, a_val3 in a_val2.items():
+                            if type(a_key3) is not NewMetabolite:
+                                raise ValueError(
+                                    f"NewReaction.to_json: Unexpected type of value for 'metabolites'! a_key3 ({type(a_key3)})!"
+                                )
+                            new_key3 = f"{a_key3._get_replace_tag()}"
+                            lockal_dict[new_key2][new_key3] = a_val3
+            else:
+                raise ValueError(
+                    f"NewReaction.to_json: Unexpected type of value for 'metabolites'! ({type(a_val)})!"
+                )
+
+        for c_key, c_val in args_dict_out["genes"].items():
+            if not c_val:  # dict or list is empty
+                json_dict_out["genes"][c_key] = c_val
+                continue
+            elif type(c_val) is list:
+                json_dict_out["genes"][c_key] = []
+                for l in c_val:
+                    json_dict_out["genes"][c_key].append(f"{l._get_replace_tag()}")
+                continue
+            elif type(c_val) is dict:
+                json_dict_out["genes"][c_key] = {}
+                for c_key2, c_val2 in c_val.items():
+                    json_dict_out["genes"][c_key][c_key2] = []
+                    #                    print(f"c_key2 is {c_key2} c_val2 is {c_val2}")
+                    for el in c_val2:
+                        json_dict_out["genes"][c_key][c_key2].append(
+                            f"{el._get_replace_tag()}"
+                        )
+
+        for c_key, c_val in args_dict_out["products"].items():
+            if not c_val:  # dict or list is empty
+                json_dict_out["products"][c_key] = c_val
+                continue
+            elif type(c_val) is list:
+                json_dict_out["products"][c_key] = []
+                for l in c_val:
+                    json_dict_out["products"][c_key].append(f"{l._get_replace_tag()}")
+                continue
+            elif type(c_val) is dict:
+                json_dict_out["products"][c_key] = {}
+                for c_key2, c_val2 in c_val.items():
+                    json_dict_out["products"][c_key][c_key2] = []
+                    #                    print(f"c_key2 is {c_key2} c_val2 is {c_val2}")
+                    for el in c_val2:
+                        json_dict_out["products"][c_key][c_key2].append(
+                            f"{el._get_replace_tag()}"
+                        )
+
+        return json.dumps(json_dict_out)
+
+    def _replace_tags_with_objects(self, all_objects_by_id: dict):  # GGE
+        for a_key, a_val in self.reactants.items():  # vals are dicts or lists
+            if not a_val:  # dict or list is empty
+                continue
+            elif type(a_val) is list:
+                for elm in range(len(a_val)):
+                    if a_val[elm] in all_objects_by_id.keys():
+                        a_val[elm] = all_objects_by_id[a_val[elm]]
+            elif type(a_val) is dict:
+                for child_key in a_val.keys():
+                    for elem in range(len(a_val[child_key])):
+                        if a_val[child_key][elem] in all_objects_by_id.keys():
+                            a_val[child_key][elem] = all_objects_by_id[
+                                a_val[child_key][elem]
+                            ]
+
+        new_metabolites = {}
+        for a_key, a_val in self.metabolites.items():  # vals are dicts or lists
+            if not a_val:  # dict or list is empty
+                new_metabolites[a_key] = a_val
+                continue
+            elif type(a_val) is dict:
+                new_metabolites[a_key] = {}
+                for (
+                    a_key2,
+                    a_val2,
+                ) in a_val.items():  # GGE here the key is object, and value is normal
+                    if type(a_val2) is not dict:
+                        if a_key2 in all_objects_by_id.keys():
+                            new_metabolites[a_key][all_objects_by_id[a_key2]] = a_val[
+                                a_key2
+                            ]
+                        else:
+                            new_metabolites[a_key][a_key2] = a_val[a_key2]
+                    else:
+                        new_metabolites[a_key][a_key2] = {}
+                        for a_key3, a_val3 in a_val2.items():
+                            if a_key3 in all_objects_by_id.keys():
+                                new_metabolites[a_key][a_key2][
+                                    all_objects_by_id[a_key3]
+                                ] = a_val2[a_key3]
+                            else:
+                                new_metabolites[a_key][a_key2][a_key3] = a_val2[a_key3]
+        self.metabolites = new_metabolites
+
+        for c_key, c_val in self.genes.items():
+            if not c_val:  # dict or list is empty
+                continue
+            elif type(c_val) is list:
+                for l in range(len(c_val)):
+                    if c_val[l] in all_objects_by_id.keys():
+                        c_val[l] = all_objects_by_id[c_val[l]]
+            elif type(c_val) is dict:
+                for c_key2, c_val2 in c_val.items():
+                    for e in range(len(c_val2)):
+                        if c_val2[e] in all_objects_by_id.keys():
+                            c_val2[e] = all_objects_by_id[c_val2[e]]
+
+        for c_key, c_val in self.products.items():
+            if not c_val:  # dict or list is empty
+                continue
+            elif type(c_val) is list:
+                for l in range(len(c_val)):
+                    if c_val[l] in all_objects_by_id.keys():
+                        c_val[l] = all_objects_by_id[c_val[l]]
+            elif type(c_val) is dict:
+                for c_key2, c_val2 in c_val.items():
+                    for e in range(len(c_val2)):
+                        if c_val2[e] in all_objects_by_id.keys():
+                            c_val2[e] = all_objects_by_id[c_val2[e]]
+        return
 
     def __sel_met_from_p_model_for_p_r(
         self,
@@ -515,56 +874,221 @@ class SetofNewElements:
                             )._update_new_element(key, comp, mod_id)
                         else:
                             new_conv = new_elements[element_type](
-                                new_id + "_convert_" + str(convered),
-                                key,
-                                comp,
-                                mod_id,
-                                model_ids,
-                                convered,
-                                db_info,
+                                False,
+                                {
+                                    "type": "NewMetaboliteOrReaction",
+                                    "args": {
+                                        "new_id": new_id + "_convert_" + str(convered),
+                                        "old_id": key,
+                                        "compartments": comp,
+                                        "source": mod_id,
+                                        "possible_sources": model_ids,
+                                        "converted": convered,
+                                        "db_info": db_info,
+                                    },
+                                },
                             )
                             getattr(self, where_to_add).update(
                                 {new_id + "_convert_" + str(convered): new_conv}
                             )
                     else:
                         new = new_elements[element_type](
-                            new_id, key, comp, mod_id, model_ids, convered, db_info
+                            False,
+                            {
+                                "type": "NewMetaboliteOrReaction",
+                                "args": {
+                                    "new_id": new_id,
+                                    "old_id": key,
+                                    "compartments": comp,
+                                    "source": mod_id,
+                                    "possible_sources": model_ids,
+                                    "converted": convered,
+                                    "db_info": db_info,
+                                },
+                            },
                         )
                         getattr(self, where_to_add).update({new_id: new})
 
     def __init__(
         self,
-        element_type: str,
-        selected: dict,
-        not_selected: dict,
-        model_ids: [str],
-        db_info: pd.core.frame.DataFrame,
-        do_mix_conv_notconv: bool,
-        additional=None,
+        is_loading: bool,
+        args_dict,
+        # structure: {"type": "SetofNewElements", "args": {"element_type": , "selected": ,  "not_selected": ,  "model_ids": ,  "db_info": ,  "do_mix_conv_notconv": }}
+        additional=None
+        #        element_type: str, # Old input
+        #        selected: dict,
+        #        not_selected: dict,
+        #        model_ids: [str],
+        #        db_info: pd.core.frame.DataFrame,
+        #        do_mix_conv_notconv: bool,
     ):
+        if args_dict["type"] != "SetofNewElements":  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the SetofNewElements objects are from different object ({args_dict['type']})!"
+            )
+
+        args = args_dict["args"]
+
+        if is_loading:
+            print("loading SetofNewElements...")
+            args = json.loads(args)
+            self.assembly = {}  # args["assembly"]
+            self.comparison = defaultdict(dict)  # args["comparison"]
+            self.notconverted = {}  # args["notconverted"]
+
+            for a_key, a_val in args["assembly"].items():
+                object_dict = json.loads(a_val)
+                if object_dict["type"] == "NewReaction":
+                    self.assembly.update(
+                        {
+                            a_key: NewReaction(
+                                True, {"type": "NewReaction", "args": object_dict}
+                            )
+                        }
+                    )
+                elif object_dict["type"] == "NewMetabolite":
+                    self.assembly.update(
+                        {
+                            a_key: NewMetabolite(
+                                True, {"type": "NewMetabolite", "args": object_dict}
+                            )
+                        }
+                    )
+
+            for a_key, a_val in args["comparison"].items():
+                for a_key2, a_val2 in a_val.items():
+                    object_dict = json.loads(a_val2)
+                    if object_dict["type"] == "NewReaction":
+                        self.comparison[a_key].update(
+                            {
+                                a_key2: NewReaction(
+                                    True, {"type": "NewReaction", "args": object_dict}
+                                )
+                            }
+                        )
+                    elif object_dict["type"] == "NewMetabolite":
+                        self.comparison[a_key].update(
+                            {
+                                a_key2: NewMetabolite(
+                                    True, {"type": "NewMetabolite", "args": object_dict}
+                                )
+                            }
+                        )
+
+            for a_key, a_val in args["notconverted"].items():
+                object_dict = json.loads(a_val)
+                if object_dict["type"] == "NewReaction":
+                    self.notconverted.update(
+                        {
+                            a_key: NewReaction(
+                                True, {"type": "NewReaction", "args": object_dict}
+                            )
+                        }
+                    )
+                elif object_dict["type"] == "NewMetabolite":
+                    self.notconverted.update(
+                        {
+                            a_key: NewMetabolite(
+                                True, {"type": "NewMetabolite", "args": object_dict}
+                            )
+                        }
+                    )
+            return
+
         self.assembly = {}
-        for source in selected.keys():
+        for source in args["selected"].keys():
             setattr(self, source, {})
         self.comparison = defaultdict(dict)
         self.notconverted = {}
         self.__add_new_elements(
-            element_type, selected, "assembly", model_ids, True, db_info
+            args["element_type"],
+            args["selected"],
+            "assembly",
+            args["model_ids"],
+            True,
+            args["db_info"],
         )
         if additional:
             self.__add_new_elements(
-                element_type, additional, "assembly", model_ids, True, db_info
+                args["element_type"],
+                additional,
+                "assembly",
+                args["model_ids"],
+                True,
+                args["db_info"],
             )
-        if do_mix_conv_notconv:
+        if args["do_mix_conv_notconv"]:
             self.__add_new_elements(
-                element_type, not_selected, "assembly", model_ids, False, db_info
+                args["element_type"],
+                args["not_selected"],
+                "assembly",
+                args["model_ids"],
+                False,
+                args["db_info"],
             )
         else:
             self.__add_new_elements(
-                element_type, not_selected, "notconverted", model_ids, False, db_info
+                args["element_type"],
+                args["not_selected"],
+                "notconverted",
+                args["model_ids"],
+                False,
+                args["db_info"],
             )
         for new_id, new_obj in self.assembly.items():
             for model_id in new_obj.in_models["models_list"]:
                 getattr(self, model_id).update({new_id: new_obj})
+
+    def _args_to_dict(self):  # GGE
+        out_dict = {}
+        out_dict["assembly"] = self.assembly
+        out_dict["comparison"] = self.comparison
+        out_dict["notconverted"] = self.notconverted
+        return out_dict
+
+    def _to_json(self):  # GGE
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {"assembly": {}, "comparison": {}, "notconverted": {}}
+        # rewrite each element as json, than no problem writing all args
+        for a_key, a_val in args_dict_out["assembly"].items():
+            json_dict_out["assembly"].update({a_key: a_val._to_json()})
+        for a_key, a_val in args_dict_out["comparison"].items():
+            for a_key2, a_val2 in a_val.items():
+                a_val.update({a_key2: a_val2._to_json()})
+        for a_key, a_val in args_dict_out["notconverted"].items():
+            json_dict_out["notconverted"].update({a_key: a_val._to_json()})
+        return json.dumps(json_dict_out)
+
+    def _generate_objects_dict(self):  # GGE
+        all_objects_by_id = {}
+
+        for a_key, a_val in self.assembly.items():
+            if a_val._get_replace_tag() in all_objects_by_id:
+                print("Already exists!!!! NewEl, assembly")
+            all_objects_by_id[a_val._get_replace_tag()] = a_val
+
+        #        comparison - can be ignored (no unique elements)
+
+        for a_key, a_val in self.notconverted.items():
+            if a_val._get_replace_tag() in all_objects_by_id:
+                print(f"Already exists!!!! NewEl, notconverted: {a_val.id}")
+            all_objects_by_id[a_val._get_replace_tag()] = a_val
+
+        return all_objects_by_id
+
+    def _replace_tilda_tags(self, all_objects_by_id: dict):  # GGE
+
+        for a_key, a_val in self.assembly.items():
+            a_val._replace_tags_with_objects(all_objects_by_id)
+
+        for a_key, a_val in self.comparison.items():
+            for a_key2, a_val2 in a_val.items():
+                a_val2._replace_tags_with_objects(all_objects_by_id)
+
+        for a_key, a_val in self.notconverted.items():
+            a_val._replace_tags_with_objects(all_objects_by_id)
+
+        return
 
     def _makeForwardBackward(
         self,
@@ -618,26 +1142,117 @@ class NewGene(object):
 
     def __init__(
         self,
-        new_id: str,
-        old_id: str,
-        source: str,
-        possible_sources: [str],
-        converted: bool,
+        is_loading,
+        args_dict
+        # structure: {"type": "NewGene", "args":{"new_id": , "old_id": , "source": , "possible_sources", "converted": }}
+        #        new_id: str, # Old input
+        #        old_id: str,
+        #        source: str,
+        #        possible_sources: [str],
+        #        converted: bool,
     ):
-        self.id = new_id
+        if args_dict["type"] != "NewGene":  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the NewGene objects are from different object ({args_dict['type']})!"
+            )
+
+        args = args_dict["args"]
+
+        if is_loading:
+            self.id = args["new_id"]
+            self.sources = args["sources"]
+            self.converted = args["converted"]
+            self.in_models = args["in_models"]
+            self.annotation = args["annotation"]
+            self.reactions = args["reactions"]
+            return
+
+        # else: initial init
+        self.id = args["new_id"]
         self.sources = {}
-        self.converted = converted
-        self.in_models = {"models_amount": 1, "models_list": [source]}
+        self.converted = args["converted"]
+        self.in_models = {"models_amount": 1, "models_list": [args["source"]]}
         self.annotation = {}
         self.reactions = {"assembly": [], "comparison": {}}
-        for ps in possible_sources:
+        for ps in args["possible_sources"]:
             self.reactions.update({ps: []})
-            if ps == source:
+            if ps == args["source"]:
                 self.sources.update({ps: 1})
-                self.annotation.update({ps: [old_id]})
+                self.annotation.update({ps: [args["old_id"]]})
             else:
                 self.sources.update({ps: 0})
                 self.annotation.update({ps: []})
+
+    def _args_to_dict(self):  # GGE
+        out_json_dict = {}
+        out_json_dict["new_id"] = self.id
+        out_json_dict["sources"] = self.sources
+        out_json_dict["converted"] = self.converted
+        out_json_dict["in_models"] = self.in_models
+        out_json_dict["annotation"] = self.annotation
+        out_json_dict["reactions"] = self.reactions
+        return out_json_dict
+
+    def _to_json(self):  # GGE
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {}
+        keys_with_problems = ["reactions"]
+        for key in args_dict_out.keys():
+            if key not in keys_with_problems:
+                json_dict_out[key] = args_dict_out[key]
+
+        # Rewriting pointers to objects with just their names (ids?)
+        json_dict_out["reactions"] = {}
+
+        for c_key, c_val in args_dict_out["reactions"].items():
+            if not c_val:  # dict or list is empty
+                json_dict_out["reactions"][c_key] = c_val
+                continue
+            elif type(c_val) is list:
+                json_dict_out["reactions"][c_key] = []
+                for l in c_val:
+                    json_dict_out["reactions"][c_key].append(f"{l._get_replace_tag()}")
+                continue
+            elif type(c_val) is dict:
+                json_dict_out["reactions"][c_key] = {}
+                for c_key2, c_val2 in c_val.items():
+                    json_dict_out["reactions"][c_key][c_key2] = []
+                    for el in c_val2:
+                        json_dict_out["reactions"][c_key][c_key2].append(
+                            f"{el._get_replace_tag()}"
+                        )
+
+        return json.dumps(json_dict_out)
+
+    def _get_replace_tag(self):  # GGE
+        tag = ""
+        if self.converted:
+            tag = "~"
+        else:
+            tag = "%"  # unique tag for not converted, as they could have similar id as converted one
+        return f"{tag}{self.id}"
+
+    def _replace_tags_with_objects(self, all_objects_by_id: dict):  # GGE
+        for c_key, c_val in self.reactions.items():
+            if not c_val:  # dict or list is empty
+                continue
+            elif type(c_val) is list:
+                for l in range(len(c_val)):
+                    if c_val[l] in all_objects_by_id:
+                        self.reactions[c_key][l] = all_objects_by_id[c_val[l]]
+                    else:
+                        self.reactions[c_key][l] = c_val[l]
+                continue
+            elif type(c_val) is dict:
+                for c_key2, c_val2 in c_val.items():
+                    for el in range(len(c_val2)):
+                        if c_val2[el] in all_objects_by_id:
+                            self.reactions[c_key][c_key2][el] = all_objects_by_id[
+                                c_val2[el]
+                            ]
+                        else:
+                            self.reactions[c_key][c_key2][el] = c_val2[el]
+        return
 
     def _updateNewGene(self, id_to_update: str, source: str):
         self.sources.update({source: self.sources.get(source) + 1})
@@ -692,11 +1307,17 @@ class SetofNewGenes(object):
                         )
                     else:
                         new_gene = NewGene(
-                            gene.id,
-                            gene.id,
-                            model_id,
-                            list(all_models_data.keys()),
                             False,
+                            {
+                                "type": "NewGene",
+                                "args": {
+                                    "new_id": gene.id,
+                                    "old_id": gene.id,
+                                    "source": model_id,
+                                    "possible_sources": list(all_models_data.keys()),
+                                    "converted": False,
+                                },
+                            },
                         )
                         self.assembly.update({gene.id: new_gene})
                         getattr(self, model_id).update({gene.id: new_gene})
@@ -731,11 +1352,19 @@ class SetofNewGenes(object):
                             )
                         else:
                             new_gene = NewGene(
-                                gene.id,
-                                gene.id,
-                                model_id,
-                                list(all_models_data.keys()),
                                 False,
+                                {
+                                    "type": "NewGene",
+                                    "args": {
+                                        "new_id": gene.id,
+                                        "old_id": gene.id,
+                                        "source": model_id,
+                                        "possible_sources": list(
+                                            all_models_data.keys()
+                                        ),
+                                        "converted": False,
+                                    },
+                                },
                             )
                             getattr(self, to_add).update({gene.id: new_gene})
                     elif type(attr.values[0]) != str:
@@ -745,11 +1374,19 @@ class SetofNewGenes(object):
                             )
                         else:
                             new_gene = NewGene(
-                                gene.id,
-                                gene.id,
-                                model_id,
-                                list(all_models_data.keys()),
                                 False,
+                                {
+                                    "type": "NewGene",
+                                    "args": {
+                                        "new_id": gene.id,
+                                        "old_id": gene.id,
+                                        "source": model_id,
+                                        "possible_sources": list(
+                                            all_models_data.keys()
+                                        ),
+                                        "converted": False,
+                                    },
+                                },
                             )
                             getattr(self, to_add).update({gene.id: new_gene})
                     else:
@@ -761,16 +1398,69 @@ class SetofNewGenes(object):
                             )
                         else:
                             new_gene = NewGene(
-                                new_id,
-                                gene.id,
-                                model_id,
-                                list(all_models_data.keys()),
-                                True,
+                                False,
+                                {
+                                    "type": "NewGene",
+                                    "args": {
+                                        "new_id": new_id,
+                                        "old_id": gene.id,
+                                        "source": model_id,
+                                        "possible_sources": list(
+                                            all_models_data.keys()
+                                        ),
+                                        "converted": True,
+                                    },
+                                },
                             )
                             self.assembly.update({new_id: new_gene})
                             getattr(self, model_id).update({new_id: new_gene})
 
-    def __init__(self, all_models_data: dict, gene_folder, do_mix_conv_notconv: bool):
+    def __init__(
+        self,
+        is_loading: bool,
+        args_dict,
+        # structure: {"type": "SetofNewGenes", "args": {"all_models_data": , "gene_folder": ,  "do_mix_conv_notconv": }}
+        #        all_models_data: dict,
+        #        gene_folder,
+        #        do_mix_conv_notconv: bool
+    ):
+        if args_dict["type"] != "SetofNewGenes":  # Houston, we have a problem
+            raise ValueError(
+                f"The args for the SetofNewGenes objects are from different object ({args_dict['type']})!"
+            )
+
+        args = args_dict["args"]
+
+        if is_loading:
+            print("loading SetofNewGenes...")
+            args = json.loads(args)
+            self.assembly = {}
+            self.comparison = defaultdict(dict)
+            self.notconverted = {}
+            for a_key, a_val in args["assembly"].items():
+                object_dict = json.loads(a_val)
+                self.assembly.update(
+                    {a_key: NewGene(True, {"type": "NewGene", "args": object_dict})}
+                )
+
+            for a_key, a_val in args["comparison"].items():
+                object_dict = json.loads(a_val)
+                self.comparison.update(
+                    {a_key: NewGene(True, {"type": "NewGene", "args": object_dict})}
+                )
+
+            for a_key, a_val in args["notconverted"].items():
+                object_dict = json.loads(a_val)
+                self.notconverted.update(
+                    {a_key: NewGene(True, {"type": "NewGene", "args": object_dict})}
+                )
+            return
+
+        # GGE found it easier here to give pointers to each object (I'm becoming lasy)
+        all_models_data = args["all_models_data"]
+        gene_folder = args["gene_folder"]
+        do_mix_conv_notconv = args["do_mix_conv_notconv"]
+
         self.assembly = {}
         for source in list(all_models_data.keys()):
             setattr(self, source, {})
@@ -785,16 +1475,73 @@ class SetofNewGenes(object):
                         self.assembly.get(gene.id)._updateNewGene(gene.id, model_id)
                     else:
                         new_gene = NewGene(
-                            gene.id,
-                            gene.id,
-                            model_id,
-                            list(all_models_data.keys()),
                             False,
+                            {
+                                "type": "NewGene",
+                                "args": {
+                                    "new_id": gene.id,
+                                    "old_id": gene.id,
+                                    "source": model_id,
+                                    "possible_sources": list(all_models_data.keys()),
+                                    "converted": False,
+                                },
+                            },
                         )
                         self.assembly.update({gene.id: new_gene})
             for gene in self.assembly.values():
                 for model_id in gene.in_models["models_list"]:
                     getattr(self, model_id).update({gene.id: gene})
+
+    def _args_to_dict(self):  # GGE
+        out_dict = {}
+        out_dict["assembly"] = self.assembly
+        out_dict["comparison"] = self.comparison
+        out_dict["notconverted"] = self.notconverted
+        return out_dict
+
+    def _to_json(self):  # GGE
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {"assembly": {}, "comparison": {}, "notconverted": {}}
+        # rewrite each element as json, than no problem writing all args
+        for a_key, a_val in args_dict_out["assembly"].items():
+            json_dict_out["assembly"].update({a_key: a_val._to_json()})
+        for a_key, a_val in args_dict_out["comparison"].items():
+            for a_key2, a_val2 in a_val.items():
+                a_val.update({a_key2: a_val2._to_json()})
+        for a_key, a_val in args_dict_out["notconverted"].items():
+            json_dict_out["notconverted"].update({a_key: a_val._to_json()})
+        return json.dumps(json_dict_out)
+
+    def _generate_objects_dict(self):  # GGE
+        all_objects_by_id = {}
+
+        for a_key, a_val in self.assembly.items():
+            if a_val._get_replace_tag() in all_objects_by_id:
+                print("Already exists!!!! NewGen, assembly")
+            all_objects_by_id[a_val._get_replace_tag()] = a_val
+
+        #        comparison - can be ignored (no unique elements)
+
+        for a_key, a_val in self.notconverted.items():
+            if a_val._get_replace_tag() in all_objects_by_id:
+                print(f"Already exists!!!! NewGen, notconverted: {a_val.id}")
+            all_objects_by_id[a_val._get_replace_tag()] = a_val
+
+        return all_objects_by_id
+
+    def _replace_tilda_tags(self, all_objects_by_id: dict):  # GGE
+
+        for a_key, a_val in self.assembly.items():
+            a_val._replace_tags_with_objects(all_objects_by_id)
+
+        for a_key, a_val in self.comparison.items():
+            for a_key2, a_val2 in a_val.items():
+                a_val2._replace_tags_with_objects(all_objects_by_id)
+
+        for a_key, a_val in self.notconverted.items():
+            a_val._replace_tags_with_objects(all_objects_by_id)
+
+        return
 
 
 class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic metabolites for models without periplasmic compartments
@@ -1025,38 +1772,126 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
 
     def __init__(
         self,
-        final_m_sel: dict,
-        final_m_not_sel: dict,
-        final_r_sel: dict,
-        final_r_not_sel: dict,
-        all_models_data: dict,
-        additional_periplasmic_m: dict,
-        periplasmic_r: dict,
-        m_db_info: pd.core.frame.DataFrame,
-        r_db_info: pd.core.frame.DataFrame,
-        gene_folder,
-        do_mix_conv_notconv: bool,
-        and_as_solid: bool,
+        is_loading,
+        args_dict
+        # structure: {"type": "SuperModel", "args":{"final_m_sel": , "final_m_not_sel": , "final_r_sel": , "final_r_not_sel": , "all_models_data": ,"additional_periplasmic_m": , "periplasmic_r": , "m_db_info": , "r_db_info": , "gene_folder": , "do_mix_conv_notconv": , "and_as_solid": }}
+        #        final_m_sel: dict, # Old input
+        #        final_m_not_sel: dict,
+        #        final_r_sel: dict,
+        #        final_r_not_sel: dict,
+        #        all_models_data: dict,
+        #        additional_periplasmic_m: dict,
+        #        periplasmic_r: dict,
+        #        m_db_info: pd.core.frame.DataFrame,
+        #        r_db_info: pd.core.frame.DataFrame,
+        #        gene_folder,
+        #        do_mix_conv_notconv: bool,
+        #        and_as_solid: bool,
     ):
+        if args_dict["type"] != "SuperModel":
+            raise ValueError(
+                f"The args for the SuperModel are from different object ({args_dict['type']})!"
+            )
+
+        args = args_dict["args"]
+
+        if is_loading:
+            print("loading super model...")
+            self.sources = args["sources"]
+            self.metabolites = SetofNewElements(
+                True, {"type": "SetofNewElements", "args": args["metabolites"]}
+            )
+            self.reactions = SetofNewElements(
+                True, {"type": "SetofNewElements", "args": args["reactions"]}
+            )
+            self.genes = SetofNewGenes(
+                True, {"type": "SetofNewGenes", "args": args["genes"]}
+            )
+
+            # Gather all objects (by type) - id and pointer
+            dict_objects_for_replace = {}
+            dict_objects_for_replace.update(self.metabolites._generate_objects_dict())
+            dict_objects_for_replace.update(self.reactions._generate_objects_dict())
+            dict_objects_for_replace.update(self.genes._generate_objects_dict())
+
+            # Replace all "replace_me_" tags (~) with object
+            self.metabolites._replace_tilda_tags(dict_objects_for_replace)
+            self.reactions._replace_tilda_tags(dict_objects_for_replace)
+            self.genes._replace_tilda_tags(dict_objects_for_replace)
+
+            # Add attributes for original models
+            for source in self.sources:
+                setattr(self.metabolites, source, {})
+                setattr(self.reactions, source, {})
+                setattr(self.genes, source, {})
+            for new_id, new_obj in self.metabolites.assembly.items():
+                for model_id in new_obj.in_models["models_list"]:
+                    getattr(self.metabolites, model_id).update({new_id: new_obj})
+            for new_id, new_obj in self.reactions.assembly.items():
+                for model_id in new_obj.in_models["models_list"]:
+                    getattr(self.reactions, model_id).update({new_id: new_obj})
+            for new_id, new_obj in self.genes.assembly.items():
+                for model_id in new_obj.in_models["models_list"]:
+                    getattr(self.genes, model_id).update({new_id: new_obj})
+            return
+
+        # else: initial init
+
+        # GGE: I am vary lasy now, dont want to change code below at all (so wrtiting all args as they were)
+        final_m_sel = args["final_m_sel"]
+        final_m_not_sel = args["final_m_not_sel"]
+        final_r_sel = args["final_r_sel"]
+        final_r_not_sel = args["final_r_not_sel"]
+        all_models_data = args["all_models_data"]
+        additional_periplasmic_m = args["additional_periplasmic_m"]
+        periplasmic_r = args["periplasmic_r"]
+        m_db_info = args["m_db_info"]
+        r_db_info = args["r_db_info"]
+        gene_folder = args["gene_folder"]
+        do_mix_conv_notconv = args["do_mix_conv_notconv"]
+        and_as_solid = args["and_as_solid"]
+
         self.sources = list(all_models_data.keys())
         self.metabolites = SetofNewElements(
-            "metabolites",
-            final_m_sel,
-            final_m_not_sel,
-            self.sources,
-            m_db_info,
-            do_mix_conv_notconv,
+            False,
+            {
+                "type": "SetofNewElements",
+                "args": {
+                    "element_type": "metabolites",
+                    "selected": final_m_sel,
+                    "not_selected": final_m_not_sel,
+                    "model_ids": self.sources,
+                    "db_info": m_db_info,
+                    "do_mix_conv_notconv": do_mix_conv_notconv,
+                },
+            },
             additional_periplasmic_m,
         )
         self.reactions = SetofNewElements(
-            "reactions",
-            final_r_sel,
-            final_r_not_sel,
-            self.sources,
-            r_db_info,
-            do_mix_conv_notconv,
+            False,
+            {
+                "type": "SetofNewElements",
+                "args": {
+                    "element_type": "reactions",
+                    "selected": final_r_sel,
+                    "not_selected": final_r_not_sel,
+                    "model_ids": self.sources,
+                    "db_info": r_db_info,
+                    "do_mix_conv_notconv": do_mix_conv_notconv,
+                },
+            },
         )
-        self.genes = SetofNewGenes(all_models_data, gene_folder, do_mix_conv_notconv)
+        self.genes = SetofNewGenes(
+            False,
+            {
+                "type": "SetofNewGenes",
+                "args": {
+                    "all_models_data": all_models_data,
+                    "gene_folder": gene_folder,
+                    "do_mix_conv_notconv": do_mix_conv_notconv,
+                },
+            },
+        )
 
         if do_mix_conv_notconv:
             final_m_all = defaultdict(dict)
@@ -1104,6 +1939,23 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         )
         self.__runSwitchedMetabolites()
         self.__assemble_attributes(and_as_solid, do_mix_conv_notconv)
+
+    def _args_to_dict(self):  # GGE
+        out_json_dict = {}
+        out_json_dict["sources"] = self.sources
+        out_json_dict["metabolites"] = self.metabolites
+        out_json_dict["reactions"] = self.reactions
+        out_json_dict["genes"] = self.genes
+        return out_json_dict
+
+    def _to_json(self):  # GGE
+        args_dict_out = self._args_to_dict()
+        json_dict_out = {}
+        json_dict_out["sources"] = args_dict_out["sources"]
+        json_dict_out["metabolites"] = args_dict_out["metabolites"]._to_json()
+        json_dict_out["reactions"] = args_dict_out["reactions"]._to_json()
+        json_dict_out["genes"] = args_dict_out["genes"]._to_json()
+        return json.dumps(json_dict_out)
 
     def get_short_name_len(self) -> int:
         for i in range(len(max(self.sources, key=len)) + 1):
@@ -1195,15 +2047,33 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         if exists(output_name):
             raise ValueError("File already exist, change the name")
         else:
-            max_rec = 0x100000
-            resource.setrlimit(
-                resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY]
-            )
-            sys.setrecursionlimit(max_rec)
+            # max_rec = 0x100000
+            # resource.setrlimit(
+            #     resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY]
+            # )
+            # sys.setrecursionlimit(max_rec)
             with open(output_name, "wb") as fh:
                 dill.dump(self, fh)
 
+    def write_supermodel_to_json(self, output_name: str):  # GGE
+        if not output_name.endswith(".json"):
+            raise ValueError("Wrong extension of the file")
+        if exists(output_name):
+            raise ValueError("File already exist, change the name")
+        else:
+            json_model_string = self._to_json()
+            with open(output_name, "w") as outfile:
+                outfile.write(json_model_string)
 
-def read_supermodel_from_pkl(input_name: str):
-    supermodel = dill.load(open(input_name, "rb"))
+
+#
+# def read_supermodel_from_pkl(input_name: str):
+#     supermodel = dill.load(open(input_name, "rb"))
+#     return supermodel
+
+
+def read_supermodel_from_json(input_name: str):  # GGE
+    with open(input_name, "r") as infile:
+        load_dict = json.load(infile)
+    supermodel = SuperModel(True, {"type": "SuperModel", "args": load_dict})
     return supermodel

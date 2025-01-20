@@ -459,6 +459,18 @@ class GatheredModels:
             )
             gene_path = None
         else:
+            # GGE: Check that BLAST is installed
+            proc = subprocess.run(
+                f"makeblastdb -h",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if proc.returncode != 0:
+                raise OSError(
+                    "Check that makeblastdb (and BLAST in general) is properly installed!"
+                    "\n(a remainder, that you NEED to install blast to use this package)"
+                )
             output_folder = Path(output_folder)
             gene_path = output_folder / "tmp_gene_conversion"
             gene_path.mkdir(exist_ok=True, parents=True)
@@ -475,7 +487,7 @@ class GatheredModels:
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "
                     f"{Path(db_path, 'nt_db')} -dbtype nucl"
-                    f" -title 'nt_db' -parse_seqids",
+                    f" -title nt_db -parse_seqids",  # WindowsFix ('' removed)  [seems to work on Linux as well]
                     shell=True,
                     check=True,
                     stdout=subprocess.PIPE,
@@ -486,7 +498,7 @@ class GatheredModels:
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_aa} -out "
                     f"{Path(db_path, 'aa_db')} -dbtype"
-                    f" prot -title 'aa_db' -parse_seqids",
+                    f" prot -title aa_db -parse_seqids",  # WindowsFix ('' removed) [seems to work on Linux as well]
                     shell=True,
                     check=True,
                     stdout=subprocess.PIPE,
@@ -510,16 +522,16 @@ class GatheredModels:
                 db_name = ""
                 if aa_status and path_final_genome_aa is not None:
                     blast_command = "blastp"
-                    db_name = "'aa_db'"
+                    db_name = "aa_db"  # WindowsFix ('' removed) [seems to work on Linux as well]
                 elif aa_status and path_final_genome_nt is not None:
                     blast_command = "tblastn"
-                    db_name = "'nt_db'"
+                    db_name = "nt_db"  # WindowsFix ('' removed) [seems to work on Linux as well]
                 elif not aa_status and path_final_genome_nt is not None:
                     blast_command = "blastn"
-                    db_name = "'nt_db'"
+                    db_name = "nt_db"  # WindowsFix ('' removed) [seems to work on Linux as well]
                 elif not aa_status and path_final_genome_aa is not None:
                     blast_command = "blastx"
-                    db_name = "'aa_db'"
+                    db_name = "aa_db"  # WindowsFix ('' removed) [seems to work on Linux as well]
                 if blast_command == "" or db_name == "":
                     warnings.warn("\nWarning! Something wrong with aa/nt in files/DB")
                 elif not model_gene_file:
@@ -529,7 +541,7 @@ class GatheredModels:
                         f"{blast_command} -query {model_gene_file} "
                         f"-db {Path(db_path, db_name)} "
                         f"-max_target_seqs 1 -evalue {evalue_threshold} "
-                        f"-outfmt '6' -out {out_blast_file}",
+                        f"-outfmt 6 -out {out_blast_file}",  # WindowsFix ('' removed) [seems to work on Linux as well]
                         shell=True,
                         check=True,
                         stdout=subprocess.PIPE,
@@ -556,18 +568,24 @@ class GatheredModels:
             "bigg_models_reactions.txt.gz",
         )
         supermodel = SuperModel(
-            final_m_sel,
-            final_m_not_sel,
-            final_r_sel,
-            final_r_not_sel,
-            self.__models,
-            periplasmic_m,
-            periplasmic_r,
-            bigg_data_m,
-            bigg_data_r,
-            gene_path,
-            do_mix_conv_notconv,
-            and_as_solid,
+            False,
+            {
+                "type": "SuperModel",
+                "args": {
+                    "final_m_sel": final_m_sel,
+                    "final_m_not_sel": final_m_not_sel,
+                    "final_r_sel": final_r_sel,
+                    "final_r_not_sel": final_r_not_sel,
+                    "all_models_data": self.__models,
+                    "additional_periplasmic_m": periplasmic_m,
+                    "periplasmic_r": periplasmic_r,
+                    "m_db_info": bigg_data_m,
+                    "r_db_info": bigg_data_r,
+                    "gene_folder": gene_path,
+                    "do_mix_conv_notconv": do_mix_conv_notconv,
+                    "and_as_solid": and_as_solid,
+                },
+            },
         )
         return supermodel
 
