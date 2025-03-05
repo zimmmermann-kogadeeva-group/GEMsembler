@@ -69,9 +69,11 @@ def process_bigg(data, metabolites=False):
         .explode(column="old_bigg_ids")
         .get(["old_bigg_ids", "bigg_id"])
         .assign(
-            bigg_id=lambda x: x.bigg_id.str.replace("_[a-z]+$", "", regex=True)
-            if metabolites
-            else x.bigg_id
+            bigg_id=lambda x: (
+                x.bigg_id.str.replace("_[a-z]+$", "", regex=True)
+                if metabolites
+                else x.bigg_id
+            )
         )
         .drop_duplicates()
         .groupby("old_bigg_ids", group_keys=False)["bigg_id"]
@@ -116,7 +118,10 @@ def process_modelseed(data):
 @cache_file
 def get_seed_orig_m():
     df_modelseed_m = download_db(
-        "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/compounds.tsv",
+        (
+            "https://github.com/ModelSEED/ModelSEEDDatabase/"
+            "raw/master/Biochemistry/compounds.tsv"
+        ),
         "compounds.tsv.gz",
     )
     return df_modelseed_m.pipe(process_modelseed)
@@ -125,7 +130,10 @@ def get_seed_orig_m():
 @cache_file
 def get_seed_orig_r():
     df_modelseed_r = download_db(
-        "https://github.com/ModelSEED/ModelSEEDDatabase/raw/master/Biochemistry/reactions.tsv",
+        (
+            "https://github.com/ModelSEED/ModelSEEDDatabase/"
+            "raw/master/Biochemistry/reactions.tsv"
+        ),
         "reactions.tsv.gz",
     )
     return df_modelseed_r.pipe(process_modelseed)
@@ -161,7 +169,7 @@ def get_seed_addit_m():
         names=["source", "ID", "description"],
     )
     return df_metanetx_m.pipe(
-        process_with_metanetx, "seed", "(\.compound|M|\.metabolite):(M_)?"
+        process_with_metanetx, "seed", r"(\.compound|M|\.metabolite):(M_)?"
     )
 
 
@@ -173,7 +181,7 @@ def get_seed_addit_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_r.pipe(process_with_metanetx, "seed", "(\.reaction|R|):(R_)?")
+    return df_metanetx_r.pipe(process_with_metanetx, "seed", r"(\.reaction|R|):(R_)?")
 
 
 def process_metanetx(data, repl_regex):
@@ -198,7 +206,9 @@ def get_mnx_m():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_m.pipe(process_metanetx, "bigg(\.compound|M|\.metabolite):(M_)?")
+    return df_metanetx_m.pipe(
+        process_metanetx, r"bigg(\.compound|M|\.metabolite):(M_)?"
+    )
 
 
 @cache_file
@@ -209,7 +219,7 @@ def get_mnx_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_r.pipe(process_metanetx, "bigg(\.reaction|R|):(R_)?")
+    return df_metanetx_r.pipe(process_metanetx, r"bigg(\.reaction|R|):(R_)?")
 
 
 @cache_file
@@ -223,7 +233,7 @@ def get_kegg_m():
     return df_metanetx_m.pipe(
         process_with_metanetx,
         "kegg",
-        "(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
+        r"(\.compound|\.drug|\.metabolite|\.glycan|[CDGM]):(M_)?",
     )
 
 
@@ -235,7 +245,7 @@ def get_kegg_r():
         comment="#",
         names=["source", "ID", "description"],
     )
-    return df_metanetx_r.pipe(process_with_metanetx, "kegg", "(\.reaction|R|):(R_)?")
+    return df_metanetx_r.pipe(process_with_metanetx, "kegg", r"(\.reaction|R|):(R_)?")
 
 
 def get_BiGG_lists(metabolites: bool):
