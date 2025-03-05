@@ -1852,6 +1852,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         and_as_solid = args["and_as_solid"]
 
         self.sources = list(all_models_data.keys())
+        print("Creating metabolites for supermodel")
         self.metabolites = SetofNewElements(
             False,
             {
@@ -1867,6 +1868,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             },
             additional_periplasmic_m,
         )
+        print("Creating reactions for supermodel")
         self.reactions = SetofNewElements(
             False,
             {
@@ -1881,6 +1883,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 },
             },
         )
+        print("Creating genes for supermodel")
         self.genes = SetofNewGenes(
             False,
             {
@@ -1892,7 +1895,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 },
             },
         )
-
+        print("Connecting supermodel network")
         if do_mix_conv_notconv:
             final_m_all = defaultdict(dict)
             for model_id in final_m_sel.keys():
@@ -1934,6 +1937,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         self.__find_connections(
             connection_knowledge, all_models_data, do_mix_conv_notconv, gene_folder,
         )
+        print("Finalizing supermodel attributes")
         self.__get_additional_attributes(
             self.sources, connection_knowledge, do_mix_conv_notconv
         )
@@ -1978,7 +1982,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 "You do not need to run this comparison separately"
             )
         else:
-            getCore(self, number_of_model, operator.ge, and_as_solid)
+            coreN = getCore(self, number_of_model, operator.ge, and_as_solid)
+            print(f"Results are saved in 'comparison' attribute as {coreN}")
 
     def exactly_in(self, number_of_model: int, and_as_solid=False):
         if (
@@ -1988,7 +1993,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         ):
             raise ValueError("Number to check does not fit the number of models")
         else:
-            getCore(self, number_of_model, operator.eq, and_as_solid)
+            coreN = getCore(self, number_of_model, operator.eq, and_as_solid)
+            print(f"Results are saved in 'comparison' attribute as {coreN}")
 
     def present(self, yes=None, no=None, short_name_len=None, and_as_solid=False):
         if yes is None and no is None:
@@ -2019,7 +2025,8 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             else:
                 if short_name_len is None:
                     short_name_len = self.get_short_name_len()
-                getDifference(self, yes, no, and_as_solid, short_name_len)
+                name = getDifference(self, yes, no, and_as_solid, short_name_len)
+                print(f"Results are saved in 'comparison' attribute as {name}")
 
     def get_venn_segments(self, short_name_len=None, and_as_solid=False):
         """ Getting metabolites and reactions networks for each Venn segment in Venn
@@ -2032,28 +2039,30 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         for combo in combinations:
             yes = sorted(list(combo))
             no = sorted((list(set(self.sources) - set(combo))))
-            getDifference(self, yes, no, and_as_solid, short_name_len)
+            name = getDifference(self, yes, no, and_as_solid, short_name_len)
+            print(f"Results are saved in 'comparison' attribute as {name}")
 
     def get_intersection(self, and_as_solid=False):
-        getCore(self, len(self.sources), operator.ge, and_as_solid)
+        coreN = getCore(self, len(self.sources), operator.ge, and_as_solid)
+        print(f"Results are saved in 'comparison' attribute as {coreN}")
 
     def get_all_confident_levels(self, and_as_solid=False):
         for i in range(len(self.sources), 1, -1):
             self.at_least_in(i, and_as_solid=and_as_solid)
 
-    def write_supermodel_to_pkl(self, output_name: str, recursion_limit=None):
-        if not output_name.endswith(".pkl"):
-            raise ValueError("Wrong extension of the file")
-        if exists(output_name):
-            raise ValueError("File already exist, change the name")
-        else:
-            # max_rec = 0x100000
-            # resource.setrlimit(
-            #     resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY]
-            # )
-            # sys.setrecursionlimit(max_rec)
-            with open(output_name, "wb") as fh:
-                dill.dump(self, fh)
+    # def write_supermodel_to_pkl(self, output_name: str, recursion_limit=None):
+    #     if not output_name.endswith(".pkl"):
+    #         raise ValueError("Wrong extension of the file")
+    #     if exists(output_name):
+    #         raise ValueError("File already exist, change the name")
+    #     else:
+    #         # max_rec = 0x100000
+    #         # resource.setrlimit(
+    #         #     resource.RLIMIT_STACK, [0x100 * max_rec, resource.RLIM_INFINITY]
+    #         # )
+    #         # sys.setrecursionlimit(max_rec)
+    #         with open(output_name, "wb") as fh:
+    #             dill.dump(self, fh)
 
     def write_supermodel_to_json(self, output_name: str):  # GGE
         if not output_name.endswith(".json"):

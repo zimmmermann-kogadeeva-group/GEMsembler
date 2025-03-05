@@ -23,7 +23,7 @@ from .conversion import (
     remove_zero_for_notconv,
     replace_square_brackets,
 )
-from .creation import SetofNewElements, SetofNewGenes, SuperModel
+from .creation import SuperModel
 from .curation import get_duplicated_reactions, remove_b_type_exchange
 from .dbs import download_db, get_bigg_network
 from .genes import (
@@ -234,7 +234,8 @@ class GatheredModels:
         return conv_rcts
 
     def run(self):
-        # run first stage selection for converted
+        # run first convertion
+        print("Running initial convertion")
         self.first_stage_selected_metabolites = run_selection(
             self.same_db_models, self.converted_metabolites, "highest"
         )
@@ -243,6 +244,7 @@ class GatheredModels:
         )
 
         # run first structural conversion
+        print("Running 1st structural convertion")
         bigg_network = get_bigg_network()
         for model_id, first_sel in self.first_stage_selected_reactions.items():
             model_type = self.__models[model_id]["model_type"]
@@ -264,6 +266,7 @@ class GatheredModels:
         )
 
         # get suggestions from structural reactions for metabolites
+        print("Running structural suggestions for metabolites")
         for model_id, rs_struct_sel in self.second_stage_selected_reactions.items():
             model_type = self.__models[model_id]["model_type"]
             db_mod = self.__conf.get(model_type).get("db_name")
@@ -282,6 +285,7 @@ class GatheredModels:
         )
 
         # run second structural conversion with suggestions for metabolites
+        print("Running 2d structural convertion")
         for model_id, sec_sel in self.second_stage_selected_reactions.items():
             model_type = self.__models[model_id]["model_type"]
             db_name = self.__conf.get(model_type).get("db_name")
@@ -301,6 +305,7 @@ class GatheredModels:
             replace_with_consistent=False,
         )
 
+        print("Introducing periplasmic compartment")
         # introducing periplasmic compartment for models, that don't have it originally
         for model_id, th_sel in self.third_stage_selected_reactions.items():
             if self.__conf.get(self.__models[model_id]["model_type"]).get(
@@ -476,6 +481,7 @@ class GatheredModels:
             gene_path.mkdir(exist_ok=True, parents=True)
             db_path = gene_path / "blast_db"
             db_path.mkdir(exist_ok=True, parents=True)
+            print("Downloading assembly from NCBI")
             if assembly_id:
                 (
                     path_final_genome_nt,
@@ -484,6 +490,7 @@ class GatheredModels:
                     output_folder, assembly_id, do_old_locus_tag=do_old_locus_tag
                 )
             if path_final_genome_nt is not None:
+                print("Building BLAST database")
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "
                     f"{Path(db_path, 'nt_db')} -dbtype nucl"
@@ -495,6 +502,7 @@ class GatheredModels:
                     env=get_env(),
                 )
             if path_final_genome_aa is not None:
+                print("Building BLAST database")
                 subprocess.run(
                     f"makeblastdb -in {path_final_genome_aa} -out "
                     f"{Path(db_path, 'aa_db')} -dbtype"
@@ -506,6 +514,7 @@ class GatheredModels:
                     env=get_env(),
                 )
             for model_id, model_data in self.__models.items():
+                print(f"Running gene conversion with BLAST for {model_id}")
                 if model_data["path_to_genome"] == "":
                     continue
                 out_blast_file = gene_path / (model_id + "_blast.tsv")
@@ -548,6 +557,7 @@ class GatheredModels:
                         stderr=subprocess.PIPE,
                         env=get_env(),
                     )
+        print("Assembling Supermodel")
         # Get final tables to create new objects
         (
             final_m_sel,

@@ -187,10 +187,9 @@ def getCore(
     elif compare_operator == operator.eq:
         coreN = "In" + str(core_size)
     else:
-        print(
+        raise ValueError(
             "Comparison operator is not supported. Has to be operator.ge (>=) or operator.eq (==)"
         )
-        return
     for met in supermodel.metabolites.assembly.values():
         core_r = getCoreConnections(
             met.reactions, core_size, compare_operator, supermodel.sources
@@ -245,6 +244,7 @@ def getCore(
         react.metabolites["comparison"].update({coreN: core_metabolites})
         if compare_operator(react.in_models["models_amount"], core_size):
             supermodel.reactions.comparison[coreN].update({react.id: react})
+    return coreN
 
 
 def getDifConnections(connections: dict, sourceIn: [str], sourceNotIn: [str]):
@@ -460,3 +460,4 @@ def getDifference(
         supermodel.reactions.comparison.update({name: {}})
     if name not in supermodel.genes.comparison.keys():
         supermodel.genes.comparison.update({name: {}})
+    return name

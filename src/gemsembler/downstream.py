@@ -29,7 +29,7 @@ from .drawing import (
 )
 
 
-def write_metabolites_production_output(
+def _write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
     plot_file_name=None,
@@ -140,7 +140,7 @@ def write_metabolites_production_output(
 
 def table_reactions_confidence(
     supermodel: SuperModel,
-    output_name: str,
+    output_name=None,
     pathway_r=None,
     path_r_dist=None,
     yes_range=1,
@@ -148,8 +148,23 @@ def table_reactions_confidence(
     genes=True,
     and_as_solid=False,
     add_original_models=True,
-    write_table=True,
 ):
+    """
+    The function serves to organize information about reactions in a table format.
+    Main columns of the table:
+        Reaction - reaction ID
+        R_confidence - reaction agreement score: in how many models the reaction is present
+        Status - automatic status, based on agreement score; can be "yes" (rather present), "no" (rather not present), "q" (uncertain)
+        R_models - in which models the reaction is present
+        GPR_confidence - GPR agreement score: in how many models there is not empty common GPR part
+        GPR_core - common GPR part from the most models
+        GPR_assembly - united GPR from all models with the reaction present
+    If pathway can be focused around one metabolite of interest, additional column:
+        Distance from "met X" - how many reactions away is the reaction from metabolite of intererst
+    If it is convenient to consider all input models (supormodel.sourcers) separately,
+    additional columns for each input model ID  
+    """
+
     if pathway_r is None:
         pathway_r = list(supermodel.reactions.assembly.keys())
     output = {"Reaction": pathway_r, "R_confidence": [], "Status": [], "R_models": []}
@@ -224,7 +239,7 @@ def table_reactions_confidence(
                     path_r_dist[r_id]
                 )
     output_tb = pd.DataFrame(output)
-    if write_table:
+    if output_name is not None:
         output_tb.to_csv(output_name, sep="\t", index=False)
     return output_tb
 
@@ -338,7 +353,7 @@ def biosynthesis_pathway_with_media_and_metabolite(
         )
     if write_pathway_table_to_file is not None:
         if calc_dist_from_synt_met:
-            r_dist_dict = calc_dist_for_synt_path(
+            r_dist_dict = _calc_dist_for_synt_path(
                 pathway, met_to_synt, supermodel, check_distance
             )
             t = table_reactions_confidence(
@@ -823,7 +838,7 @@ def get_met_neighborhood(
         return all_r, all_g, all_m
 
 
-def calc_dist_for_synt_path(
+def _calc_dist_for_synt_path(
     pathway_rs: list,
     met_of_interest: str,
     supermodel: SuperModel,
@@ -831,7 +846,7 @@ def calc_dist_for_synt_path(
     highly_connected_t=50,
     draw_met_not_int=False,
 ):
-    path_r_dist = {r: ">5" for r in pathway_rs}
+    path_r_dist = {r: f">{check_distance}" for r in pathway_rs}
     path_r_dist.update({"metabolite": met_of_interest})
     for i in range(1, check_distance + 1):
         all_r, all_g, all_m = get_met_neighborhood(
@@ -843,17 +858,18 @@ def calc_dist_for_synt_path(
         )
         r_intersect = list(set(pathway_rs) & set(all_r))
         for ri in r_intersect:
-            if path_r_dist[ri] == ">5":
+            if path_r_dist[ri] == f">{check_distance}":
                 path_r_dist[ri] = i
     return path_r_dist
 
 
-def fba_growth_met_production(
+def _fba_growth_met_production(
     models_to_analyse: dict,
     medium: dict,
     biomass_precursors=True,
     met_of_interest=None,
     biomass_r_id=None,
+    flux_threshold=0.001,
 ):
     medium_no_comp = [re.sub("_([cep])$", "", m) for m in medium.keys()]
     if biomass_r_id is None:
@@ -920,7 +936,7 @@ def fba_growth_met_production(
             model.objective = model.demands.get_by_id("DM_" + bp)
             res_bp = model.optimize()
             flux_res_out[k].update({bp + "_fba": res_bp})
-            if res_bp.objective_value > 0.001:
+            if res_bp.objective_value > flux_threshold:
                 model_data.append(5)
                 if re.sub("_([cep])$", "", bp) in medium_no_comp:
                     model_med_stat = model_med_stat + 1
@@ -932,8 +948,8 @@ def fba_growth_met_production(
                 flux_res_out[k].update({bp + "_pfba": pfba_res})
                 reactions = list(
                     pfba_res.to_frame()[
-                        (pfba_res.to_frame()["fluxes"] > 0.001)
-                        | (pfba_res.to_frame()["fluxes"] < -0.001)
+                        (pfba_res.to_frame()["fluxes"] > flux_threshold)
+                        | (pfba_res.to_frame()["fluxes"] < -1 * flux_threshold)
                     ].index
                 )
                 path_pfba_out[k].update({bp: reactions})
@@ -954,7 +970,7 @@ def fba_growth_met_production(
     return out_bp_production, flux_res_out, path_pfba_out, stat_out
 
 
-def write_pfba_mq_results(
+def _write_pfba_mq_results(
     path_pfba_mq_out: dict,
     supermodel: SuperModel,
     medium: list,
@@ -1066,7 +1082,7 @@ def write_pfba_mq_results(
                 )
             if table_pfba_mq:
                 if calc_r_dist:
-                    r_dist_dict = calc_dist_for_synt_path(
+                    r_dist_dict = _calc_dist_for_synt_path(
                         v, m, supermodel, check_distance
                     )
                 else:
@@ -1216,14 +1232,16 @@ def run_growth_full_flux_analysis(
     met_names=True,
     id_instead_long_name=20,
     dpi=300,
+    flux_threshold=0.001,
     **kwargs,
 ):
+    """"""
     (
         out_bp_production,
         flux_res_out,
         path_pfba_out,
         stat_out,
-    ) = fba_growth_met_production(
+    ) = _fba_growth_met_production(
         models_to_analyse,
         medium,
         biomass_precursors,
@@ -1235,7 +1253,7 @@ def run_growth_full_flux_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    production_plots = write_metabolites_production_output(
+    production_plots = _write_metabolites_production_output(
         out_bp_production_tab,
         output_folder,
         production_plot,
@@ -1243,6 +1261,7 @@ def run_growth_full_flux_analysis(
         met_names=met_names,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
+        flux_threshold=flux_threshold,
         **kwargs,
     )
     if not production_plots:
@@ -1265,7 +1284,7 @@ def run_growth_full_flux_analysis(
                 "So for each biomass precursor the model with "
                 "the highest confidence level will be used."
             )
-        write_pfba_mq_results(
+        _write_pfba_mq_results(
             path_pfba_out,
             supermodel,
             list(medium.keys()),
@@ -1450,7 +1469,7 @@ def run_metquest_results_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    production_plots = write_metabolites_production_output(
+    production_plots = _write_metabolites_production_output(
         synthes_tab_out,
         output_folder,
         production_plot,
@@ -1470,7 +1489,7 @@ def run_metquest_results_analysis(
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
     if draw_mq_path or table_mq_path or draw_confidence:
-        write_pfba_mq_results(
+        _write_pfba_mq_results(
             met_interest_mq_paths,
             supermodel,
             medium,
