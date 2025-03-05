@@ -15,7 +15,7 @@ __pycache__/
 
 # Misc
 Output/
-copy_to_cluster.sh
+worktrees/
 requirements.txt
 env_simple.yml
 conda_env.yml
