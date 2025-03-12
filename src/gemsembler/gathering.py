@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import pickle
@@ -17,8 +18,8 @@ from .conversion import (
     ConvBigg,
     ConvCarveme,
     ConvGapseq,
-    ConvModelseed,
     ConvMetanetx,
+    ConvModelseed,
     no_changes_for_notconv,
     remove_zero_for_notconv,
     replace_square_brackets,
@@ -47,6 +48,16 @@ def get_env():
     return tmp_env
 
 
+def sha256sum(filename):
+    h = hashlib.sha256()
+    b = bytearray(128 * 1024)
+    mv = memoryview(b)
+    with open(filename, "rb", buffering=0) as f:
+        while n := f.readinto(mv):
+            h.update(mv[:n])
+    return h.hexdigest()
+
+
 class LoggerContext:
     def __init__(self, logger_name, show_logs=False):
         self.__show_logs__ = show_logs
@@ -62,7 +73,11 @@ class LoggerContext:
 
 
 def load_sbml_model(path_to_model, cache: bool = True, show_logs: bool = False):
-    cache_path = Path(path_to_model).with_suffix(".pkl")
+
+    file_hash = sha256sum(path_to_model)
+    path_to_model = Path(path_to_model)
+    cache_path = path_to_model.parent / (path_to_model.stem + "_" + file_hash + ".pkl")
+
     if cache_path.exists():
         with open(cache_path, "rb") as fh:
             model = pickle.load(fh)
@@ -108,7 +123,9 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
