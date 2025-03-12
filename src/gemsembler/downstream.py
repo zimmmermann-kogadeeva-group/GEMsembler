@@ -260,6 +260,7 @@ def pathway_of_interest(
     size=25,
     yes_range=1,
     no_range=1,
+    add_original_models=True,
 ):
     if type(pathway_r) == list:
         if met_not_int is None:
@@ -302,6 +303,7 @@ def pathway_of_interest(
             no_range=no_range,
             genes=genes,
             and_as_solid=and_as_solid,
+            add_original_models=add_original_models,
         )
     if draw_pathway_to_file and write_table_to_file:
         return g, t
@@ -366,7 +368,6 @@ def biosynthesis_pathway_with_media_and_metabolite(
                 genes,
                 and_as_solid,
                 add_original_models,
-                write_table,
             )
         else:
             t = table_reactions_confidence(
@@ -378,7 +379,6 @@ def biosynthesis_pathway_with_media_and_metabolite(
                 genes=genes,
                 and_as_solid=and_as_solid,
                 add_original_models=add_original_models,
-                write_table=write_table,
             )
     if draw_pathway_to_file and write_pathway_table_to_file:
         return g, t
@@ -403,6 +403,7 @@ def glycolysis(
     size=25,
     yes_range=1,
     no_range=1,
+    add_original_models=True,
 ):
     glycolysis = {
         "HEX1": [("glc__D_c", "g6p_c")],
@@ -439,6 +440,7 @@ def glycolysis(
             no_range=no_range,
             genes=genes,
             and_as_solid=and_as_solid,
+            add_original_models=add_original_models,
         )
     if draw_pathway_to_file and write_table_to_file:
         return g, t
@@ -463,6 +465,7 @@ def tca(
     size=25,
     yes_range=1,
     no_range=1,
+    add_original_models=True,
 ):
     tca = {
         "PYK": [("pep_c", "pyr_c")],
@@ -519,6 +522,7 @@ def tca(
             no_range=no_range,
             genes=genes,
             and_as_solid=and_as_solid,
+            add_original_models=add_original_models,
         )
     if draw_pathway_to_file and write_table_to_file:
         return g, t
@@ -543,6 +547,7 @@ def pentose_phosphate(
     size=25,
     yes_range=1,
     no_range=1,
+    add_original_models=True,
 ):
     pentose_phosphate_pathway = {
         "G6PBDH": [("g6p_B_c", "6pgl_c")],
@@ -581,6 +586,7 @@ def pentose_phosphate(
             no_range=no_range,
             genes=genes,
             and_as_solid=and_as_solid,
+            add_original_models=add_original_models,
         )
     if draw_pathway_to_file and write_table_to_file:
         return g, t
@@ -1097,7 +1103,6 @@ def _write_pfba_mq_results(
                     genes,
                     and_as_solid,
                     add_original_models,
-                    write_table,
                 )
 
             if draw_confidence:
