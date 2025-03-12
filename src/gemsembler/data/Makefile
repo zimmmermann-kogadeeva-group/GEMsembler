@@ -2,11 +2,11 @@
 PAPER_URL = https://raw.githubusercontent.com/SystemsBioinformatics/pub-data/master/reconstruction-tools-assessment/pipeline/reconstructions/
 VMH_URL = https://www.vmh.life/files/reconstructions/AGORA/
 LP_FILES = CA1.xml.gz \
-		   CA2.xml.gz \
-		   MS2.sbml.gz \
-		   protein_fasta.faa.gz \
-		   WCFS1_agora.xml.gz \
-		   WCFS1.fasta.gz
+	   CA2.xml.gz \
+	   MS2.sbml.gz \
+	   protein_fasta.faa.gz \
+	   WCFS1_agora.xml.gz \
+	   WCFS1.fasta.gz
 
 all: $(addprefix LP/LP_,${LP_FILES})
 
