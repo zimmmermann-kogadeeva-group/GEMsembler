@@ -1289,7 +1289,7 @@ def run_growth_full_flux_analysis(
                 "So for each biomass precursor the model with "
                 "the highest confidence level will be used."
             )
-        _write_pfba_mq_results(
+        production_plots = production_plots + _write_pfba_mq_results(
             path_pfba_out,
             supermodel,
             list(medium.keys()),
@@ -1494,7 +1494,7 @@ def run_metquest_results_analysis(
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
     if draw_mq_path or table_mq_path or draw_confidence:
-        _write_pfba_mq_results(
+        production_plots = production_plots + _write_pfba_mq_results(
             met_interest_mq_paths,
             supermodel,
             medium,
