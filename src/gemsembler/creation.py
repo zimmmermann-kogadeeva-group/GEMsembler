@@ -2046,7 +2046,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         coreN = getCore(self, len(self.sources), operator.ge, and_as_solid)
         print(f"Results are saved in 'comparison' attribute as {coreN}")
 
-    def get_all_confident_levels(self, and_as_solid=False):
+    def get_all_confidence_levels(self, and_as_solid=False):
         for i in range(len(self.sources), 1, -1):
             self.at_least_in(i, and_as_solid=and_as_solid)
 
