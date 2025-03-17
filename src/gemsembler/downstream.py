@@ -1252,6 +1252,7 @@ def run_growth_full_flux_analysis(
         biomass_precursors,
         metabolites_of_interest,
         biomass_r_id,
+        flux_threshold=flux_threshold,
     )
     out_bp_production_tab = pd.DataFrame(out_bp_production)
     stat_out_tab = pd.DataFrame(
@@ -1266,7 +1267,6 @@ def run_growth_full_flux_analysis(
         met_names=met_names,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
-        flux_threshold=flux_threshold,
         **kwargs,
     )
     if not production_plots:
