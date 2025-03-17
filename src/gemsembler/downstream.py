@@ -355,7 +355,7 @@ def biosynthesis_pathway_with_media_and_metabolite(
         )
     if write_pathway_table_to_file is not None:
         if calc_dist_from_synt_met:
-            r_dist_dict = _calc_dist_for_synt_path(
+            r_dist_dict = calc_dist_for_synt_path(
                 pathway, met_to_synt, supermodel, check_distance
             )
             t = table_reactions_confidence(
@@ -844,7 +844,7 @@ def get_met_neighborhood(
         return all_r, all_g, all_m
 
 
-def _calc_dist_for_synt_path(
+def calc_dist_for_synt_path(
     pathway_rs: list,
     met_of_interest: str,
     supermodel: SuperModel,
@@ -1088,7 +1088,7 @@ def _write_pfba_mq_results(
                 )
             if table_pfba_mq:
                 if calc_r_dist:
-                    r_dist_dict = _calc_dist_for_synt_path(
+                    r_dist_dict = calc_dist_for_synt_path(
                         v, m, supermodel, check_distance
                     )
                 else:
