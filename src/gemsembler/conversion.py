@@ -222,7 +222,11 @@ class ConvModelseed(ConvBase):
 
 class ConvMetanetx(ConvBase):
     def __init__(
-        self, main_map_m=None, main_map_r=None, bigg_m=None, bigg_r=None,
+        self,
+        main_map_m=None,
+        main_map_r=None,
+        bigg_m=None,
+        bigg_r=None,
     ):
         super().__init__(bigg_m, bigg_r)
 
@@ -274,7 +278,7 @@ class ConvAgora(ConvBase):
 
         self.__annot_m__ = "kegg.compound"
         self.__annot_r__ = "kegg.reaction"
-        self.__comp_regex__ = re.compile("\[([ce])\]$")
+        self.__comp_regex__ = re.compile(r"\[([ce])\]$")
 
     def convert_metabolite(self, metabolite):
         id_wo_comp = self.__comp_regex__.sub("", metabolite.id)
