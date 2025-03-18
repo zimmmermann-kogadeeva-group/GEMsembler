@@ -29,7 +29,7 @@ from .drawing import (
 )
 
 
-def _write_metabolites_production_output(
+def write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
     plot_file_name=None,
@@ -1259,7 +1259,7 @@ def run_growth_full_flux_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    production_plots = _write_metabolites_production_output(
+    production_plots = write_metabolites_production_output(
         out_bp_production_tab,
         output_folder,
         production_plot,
@@ -1474,7 +1474,7 @@ def run_metquest_results_analysis(
         stat_out.items(),
         columns=["Metabolites confidence production", "Metabolites amount"],
     )
-    production_plots = _write_metabolites_production_output(
+    production_plots = write_metabolites_production_output(
         synthes_tab_out,
         output_folder,
         production_plot,
