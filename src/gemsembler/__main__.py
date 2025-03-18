@@ -31,7 +31,7 @@ def quickdiff_cli(args):
     parser.add_argument("model2", help="Path to second model")
     parser.add_argument("-o", "--output", help="Path to output json file.")
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     model1 = load_sbml_model(args.model1)
     model2 = load_sbml_model(args.model2)
