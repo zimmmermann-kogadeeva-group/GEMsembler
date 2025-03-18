@@ -4,7 +4,7 @@ from .creation import read_supermodel_from_json
 from .data import BU, LP
 from .gathering import GatheredModels, load_sbml_model
 
-__version__ = "0.9.10"
+__version__ = "0.9.11"
 
 lp_example = [
     dict(
