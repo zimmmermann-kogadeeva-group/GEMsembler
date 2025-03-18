@@ -76,3 +76,14 @@ addopts = [
 filterwarnings = [
     "ignore::UserWarning"
 ]
+
+[tool.uv.sources]
+gemsembler = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "gemsembler",
+]
+testing = [
+    "jupyterlab>=4.3.5",
+]
