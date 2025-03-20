@@ -29,6 +29,96 @@ from .drawing import (
 )
 
 
+GLYCOLYSIS_GLOBAL = {
+    "HEX1": [("glc__D_c", "g6p_c")],
+    "PGI": [("g6p_c", "f6p_c")],
+    "PFK": [("f6p_c", "fdp_c")],
+    "FBA": [("fdp_c", "g3p_c")],
+    "GAPD": [("g3p_c", "13dpg_c")],
+    "PGK": [("13dpg_c", "3pg_c")],
+    "PGM": [("3pg_c", "2pg_c")],
+    "ENO": [("2pg_c", "pep_c")],
+    "PYK": [("pep_c", "pyr_c")],
+}
+TCA_GLOBAL = {
+    "PYK": [("pep_c", "pyr_c")],
+    "PPC": [("pep_c", "oaa_c")],
+    "PPCK": [("pep_c", "oaa_c")],
+    "PEPCK_re": [("pep_c", "oaa_c")],
+    "PC": [("pyr_c", "oaa_c")],
+    "PDH": [("pyr_c", "accoa_c")],
+    "PFL": [("pyr_c", "accoa_c")],
+    "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")],
+    "ACONT": [("cit_c", "icit_c")],
+    "ACONTa": [("cit_c", "acon_C_c")],
+    "ACONTb": [("acon_C_c", "icit_c")],
+    "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
+    "ICDHyr": [("icit_c", "akg_c")],
+    "ICDHx": [("icit_c", "akg_c")],
+    "ICITRED": [("icit_c", "osuc_c")],
+    "OSUCCL": [("osuc_c", "akg_c")],
+    "AKGDH": [("akg_c", "succoa_c")],
+    "OOR2r": [("akg_c", "succoa_c")],
+    "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
+    "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")],
+    "PDHcr": [("dhlam_c", "lpam_c")],
+    "SUCOAS": [("succoa_c", "succ_c")],
+    "SUCDi": [("succ_c", "fum_c")],
+    "FRD7": [("fum_c", "succ_c")],
+    "FUM": [("fum_c", "mal__L_c")],
+    "MALS": [("glx_c", "mal__L_c")],
+    "MDH": [("mal__L_c", "oaa_c")],
+    "MDH2": [("mal__L_c", "oaa_c")],
+    "MDH3": [("mal__L_c", "oaa_c")],
+}
+PENTOSE_PHOSPHATE_PATHWAY_GLOBAL = {
+    "G6PBDH": [("g6p_B_c", "6pgl_c")],
+    "G6PDH2r": [("g6p_c", "6pgl_c")],
+    "PGL": [("6pgl_c", "6pgc_c")],
+    "GND": [("6pgc_c", "ru5p__D_c")],
+    "RPE": [("ru5p__D_c", "xu5p__D_c")],
+    "RPI": [("ru5p__D_c", "r5p_c")],
+    "TKT1": [("xu5p__D_c", "g3p_c"), ("r5p_c", "s7p_c")],
+    "TALA": [("g3p_c", "f6p_c"), ("s7p_c", "e4p_c")],
+    "TKT2": [("e4p_c", "f6p_c"), ("xu5p__D_c", "g3p_c")],
+    "PGI": [("f6p_c", "g6p_c")],
+    "G6PI": [("g6p_c", "g6p_B_c")],
+}
+COFACTORS_GLOBAL = [
+    "co2_c",
+    "hco3_c",
+    "pi_c",
+    "ppi_c",
+    "ACP_c",
+    "atp_c",
+    "adp_c",
+    "amp_c",
+    "nad_c",
+    "nadh_c",
+    "nadp_c",
+    "nadph_c",
+    "coa_c",
+    "cmp_c",
+    "cdp_c",
+    "ctp_c",
+    "gmp_c",
+    "gdp_c",
+    "gtp_c",
+    "ump_c",
+    "udp_c",
+    "utp_c",
+    "fadh2_c",
+    "fad_c",
+    "q8_c",
+    "q8h2_c",
+    "mqn8_c",
+    "mql8_c",
+    "mqn6_c",
+    "mql6_c",
+    "thf_c",
+]
+
+
 def write_metabolites_production_output(
     out_bp_production_tab,
     write_output_to_folder: str,
@@ -405,17 +495,7 @@ def glycolysis(
     no_range=1,
     add_original_models=True,
 ):
-    glycolysis = {
-        "HEX1": [("glc__D_c", "g6p_c")],
-        "PGI": [("g6p_c", "f6p_c")],
-        "PFK": [("f6p_c", "fdp_c")],
-        "FBA": [("fdp_c", "g3p_c")],
-        "GAPD": [("g3p_c", "13dpg_c")],
-        "PGK": [("13dpg_c", "3pg_c")],
-        "PGM": [("3pg_c", "2pg_c")],
-        "ENO": [("2pg_c", "pep_c")],
-        "PYK": [("pep_c", "pyr_c")],
-    }
+    glycolysis = deepcopy(GLYCOLYSIS_GLOBAL)
     if draw_pathway_to_file is not None:
         g = draw_one_known_pathway(
             supermodel,
@@ -467,37 +547,7 @@ def tca(
     no_range=1,
     add_original_models=True,
 ):
-    tca = {
-        "PYK": [("pep_c", "pyr_c")],
-        "PPC": [("pep_c", "oaa_c")],
-        "PPCK": [("pep_c", "oaa_c")],
-        "PEPCK_re": [("pep_c", "oaa_c")],
-        "PC": [("pyr_c", "oaa_c")],
-        "PDH": [("pyr_c", "accoa_c")],
-        "PFL": [("pyr_c", "accoa_c")],
-        "CS": [("accoa_c", "cit_c"), ("oaa_c", "cit_c")],
-        "ACONT": [("cit_c", "icit_c")],
-        "ACONTa": [("cit_c", "acon_C_c")],
-        "ACONTb": [("acon_C_c", "icit_c")],
-        "ICL": [("icit_c", "succ_c"), ("icit_c", "glx_c")],
-        "ICDHyr": [("icit_c", "akg_c")],
-        "ICDHx": [("icit_c", "akg_c")],
-        "ICITRED": [("icit_c", "osuc_c")],
-        "OSUCCL": [("osuc_c", "akg_c")],
-        "AKGDH": [("akg_c", "succoa_c")],
-        "OOR2r": [("akg_c", "succoa_c")],
-        "AKGDa": [("akg_c", "sdhlam_c"), ("lpam_c", "sdhlam_c")],
-        "AKGDb": [("sdhlam_c", "succoa_c"), ("sdhlam_c", "dhlam_c")],
-        "PDHcr": [("dhlam_c", "lpam_c")],
-        "SUCOAS": [("succoa_c", "succ_c")],
-        "SUCDi": [("succ_c", "fum_c")],
-        "FRD7": [("fum_c", "succ_c")],
-        "FUM": [("fum_c", "mal__L_c")],
-        "MALS": [("glx_c", "mal__L_c")],
-        "MDH": [("mal__L_c", "oaa_c")],
-        "MDH2": [("mal__L_c", "oaa_c")],
-        "MDH3": [("mal__L_c", "oaa_c")],
-    }
+    tca = deepcopy(TCA_GLOBAL)
     if draw_pathway_to_file:
         g = draw_one_known_pathway(
             supermodel,
@@ -549,19 +599,7 @@ def pentose_phosphate(
     no_range=1,
     add_original_models=True,
 ):
-    pentose_phosphate_pathway = {
-        "G6PBDH": [("g6p_B_c", "6pgl_c")],
-        "G6PDH2r": [("g6p_c", "6pgl_c")],
-        "PGL": [("6pgl_c", "6pgc_c")],
-        "GND": [("6pgc_c", "ru5p__D_c")],
-        "RPE": [("ru5p__D_c", "xu5p__D_c")],
-        "RPI": [("ru5p__D_c", "r5p_c")],
-        "TKT1": [("xu5p__D_c", "g3p_c"), ("r5p_c", "s7p_c")],
-        "TALA": [("g3p_c", "f6p_c"), ("s7p_c", "e4p_c")],
-        "TKT2": [("e4p_c", "f6p_c"), ("xu5p__D_c", "g3p_c")],
-        "PGI": [("f6p_c", "g6p_c")],
-        "G6PI": [("g6p_c", "g6p_B_c")],
-    }
+    pentose_phosphate_pathway = deepcopy(PENTOSE_PHOSPHATE_PATHWAY_GLOBAL)
     if draw_pathway_to_file:
         g = draw_one_known_pathway(
             supermodel,
@@ -1351,39 +1389,7 @@ def run_metquest_results_analysis(
     if output_folder_mq_paths_tables is not None:
         table_mq_path = True
     if cofactors is None:
-        cofactors = [
-            "co2_c",
-            "hco3_c",
-            "pi_c",
-            "ppi_c",
-            "ACP_c",
-            "atp_c",
-            "adp_c",
-            "amp_c",
-            "nad_c",
-            "nadh_c",
-            "nadp_c",
-            "nadph_c",
-            "coa_c",
-            "cmp_c",
-            "cdp_c",
-            "ctp_c",
-            "gmp_c",
-            "gdp_c",
-            "gtp_c",
-            "ump_c",
-            "udp_c",
-            "utp_c",
-            "fadh2_c",
-            "fad_c",
-            "q8_c",
-            "q8h2_c",
-            "mqn8_c",
-            "mql8_c",
-            "mqn6_c",
-            "mql6_c",
-            "thf_c",
-        ]
+        cofactors = deepcopy(COFACTORS_GLOBAL)
     if check_in_biomass_precursors:
         all_models_bp = {}
         for model in model_list:
