@@ -10,6 +10,7 @@ from .creation import NewElement, SuperModel
 
 
 def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):
+    transport_r = []
     for exchange in cobra_model.exchanges:
         met_e = list(exchange.reactants)[0].id
         met_c = list(exchange.reactants)[0].id[:-1] + "c"
@@ -23,7 +24,6 @@ def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):
                 cobra_transport = True
         if not cobra_transport:
             if met_c in supermodel.metabolites.assembly.keys():
-                transport_r = []
                 for r_super in supermodel.metabolites.assembly.get(met_e).reactions.get(
                     "assembly"
                 ):
@@ -33,30 +33,24 @@ def gapfill_transport_r(cobra_model: Model, supermodel: SuperModel):
                         (met_e in rs_pro) & (met_c in rs_react)
                     ):
                         transport_r.append(r_super)
-                for tr in transport_r:
-                    tr_r = Reaction(tr.id)
-                    if tr.name:
-                        tr_r.name = tr.name
-                    else:
-                        tr_r.name = ""
-                    out_subsystem = ""
-                    for source in tr.in_models["models_list"]:
-                        out_subsystem = (
-                            out_subsystem
-                            + "#"
-                            + source
-                            + "#"
-                            + tr.subsystem.get(source)[0]
-                        )
-                    tr_r.subsystem = out_subsystem
-                    tr_r.lower_bound = tr.lower_bound.get("assembly")[0]
-                    tr_r.upper_bound = tr.upper_bound.get("assembly")[0]
-                    for met, k in tr.metabolites.get("assembly").items():
-                        tr_met = Metabolite(
-                            met.id, name=met.name, compartment=met.id[-1]
-                        )
-                        tr_r.add_metabolites({tr_met: k})
-                    cobra_model.add_reactions([tr_r])
+    for tr in list(set(transport_r)):
+        tr_r = Reaction(tr.id)
+        if tr.name:
+            tr_r.name = tr.name
+        else:
+            tr_r.name = ""
+        out_subsystem = ""
+        for source in tr.in_models["models_list"]:
+            out_subsystem = (
+                out_subsystem + "#" + source + "#" + tr.subsystem.get(source)[0]
+            )
+        tr_r.subsystem = out_subsystem
+        tr_r.lower_bound = tr.lower_bound.get("assembly")[0]
+        tr_r.upper_bound = tr.upper_bound.get("assembly")[0]
+        for met, k in tr.metabolites.get("assembly").items():
+            tr_met = Metabolite(met.id, name=met.name, compartment=met.id[-1])
+            tr_r.add_metabolites({tr_met: k})
+        cobra_model.add_reactions([tr_r])
 
 
 def get_model_of_interest(
