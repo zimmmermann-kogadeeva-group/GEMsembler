@@ -83,6 +83,7 @@ gemsembler = { workspace = true }
 [dependency-groups]
 dev = [
     "gemsembler",
+    "sphinx>=7.4.7",
 ]
 testing = [
     "jupyterlab>=4.3.5",
