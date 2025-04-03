@@ -630,7 +630,6 @@ class GatheredModels:
         path_to_model: str,
         model_type: str,
         path_to_genome: str = None,
-        cache: bool = True,
         show_logs: bool = False,
     ):
         # Run checks on model_id and model_type
@@ -638,7 +637,7 @@ class GatheredModels:
         assert model_id not in self.__models, f"model_id {model_id} already used"
         assert model_type in self.__conf, f"Missing configuration for {model_type}"
 
-        model = load_sbml_model(path_to_model, cache, show_logs)
+        model = load_sbml_model(path_to_model, show_logs)
 
         # Populate the internal data
         self.__models[model_id] = {
