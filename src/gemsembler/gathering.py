@@ -7,6 +7,7 @@ import sys
 import warnings
 from collections import defaultdict
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 
 from cobra.io import read_sbml_model
@@ -42,20 +43,15 @@ def get_env():
     Function to appen additional path to system PATH env var and return dict
     with new env. In case the package is used in conda env.
     """
+
+    sep = ":"
+    if sys.platform == "win32":
+        sep = ";"
+
     add_bin = str(Path(sys.executable).parent)
     tmp_env = os.environ.copy()
-    tmp_env["PATH"] = f"{tmp_env['PATH']}:{add_bin}"
+    tmp_env["PATH"] = f"{tmp_env['PATH']}{sep}{add_bin}"
     return tmp_env
-
-
-def sha256sum(filename):
-    h = hashlib.sha256()
-    b = bytearray(128 * 1024)
-    mv = memoryview(b)
-    with open(filename, "rb", buffering=0) as f:
-        while n := f.readinto(mv):
-            h.update(mv[:n])
-    return h.hexdigest()
 
 
 class LoggerContext:
@@ -72,23 +68,13 @@ class LoggerContext:
             self.__logger__.setLevel(logging.NOTSET)
 
 
-def load_sbml_model(path_to_model, cache: bool = True, show_logs: bool = False):
+@lru_cache
+def load_sbml_model(path_to_model, show_logs: bool = False):
 
-    file_hash = sha256sum(path_to_model)
-    path_to_model = Path(path_to_model)
-    cache_path = path_to_model.parent / (path_to_model.stem + "_" + file_hash + ".pkl")
+    # Read the cobra model
+    with LoggerContext("cobra", show_logs):
+        model = read_sbml_model(path_to_model)
 
-    if cache_path.exists():
-        with open(cache_path, "rb") as fh:
-            model = pickle.load(fh)
-    else:
-        # Read the cobra model
-        with LoggerContext("cobra", show_logs):
-            model = read_sbml_model(path_to_model)
-        # Cache the model to a pickle if option is set
-        if cache:
-            with open(cache_path, "wb") as fh:
-                pickle.dump(model, fh)
     return model
 
 
