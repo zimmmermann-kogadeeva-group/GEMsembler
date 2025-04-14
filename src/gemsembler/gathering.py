@@ -10,7 +10,7 @@ from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 
-from cobra.io import read_sbml_model
+from cobra.io import read_sbml_model, load_json_model, load_matlab_model
 from platformdirs import user_data_path
 
 from .conversion import (
@@ -73,7 +73,12 @@ def load_sbml_model(path_to_model, show_logs: bool = False):
 
     # Read the cobra model
     with LoggerContext("cobra", show_logs):
-        model = read_sbml_model(path_to_model)
+        if path_to_model.endswith(".json"):
+            model = load_json_model(path_to_model)
+        elif path_to_model.endswith(".mat"):
+            model = load_matlab_model(path_to_model)
+        else:
+            model = read_sbml_model(path_to_model)
 
     return model
 
