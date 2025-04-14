@@ -1590,6 +1590,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         self,
         connection_knowledge: KnowledgeConnectingOldNew,
         all_models_data: dict,
+        do_old_genes: dict,
         do_mix: bool,
         gene_folder,
     ):
@@ -1599,7 +1600,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             r._find_reactants_products(connection_knowledge, "reactants")
             r._find_reactants_products(connection_knowledge, "products")
             r._find_metabolites(connection_knowledge)
-            g_to_add = r._find_gene_and_gpr(connection_knowledge, gene_folder)
+            g_to_add = r._find_gene_and_gpr(connection_knowledge, do_old_genes)
             for model_id, gene_ids in g_to_add.items():
                 for g_id in list(set(gene_ids)):
                     if g_id in self.genes.assembly.keys():
@@ -1618,7 +1619,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                 )
                 r._find_metabolites(connection_knowledge, do_notconv=True)
                 g_to_add = r._find_gene_and_gpr(
-                    connection_knowledge, gene_folder, do_notconv=True
+                    connection_knowledge, do_old_genes, do_notconv=True
                 )
                 for model_id, gene_ids in g_to_add.items():
                     for g_id in list(set(gene_ids)):
@@ -1811,7 +1812,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         self,
         is_loading,
         args_dict
-        # structure: {"type": "SuperModel", "args":{"final_m_sel": , "final_m_not_sel": , "final_r_sel": , "final_r_not_sel": , "all_models_data": ,"additional_periplasmic_m": , "periplasmic_r": , "m_db_info": , "r_db_info": , "gene_folder": , "do_mix_conv_notconv": , "and_as_solid": }}
+        # structure: {"type": "SuperModel", "args":{"final_m_sel": , "final_m_not_sel": , "final_r_sel": , "final_r_not_sel": , "all_models_data": ,"additional_periplasmic_m": , "periplasmic_r": , "m_db_info": , "r_db_info": , "gene_folder": , "do_old_genes":, "do_mix_conv_notconv": , "and_as_solid": }}
         #        final_m_sel: dict, # Old input
         #        final_m_not_sel: dict,
         #        final_r_sel: dict,
@@ -1974,7 +1975,11 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             gene_folder,
         )
         self.__find_connections(
-            connection_knowledge, all_models_data, do_mix_conv_notconv, gene_folder,
+            connection_knowledge,
+            all_models_data,
+            do_old_genes,
+            do_mix_conv_notconv,
+            gene_folder,
         )
         print("Finalizing supermodel attributes")
         self.__get_additional_attributes(

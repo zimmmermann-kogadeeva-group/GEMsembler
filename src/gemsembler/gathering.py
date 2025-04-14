@@ -527,9 +527,9 @@ class GatheredModels:
                     else:
                         do_old_genes[model_id] = True
             for model_id, model_data in self.__models.items():
-                print(f"Running gene conversion with BLAST for {model_id}")
                 if model_data["path_to_genome"] == "":
                     continue
+                print(f"Running gene conversion with BLAST for {model_id}")
                 out_blast_file = gene_path / (model_id + "_blast.tsv")
                 model_gene_file, aa_status = self.__conf[model_data["model_type"]][
                     "genome_model_strategy"
