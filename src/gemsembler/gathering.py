@@ -73,9 +73,9 @@ def load_sbml_model(path_to_model, show_logs: bool = False):
 
     # Read the cobra model
     with LoggerContext("cobra", show_logs):
-        if path_to_model.endswith(".json"):
+        if path_to_model.as_posix().endswith(".json"):
             model = load_json_model(path_to_model)
-        elif path_to_model.endswith(".mat"):
+        elif path_to_model.as_posix().endswith(".mat"):
             model = load_matlab_model(path_to_model)
         else:
             model = read_sbml_model(path_to_model)
