@@ -109,9 +109,7 @@ class GatheredModels:
     """
 
     def __init__(
-        self,
-        custom_model_type=None,
-        clear_db_cache=False,
+        self, custom_model_type=None, clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -444,6 +442,7 @@ class GatheredModels:
         path_final_genome_nt=None,
         path_final_genome_aa=None,
         evalue_threshold=0.001,
+        do_old_genes=None,
         do_mix_conv_notconv=False,
         and_as_solid=False,
         do_old_locus_tag=True,
@@ -458,6 +457,8 @@ class GatheredModels:
                 "fasta files (nt/aa/both), \nto which genes must be converted."
             )
             gene_path = None
+            if do_old_genes is None:
+                do_old_genes = {model_id: True for model_id in self.__models.keys()}
         elif assembly_id and (path_final_genome_nt or path_final_genome_aa):
             warnings.warn(
                 "\nWarning! Both assembly and user final genome for gene conversion are provided. "
@@ -466,6 +467,8 @@ class GatheredModels:
                 "fasta files (nt/aa/both), to which genes must be converted."
             )
             gene_path = None
+            if do_old_genes is None:
+                do_old_genes = {model_id: True for model_id in self.__models.keys()}
         else:
             # GGE: Check that BLAST is installed
             proc = subprocess.run(
@@ -516,6 +519,13 @@ class GatheredModels:
                     stderr=subprocess.PIPE,
                     env=get_env(),
                 )
+            if do_old_genes is None:
+                do_old_genes = {}
+                for model_id, model_data in self.__models.items():
+                    if model_data["path_to_genome"] == "":
+                        do_old_genes[model_id] = False
+                    else:
+                        do_old_genes[model_id] = True
             for model_id, model_data in self.__models.items():
                 print(f"Running gene conversion with BLAST for {model_id}")
                 if model_data["path_to_genome"] == "":
@@ -595,6 +605,7 @@ class GatheredModels:
                     "m_db_info": bigg_data_m,
                     "r_db_info": bigg_data_r,
                     "gene_folder": gene_path,
+                    "do_old_genes": do_old_genes,
                     "do_mix_conv_notconv": do_mix_conv_notconv,
                     "and_as_solid": and_as_solid,
                 },
