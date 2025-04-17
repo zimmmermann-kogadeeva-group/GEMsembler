@@ -1031,6 +1031,7 @@ def _write_pfba_mq_results(
     calc_r_dist=True,
     check_distance=5,
     met_order=None,
+    met_rm_from_ptw=None,
     yes_range=1,
     no_range=1,
     genes=True,
@@ -1101,6 +1102,8 @@ def _write_pfba_mq_results(
         }
         if met_order is not None:
             all_met = met_order
+    if met_rm_from_ptw is not None:
+        all_met = list(set(all_met) - set(met_rm_from_ptw))
     for m in all_met:
         if m not in met_model.keys():
             if draw_confidence:
@@ -1273,6 +1276,7 @@ def run_growth_full_flux_analysis(
     draw_met_not_int=False,
     biomass_r_id=None,
     met_names=True,
+    met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
     flux_threshold=0.001,
@@ -1344,6 +1348,7 @@ def run_growth_full_flux_analysis(
             calc_dist_path,
             check_distance,
             met_order,
+            met_rm_from_ptw,
             dpi,
             **kwargs,
         )
@@ -1380,6 +1385,7 @@ def run_metquest_results_analysis(
     draw_met_not_int=False,
     check_in_biomass_precursors=False,
     met_names=True,
+    met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
     **kwargs,
@@ -1517,6 +1523,7 @@ def run_metquest_results_analysis(
             calc_dist_path,
             check_distance,
             met_order,
+            met_rm_from_ptw,
             dpi,
             **kwargs,
         )
