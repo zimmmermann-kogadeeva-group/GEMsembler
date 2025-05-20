@@ -538,7 +538,8 @@ class GatheredModels:
                     else:
                         do_old_genes[model_id] = True
             for model_id, model_data in self.__models.items():
-                if model_data["path_to_genome"] == "":
+                path_to_genome = model_data["path_to_genome"]
+                if path_to_genome is None or path_to_genome == "":
                     continue
                 print(f"Running gene conversion with BLAST for {model_id}")
                 out_blast_file = gene_path / (model_id + "_blast.tsv")
