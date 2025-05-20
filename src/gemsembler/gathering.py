@@ -10,7 +10,7 @@ from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 
-from cobra.io import read_sbml_model, load_json_model, load_matlab_model
+from cobra.io import load_json_model, load_matlab_model, read_sbml_model
 from platformdirs import user_data_path
 
 from .conversion import (
@@ -114,7 +114,9 @@ class GatheredModels:
     """
 
     def __init__(
-        self, custom_model_type=None, clear_db_cache=False,
+        self,
+        custom_model_type=None,
+        clear_db_cache=False,
     ):
         # If specified, clear the cached conversion tables and dictionaries
         if clear_db_cache:
@@ -502,28 +504,32 @@ class GatheredModels:
                 )
             if path_final_genome_nt is not None:
                 print("Building BLAST database")
-                subprocess.run(
+                run = subprocess.run(
                     f"makeblastdb -in {path_final_genome_nt} -out "
-                    f"{Path(db_path, 'nt_db')} -dbtype nucl"
-                    f" -title nt_db -parse_seqids",  # WindowsFix ('' removed)  [seems to work on Linux as well]
+                    f"{Path(db_path, 'nt_db')} -dbtype nucl "
+                    "-title nt_db -parse_seqids",  # WindowsFix ('' removed)  [seems to work on Linux as well]
                     shell=True,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     env=get_env(),
                 )
+                if run.returncode != 0:
+                    raise OSError(f"Failed to run makeblastdb: {run.stderr.decode()}")
             if path_final_genome_aa is not None:
                 print("Building BLAST database")
-                subprocess.run(
+                run = subprocess.run(
                     f"makeblastdb -in {path_final_genome_aa} -out "
-                    f"{Path(db_path, 'aa_db')} -dbtype"
-                    f" prot -title aa_db -parse_seqids",  # WindowsFix ('' removed) [seems to work on Linux as well]
+                    f"{Path(db_path, 'aa_db')} -dbtype prot "
+                    "-title aa_db -parse_seqids",  # WindowsFix ('' removed) [seems to work on Linux as well]
                     shell=True,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     env=get_env(),
                 )
+                if run.returncode != 0:
+                    raise OSError(f"Failed to run makeblastdb: {run.stderr.decode()}")
             if do_old_genes is None:
                 do_old_genes = {}
                 for model_id, model_data in self.__models.items():
@@ -564,7 +570,7 @@ class GatheredModels:
                 elif not model_gene_file:
                     warnings.warn("\nWarning! Something wrong with gene file")
                 else:
-                    subprocess.run(
+                    run = subprocess.run(
                         f"{blast_command} -query {model_gene_file} "
                         f"-db {Path(db_path, db_name)} "
                         f"-max_target_seqs 1 -evalue {evalue_threshold} "
@@ -575,6 +581,10 @@ class GatheredModels:
                         stderr=subprocess.PIPE,
                         env=get_env(),
                     )
+                    if run.returncode != 0:
+                        raise OSError(
+                            f"Failed to run {blast_command}: {run.stderr.decode()}"
+                        )
         print("Assembling Supermodel")
         # Get final tables to create new objects
         (
