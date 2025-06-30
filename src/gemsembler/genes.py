@@ -166,7 +166,7 @@ def get_genes_not_gapseq(
                 new_id = "_".join(old_id.rsplit(".", 1))
                 new_id = new_id.replace(":", "_")
             elif model_type == "agora":
-                new_id = old_id.removeprefix("fig|")
+                new_id = old_id.split("|")[1]
             elif model_type == "modelseed":
                 new_id = old_id
             else:
