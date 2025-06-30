@@ -456,6 +456,8 @@ class GatheredModels:
     ):
         # Check if assembly and final genome are present.
         # If not, throw a warning.
+        if do_old_genes is None:
+            do_old_genes = {model_id: False for model_id in self.__models.keys()}
         if not assembly_id and not path_final_genome_nt and not path_final_genome_aa:
             warnings.warn(
                 "\nWarning! No final genome for gene conversion is provided. "
@@ -464,8 +466,6 @@ class GatheredModels:
                 "fasta files (nt/aa/both), \nto which genes must be converted."
             )
             gene_path = None
-            if do_old_genes is None:
-                do_old_genes = {model_id: True for model_id in self.__models.keys()}
         elif assembly_id and (path_final_genome_nt or path_final_genome_aa):
             warnings.warn(
                 "\nWarning! Both assembly and user final genome for gene conversion are provided. "
@@ -530,13 +530,6 @@ class GatheredModels:
                 )
                 if run.returncode != 0:
                     raise OSError(f"Failed to run makeblastdb: {run.stderr.decode()}")
-            if do_old_genes is None:
-                do_old_genes = {}
-                for model_id, model_data in self.__models.items():
-                    if model_data["path_to_genome"] == "":
-                        do_old_genes[model_id] = False
-                    else:
-                        do_old_genes[model_id] = True
             for model_id, model_data in self.__models.items():
                 path_to_genome = model_data["path_to_genome"]
                 if path_to_genome is None or path_to_genome == "":
