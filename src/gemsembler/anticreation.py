@@ -72,6 +72,11 @@ def get_model_of_interest(
     if not biomass_interest_level:
         biomass_interest_level = interest_level
     outmodel = Model(interest_level)
+    outmodel.notes = {
+        "Summary": f"Generated withe GEMsembler supermodel based on models: "
+        f"{' '.join(supermodel.sources)}"
+    }
+    outmodel.notes.update({supermodel.notes})
     if interest_level in supermodel.sources + ["assembly"]:
         in_reactions = getattr(supermodel.reactions, interest_level).values()
     elif interest_level in supermodel.reactions.comparison.keys():

@@ -1834,8 +1834,12 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         args = args_dict["args"]
 
         if is_loading:
-            print("loading super model...")
+            print("loading supermodel...")
             self.sources = args["sources"]
+            if "notes" in args.keys():
+                self.notes = args["notes"]
+            else:
+                self.notes = {s: {} for s in self.sources}
             self.metabolites = SetofNewElements(
                 True, {"type": "SetofNewElements", "args": args["metabolites"]}
             )
@@ -1891,6 +1895,10 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         and_as_solid = args["and_as_solid"]
 
         self.sources = list(all_models_data.keys())
+        self.notes = {
+            model_id: all_models_data[model_id]["preprocess_model"].notes
+            for model_id in all_models_data.keys()
+        }
         print("Creating metabolites for supermodel")
         self.metabolites = SetofNewElements(
             False,
@@ -1991,6 +1999,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
     def _args_to_dict(self):  # GGE
         out_json_dict = {}
         out_json_dict["sources"] = self.sources
+        out_json_dict["notes"] = self.notes
         out_json_dict["metabolites"] = self.metabolites
         out_json_dict["reactions"] = self.reactions
         out_json_dict["genes"] = self.genes
@@ -2000,6 +2009,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         args_dict_out = self._args_to_dict()
         json_dict_out = {}
         json_dict_out["sources"] = args_dict_out["sources"]
+        json_dict_out["notes"] = args_dict_out["notes"]
         json_dict_out["metabolites"] = args_dict_out["metabolites"]._to_json()
         json_dict_out["reactions"] = args_dict_out["reactions"]._to_json()
         json_dict_out["genes"] = args_dict_out["genes"]._to_json()
