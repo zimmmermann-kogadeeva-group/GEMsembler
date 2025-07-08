@@ -65,7 +65,7 @@ def get_model_of_interest(
     reactions_include: [NewElement] = None,
     reactions_exclude: [NewElement] = None,
 ):
-    """ Creating COBRA model from supermodel based on specific level of interest for example core or union.
+    """Creating COBRA model from supermodel based on specific level of interest for example core or union.
     Additionaly, some reactions"""
     if not gene_interest_level:
         gene_interest_level = interest_level
@@ -76,7 +76,7 @@ def get_model_of_interest(
         "Summary": f"Generated withe GEMsembler supermodel based on models: "
         f"{' '.join(supermodel.sources)}"
     }
-    outmodel.notes.update({supermodel.notes})
+    outmodel.notes.update(supermodel.notes)
     if interest_level in supermodel.sources + ["assembly"]:
         in_reactions = getattr(supermodel.reactions, interest_level).values()
     elif interest_level in supermodel.reactions.comparison.keys():
