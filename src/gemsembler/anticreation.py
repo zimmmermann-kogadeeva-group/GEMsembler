@@ -62,6 +62,7 @@ def get_model_of_interest(
     simple_biomass_products=True,
     extend_zero_bounds=True,
     gapfill_transport=True,
+    do_balance=True,
     reactions_include: [NewElement] = None,
     reactions_exclude: [NewElement] = None,
 ):
@@ -116,10 +117,7 @@ def get_model_of_interest(
         else:
             r_gene_reaction_rule = r.gene_reaction_rule["comparison"]
         out_reaction = Reaction(r.id)
-        if r.name:
-            out_reaction.name = r.name
-        else:
-            out_reaction.name = ""
+        out_reaction.name = r.name
         out_subsystem = ""
         for source in r.in_models["models_list"]:
             out_subsystem = (
@@ -138,9 +136,89 @@ def get_model_of_interest(
             out_reaction.upper_bound = r_upper_bound.get(interest_level_r)[0]
         for met, k in r_metabolites.get(interest_level_r).items():
             out_met = Metabolite(
-                met.id, name=met.name, compartment=met.compartments["assembly"][0]
+                met.id,
+                name=met.name,
+                compartment=met.compartments["assembly"][0],
+                formula=met.formula_bigg,
+                charge=met.charge_bigg,
             )
             out_reaction.add_metabolites({out_met: k})
+        balance = out_reaction.check_mass_balance()
+        if balance and do_balance:
+            only_charge_source = {}
+            for source in r.in_models["models_list"]:
+                sr = Reaction(r.id + source)
+                for mm, kk in r.metabolites[source].items():
+                    tmp_met = Metabolite(
+                        mm.id,
+                        name=mm.name,
+                        compartment=mm.compartments["assembly"][0],
+                        formula=mm.formula_bigg,
+                        charge=mm.charge_bigg,
+                    )
+                    sr.add_metabolites({tmp_met: kk})
+                sbalance = sr.check_mass_balance()
+                if not sbalance:
+                    out_reaction.add_metabolites(
+                        {
+                            old_met: -old_k
+                            for old_met, old_k in out_reaction.metabolites.items()
+                        }
+                    )
+                    out_reaction.add_metabolites(
+                        {new_met: new_k for new_met, new_k in sr.metabolites.items()}
+                    )
+                    break
+                if sbalance.keys() == {"charge"}:
+                    only_charge_source[sbalance["charge"]] = sr
+            if balance == {"charge": -1.0, "H": -1.0}:
+                for hmmet in out_reaction.metabolites.keys():
+                    if hmmet.id == "h_c":
+                        out_reaction.add_metabolites({hmmet: 1})
+                    else:
+                        out_reaction.add_metabolites(
+                            {
+                                Metabolite(
+                                    "h_c",
+                                    name="H+",
+                                    compartment="c",
+                                    formula="H",
+                                    charge=1,
+                                ): 1
+                            }
+                        )
+            elif balance == {"charge": 1.0, "H": 1.0}:
+                for hmmet in out_reaction.metabolites.keys():
+                    if hmmet.id == "h_c":
+                        out_reaction.add_metabolites({hmmet: -1})
+                    else:
+                        out_reaction.add_metabolites(
+                            {
+                                Metabolite(
+                                    "h_c",
+                                    name="H+",
+                                    compartment="c",
+                                    formula="H",
+                                    charge=1,
+                                ): -1
+                            }
+                        )
+            elif only_charge_source and (
+                (len(balance) > 1) or "charge" not in balance.keys()
+            ):
+                scr = only_charge_source[
+                    min([abs(k) for k in only_charge_source.keys()])
+                ]
+                out_reaction.add_metabolites(
+                    {
+                        old_met: -old_k
+                        for old_met, old_k in out_reaction.metabolites.items()
+                    }
+                )
+                out_reaction.add_metabolites(
+                    {new_met: new_k for new_met, new_k in scr.metabolites.items()}
+                )
+
         if r_gene_reaction_rule.get(gene_interest_level_r):
             out_reaction.gene_reaction_rule = r_gene_reaction_rule.get(
                 gene_interest_level_r
@@ -148,6 +226,8 @@ def get_model_of_interest(
         else:
             out_reaction.gene_reaction_rule = ""
         outmodel.add_reactions([out_reaction])
+
+    # Adding biomass to the model
     biomass_reaction = Reaction("Biomass")
     if biomass_interest_level in supermodel.sources + ["assembly"]:
         biomass_reaction.upper_bound = supermodel.reactions.assembly[
@@ -214,6 +294,7 @@ def get_models_with_all_confidence_levels(
     simple_biomass_products=True,
     extend_zero_bounds=True,
     gapfill_transport=True,
+    do_balance=True,
     reactions_include: [NewElement] = None,
     reactions_exclude: [NewElement] = None,
 ):
@@ -238,6 +319,7 @@ def get_models_with_all_confidence_levels(
                     simple_biomass_products=simple_biomass_products,
                     extend_zero_bounds=extend_zero_bounds,
                     gapfill_transport=gapfill_transport,
+                    do_balance=do_balance,
                     reactions_include=reactions_include,
                     reactions_exclude=reactions_exclude,
                 )

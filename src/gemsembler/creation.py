@@ -236,6 +236,18 @@ class NewMetabolite(NewElement):
             self.name = args["name"]
             self.reactions = args["reactions"]
             self.formula = args["formula"]
+            if "formula_bigg" in args.keys():
+                self.formula_bigg = args["formula_bigg"]
+            else:
+                self.formula_bigg = None
+            if "charge" in args.keys():
+                self.charge = args["charge"]
+            else:
+                self.charge = None
+            if "charge_bigg" in args.keys():
+                self.charge_bigg = args["charge_bigg"]
+            else:
+                self.charge_bigg = None
             return
 
         # else: initial init
@@ -247,18 +259,32 @@ class NewMetabolite(NewElement):
             name = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
                 "name"
             ].values[0]
+            formula = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
+                "formula"
+            ].values[0]
+            charge = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
+                "charge"
+            ].values[0]
         else:
             name = "Not converted"
+            formula = None
+            charge = None
         self.name = name
+        self.formula_bigg = formula
+        self.charge_bigg = charge
+        self.formula = {k: [] for k in args["possible_sources"]}
+        self.charge = {k: [] for k in args["possible_sources"]}
         self.reactions = {k: [] for k in args["possible_sources"]}
         self.reactions.update({"assembly": [], "comparison": {}})
-        self.formula = {k: [] for k in args["possible_sources"]}
 
     def _args_to_dict(self):  # GGE
         out_json_dict = super()._args_to_dict()
         out_json_dict["name"] = self.name
-        out_json_dict["reactions"] = self.reactions
         out_json_dict["formula"] = self.formula
+        out_json_dict["charge"] = self.charge
+        out_json_dict["formula_bigg"] = self.formula_bigg
+        out_json_dict["charge_bigg"] = self.charge_bigg
+        out_json_dict["reactions"] = self.reactions
         out_json_dict["type"] = "NewMetabolite"
         return out_json_dict
 
@@ -1643,6 +1669,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     old_mets = connections.get_old_mets(model_id, met.id, do_notconv)
                     if old_mets:
                         met.formula.get(model_id).append(old_mets[0].formula)
+                        met.charge.get(model_id).append(old_mets[0].charge)
             for r in getattr(self.reactions, atr).values():
                 for mod_id in model_ids:
                     old_rs = connections.get_old_rs(mod_id, r.id, do_notconv)
