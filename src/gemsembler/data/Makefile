@@ -1,44 +1,31 @@
 
-PAPER_URL = https://raw.githubusercontent.com/SystemsBioinformatics/pub-data/master/reconstruction-tools-assessment/pipeline/reconstructions/
-VMH_URL = https://www.vmh.life/files/reconstructions/AGORA/
-LP_FILES = CA1.xml.gz \
-	   CA2.xml.gz \
-	   MS2.sbml.gz \
-	   protein_fasta.faa.gz \
-	   WCFS1_agora.xml.gz \
-	   WCFS1.fasta.gz
+all: \
+	genome.fna \
+	genome_agora.fna \
+	agora_model.xml
+	# LP/genome.faa \
 
-all: $(addprefix LP/LP_,${LP_FILES})
+# LP
 
-LP:
-	mkdir -p $@
+# This protein fasta file does not match the one that was downloaded couple of
+# months ago
+LP_GENOME_FAA_URL='https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/203/855/GCF_000203855.3_ASM20385v3/GCF_000203855.3_ASM20385v3_protein.faa.gz'
+LP/LP_genome.faa.gz:
+	curl ${LP_GENOME_FAA_URL} -o $@
 
-# model from paper - carveme with universal template
-LP/LP_CA1.xml.gz: LP
-	wget -qO - ${PAPER_URL}/CA/LPL/CA1.xml | gzip -c > $@
+LP_GENOME_FNA_URL='https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/203/855/GCF_000203855.3_ASM20385v3/GCF_000203855.3_ASM20385v3_genomic.fna.gz'
+LP/LP_genome.fna.gz:
+	curl ${LP_GENOME_FNA_URL} -o $@
 
-# model from paper - carveme with universal gram-positive template
-LP/LP_CA2.xml.gz: LP
-	wget -qO - ${PAPER_URL}/CA/LPL/CA2.xml | gzip -c > $@
+LP_GENOME_AGORA_FNA_URL='https://www.vmh.life/files/reconstructions/AGORA/genomes/AGORA-Genomes.zip'
+LP/LP_genome_agora.fna.gz:
+	wget ${LP_GENOME_AGORA_FNA_URL} && \
+	unzip -p AGORA-Genomes.zip Lactobacillus_plantarum_WCFS1.fasta | gzip > $@ && \
+	rm AGORA-Genomes.zip
 
-# model from paper (built with modelseed with gram-positive template)
-LP/LP_MS2.sbml.gz: LP
-	wget -qO - ${PAPER_URL}/MS/LPL/MS2.sbml | gzip -c > $@
+LP_AGORA_URL='https://www.vmh.life/files/reconstructions/AGORA2/version2.01/sbml_files/individual_reconstructions/Lactobacillus_plantarum_WCFS1.xml'
+LP/LP_agora_model.xml:
+	curl ${LP_AGORA_URL} -o $@
 
-# genome from paper
-LP/LP_protein_fasta.faa.gz: LP
-	wget -qO - ${PAPER_URL}/inputs/LPL/protein_fasta.faa | gzip -c > $@
-
-# curated model from paper (similar to carveme)
-LP/LP_iLP728.xml.gz: LP
-	wget -qO - ${PAPER_URL}/manually_curated_models/LPL/iLP728.xml | gzip -c > $@
-
-# agora model
-LP/LP_WCFS1_agora.xml.gz: LP
-	wget -qO - ${VMH_URL}/1.03/reconstructions/sbml/Lactobacillus_plantarum_WCFS1.xml | gzip -c > $@ 
-
-# genome for agora model
-LP/LP_WCFS1.fasta.gz: LP
-	wget -q - ${VMH_URL}/genomes/AGORA-Genomes.zip -O agora_genomes.zip ; \
-	unzip -p agora_genomes.zip Lactobacillus_plantarum_WCFS1.fasta | gzip -c > $@ && \
-	rm agora_genomes.zip
+LP/LP_agora_model.xml.gz: agora_model.xml
+	gzip $^
