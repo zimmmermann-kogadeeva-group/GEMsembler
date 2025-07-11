@@ -1,13 +1,16 @@
 import math
 import operator
 import re
+from copy import deepcopy
+from pathlib import Path
+
 import networkx as nx
 import pandas as pd
 import seaborn as sns
-from .creation import NewElement, SuperModel
-from .comparison import getCoreGPR, getCoreConnections
 from pyvis.network import Network
-from copy import deepcopy
+
+from .comparison import getCoreConnections, getCoreGPR
+from .creation import NewElement, SuperModel
 
 MET_NOT_INT_GLOBAL = {
     "h": 0,
@@ -286,9 +289,11 @@ def draw_one_known_pathway(
     hei=1080,
     size=25,
 ):
-    if not output_name.endswith(".html"):
+    output_name = Path(output_name)
+    output_name.parent.mkdir(parents=True, exist_ok=True)
+    if output_name.suffix != ".html":
         raise ValueError(
-            "Output file for the plot is of wrong format. Please use html file name."
+            f"Expected html suffix, got: {output_name.suffix}. Path given {output_name}"
         )
     if met_not_int is None:
         met_not_int = deepcopy(MET_NOT_INT_GLOBAL)
