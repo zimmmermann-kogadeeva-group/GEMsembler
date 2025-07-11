@@ -46,6 +46,7 @@ build:
     - tox run -e build -- -p ${PYPI_API_TOKEN}
 
 pages:
+  image: python:3.12
   stage: build
   script:
   - pip install -U sphinx nbsphinx
