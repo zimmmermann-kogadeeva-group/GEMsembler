@@ -1,7 +1,5 @@
-import hashlib
 import logging
 import os
-import pickle
 import subprocess
 import sys
 import warnings
@@ -674,3 +672,8 @@ class GatheredModels:
 
         dupl_r = get_duplicated_reactions(model)
         self.__models[model_id]["duplicated_reactions"] = dupl_r
+
+    def add_models_and_run(self, models_list):
+        for model in models_list:
+            self.add_model(**model)
+        self.run()

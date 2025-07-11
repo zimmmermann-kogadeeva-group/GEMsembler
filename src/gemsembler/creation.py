@@ -1,9 +1,9 @@
 import itertools
-import operator
-import re
 
 # import resource #Windows_Fix
 import json
+import operator
+import re
 import sys
 import warnings
 from collections import defaultdict
@@ -255,16 +255,15 @@ class NewMetabolite(NewElement):
             all_comp_bigg = "".join(
                 list(set([i[-1] for i in args["db_info"]["bigg_id"].to_list()]))
             )
+
+            # Get specific row from db_info table
             id_noc = re.sub(f"_([{all_comp_bigg}])$", "", args["new_id"])
-            name = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
-                "name"
-            ].values[0]
-            formula = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
-                "formula"
-            ].values[0]
-            charge = args["db_info"][args["db_info"]["universal_bigg_id"] == id_noc][
-                "charge"
-            ].values[0]
+            row = args["db_info"].query(f"universal_bigg_id == '{id_noc}'").iloc[0]
+
+            # Get additional attributes from db_info table if present
+            name = row.name if "name" in row else None
+            formula = row.formula if "formula" in row else None
+            charge = row.charge if "charge" in row else None
         else:
             name = "Not converted"
             formula = None

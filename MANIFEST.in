@@ -1,2 +1,3 @@
 include src/gemsembler/data/BU/*.gz
 include src/gemsembler/data/LP/*.gz
+include src/gemsembler/data/masses_and_charges.json
