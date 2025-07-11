@@ -44,3 +44,15 @@ build:
   script:
     - python3 -m pip install tox
     - tox run -e build -- -p ${PYPI_API_TOKEN}
+
+pages:
+  stage: deploy
+  script:
+  - pip install -U sphinx nbsphinx
+  - sphinx-build -b html . public
+  artifacts:
+    paths:
+    - public
+  only:
+  - master
+
