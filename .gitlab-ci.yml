@@ -46,7 +46,7 @@ build:
     - tox run -e build -- -p ${PYPI_API_TOKEN}
 
 pages:
-  stage: deploy
+  stage: build
   script:
   - pip install -U sphinx nbsphinx
   - sphinx-build -b html . public
