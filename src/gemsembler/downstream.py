@@ -11,6 +11,7 @@ import pandas as pd
 from cobra.flux_analysis import pfba
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
+from scipy.cluster.hierarchy import linkage, leaves_list
 
 plt.rcParams["svg.fonttype"] = "none"
 
@@ -124,14 +125,13 @@ def write_metabolites_production_output(
     write_output_to_folder: str,
     plot_file_name=None,
     table_file_name=None,
+    column_order=None,
     met_names=True,
     id_instead_long_name=20,
-    yticklabels=True,
-    cmap="mako",
+    cmap="cubehelix",
     metric="jaccard",
     method="single",
-    center=0.3,
-    linewidths=0.003,
+    linewidths=0.5,
     dpi=300,
     **kwargs,
 ):
@@ -178,54 +178,57 @@ def write_metabolites_production_output(
     num_no_grow = num_no_grow.astype(
         {mod_name: "float" for mod_name in num_no_grow.columns}
     )
-    bp_clusterpmap = sns.clustermap(
-        num_no_grow,
-        yticklabels=yticklabels,
-        metric=metric,
-        method=method,
-        cmap=cmap,
-        center=center,
-        linewidths=linewidths,
+
+    j = linkage(num_no_grow.values, method=method, metric=metric)
+    row_order = leaves_list(j)
+    if not column_order:
+        jt = linkage(num_no_grow.T.values, method=method, metric=metric)
+        column_order = leaves_list(jt)
+    df_plot = (
+        num_no_grow.iloc[row_order]
+        .drop(columns="Metabolites")
+        .set_index("Metabolite names")
+        .iloc[row_order]
+        .drop(columns="Metabolites")
+        .set_index("Metabolite names")[column_order]
     )
-    plt.close()
-    fig, heatmap_ax = plt.subplots(figsize=(7, 14))
-    fig.subplots_adjust(left=0.4, top=0.99)
-    cbar_ax = fig.add_axes([0.02, 0.11, 0.17, 0.02])
-    bp_heatmap = sns.heatmap(
-        num_no_grow.astype(int).iloc[
-            bp_clusterpmap.dendrogram_row.reordered_ind,
-            bp_clusterpmap.dendrogram_col.reordered_ind,
-        ],
-        ax=heatmap_ax,
-        cmap=sns.color_palette("mako", 6),
-        cbar_ax=cbar_ax,
-        cbar_kws=dict(orientation="horizontal"),
+
+    fig, ax = plt.subplots(figsize=(4, 5.3))
+    cbar_ax = fig.add_axes([0.05, 0.05, 0.03, 0.2])
+    fig.subplots_adjust(left=0.62, top=0.99, bottom=0.13, right=0.98)
+    sns.heatmap(
+        df_plot,
+        cmap=sns.color_palette(cmap, 6),
         vmin=-0.5,
         vmax=5.5,
-        lw=1,
+        cbar_ax=cbar_ax,
+        cbar_kws=dict(orientation="vertical"),
+        ax=ax,
+        linewidth=linewidths,
         **kwargs,
     )
-    heatmap_ax.set_ylabel("Metabolite synthesis", labelpad=0)
-    cbar = heatmap_ax.collections[0].colorbar
-    cbar.ax.set_title("Possible status")
-    cbar.set_ticks([0, 1, 2, 3, 4, 5])
-    cbar.set_ticklabels(
+    cbar_ax.set_yticks(
+        range(6),
         [
             "absent",
-            "not synthesized",
+            "no synthesized",
             "not in biomass",
             "cofactor",
             "media",
             "synthesized",
         ],
-        rotation=-45,
+        rotation=0,
         ha="left",
     )
+    cbar_ax.set_title("Metabolite synthesis status")
+    ax.tick_params(axis="both", which="major", pad=0)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+
     if plot_file_name is None:
         fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png", dpi=dpi)
     else:
         fig.savefig(plot_file_name, dpi=dpi)
-    return [fig, bp_clusterpmap]
+    return [fig, row_order, column_order]
 
 
 def table_reactions_confidence(
@@ -1037,7 +1040,6 @@ def _write_pfba_mq_results(
     genes=True,
     and_as_solid=False,
     add_original_models=True,
-    write_table=True,
     dpi=300,
     **kwargs,
 ):
@@ -1202,7 +1204,7 @@ def _write_pfba_mq_results(
             sns.FacetGrid(
                 data=confidence_paths_tab,
                 col="Reactions/GPRs",
-                height=10,
+                height=5.3,
                 aspect=0.5,
                 legend_out=True,
             )
@@ -1276,6 +1278,7 @@ def run_growth_full_flux_analysis(
     draw_met_not_int=False,
     biomass_r_id=None,
     met_names=True,
+    column_order=None,
     met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
@@ -1307,6 +1310,7 @@ def run_growth_full_flux_analysis(
         production_plot,
         production_table,
         met_names=met_names,
+        column_order=column_order,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
         **kwargs,
@@ -1316,11 +1320,7 @@ def run_growth_full_flux_analysis(
             "Metabolites"
         ].to_list()
     else:
-        met_order = (
-            out_bp_production_tab.drop(index="overall_growth", errors="ignore")
-            .iloc[production_plots[1].dendrogram_row.reordered_ind]["Metabolites"]
-            .to_list()
-        )
+        met_order = production_plots[1]
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
@@ -1385,6 +1385,7 @@ def run_metquest_results_analysis(
     draw_met_not_int=False,
     check_in_biomass_precursors=False,
     met_names=True,
+    column_order=None,
     met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
@@ -1492,6 +1493,7 @@ def run_metquest_results_analysis(
         production_plot,
         production_table,
         met_names=met_names,
+        column_order=column_order,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
         **kwargs,
@@ -1499,9 +1501,7 @@ def run_metquest_results_analysis(
     if not production_plots:
         met_order = synthes_tab_out["Metabolites"].to_list()
     else:
-        met_order = synthes_tab_out.iloc[
-            production_plots[1].dendrogram_row.reordered_ind
-        ]["Metabolites"].to_list()
+        met_order = production_plots[1]
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
