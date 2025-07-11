@@ -54,7 +54,7 @@ pages:
   - cd docs && sphinx-build -b html . public
   artifacts:
     paths:
-    - public
+    - docs/public
   only:
   - master
 
