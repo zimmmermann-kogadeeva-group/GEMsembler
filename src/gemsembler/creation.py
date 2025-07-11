@@ -258,12 +258,12 @@ class NewMetabolite(NewElement):
 
             # Get specific row from db_info table
             id_noc = re.sub(f"_([{all_comp_bigg}])$", "", args["new_id"])
-            row = args["db_info"].query(f"universal_bigg_id == '{id_noc}'").iloc[0]
+            row = args["db_info"].query(f"universal_bigg_id == '{id_noc}'")
 
             # Get additional attributes from db_info table if present
-            name = row.name if "name" in row else None
-            formula = row.formula if "formula" in row else None
-            charge = row.charge if "charge" in row else None
+            name = row.name.iloc[0]if "name" in row else None
+            formula = row.formula.iloc[0] if "formula" in row else None
+            charge = row.charge.iloc[0] if "charge" in row else None
         else:
             name = "Not converted"
             formula = None

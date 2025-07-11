@@ -11,19 +11,6 @@ from .gathering import GatheredModels, load_sbml_model
 __version__ = "0.10.5"
 
 
-with open(files(data) / "masses_and_charges.json") as fh:
-    df_bigg_extra = (
-        pd.DataFrame(
-            [
-                (bigg_id, *x)
-                for bigg_id, info in json.load(fh).items() if info is not None
-                for x in zip(info["formula"], info["mass"], info["charges"])
-            ],
-            columns=["bigg_id", "formula", "mass", "charges"]
-        )
-        .drop_duplicates(subset="bigg_id", keep="first")
-    )
-
 lp_example = [
     dict(
         model_id="agora_LP",

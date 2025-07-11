@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -6,11 +7,14 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from functools import lru_cache
+from importlib.resources import files
 from pathlib import Path
 
+import pandas as pd
 from cobra.io import load_json_model, load_matlab_model, read_sbml_model
 from platformdirs import user_data_path
 
+from . import data
 from .conversion import (
     ConvAgora,
     ConvBase,
@@ -34,6 +38,27 @@ from .genes import (
 from .periplasmic import getSuggestionPeriplasmic
 from .selection import run_selection
 from .structural import runStructuralConversion, runSuggestionsMet
+
+
+def add_charge_mass_info(df_mbs):
+    with open(files(data) / "masses_and_charges.json") as fh:
+        df_bigg_extra = (
+            pd.DataFrame(
+                [
+                    (bigg_id, *x)
+                    for bigg_id, info in json.load(fh).items() if info is not None
+                    for x in zip(info["formula"], info["mass"], info["charges"])
+                    if x[1] is not None  # some formulas are not valid i.e. contain R, X or Z
+                ],
+                columns=["universal_bigg_id", "formula", "mass", "charge"]
+            )
+            .drop_duplicates(subset="universal_bigg_id", keep="first")
+        )
+    return (
+        df_mbs
+        .merge(df_bigg_extra, on="universal_bigg_id", how="left")
+        .assign(formula=lambda x: x.formula.fillna(""))
+    )
 
 
 def get_env():
@@ -592,11 +617,13 @@ class GatheredModels:
         bigg_data_m = download_db(
             "http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt",
             "bigg_models_metabolites.txt.gz",
-        )
+        ).pipe(add_charge_mass_info)
+
         bigg_data_r = download_db(
             "http://bigg.ucsd.edu/static/namespace/bigg_models_reactions.txt",
             "bigg_models_reactions.txt.gz",
         )
+
         supermodel = SuperModel(
             False,
             {

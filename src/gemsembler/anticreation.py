@@ -207,7 +207,7 @@ def get_model_of_interest(
                 (len(balance) > 1) or "charge" not in balance.keys()
             ):
                 scr = only_charge_source[
-                    min([abs(k) for k in only_charge_source.keys()])
+                    min(only_charge_source.keys(), key=abs)
                 ]
                 out_reaction.add_metabolites(
                     {
@@ -303,11 +303,16 @@ def get_models_with_all_confidence_levels(
     for i in range(len(supermodel.sources), 1, -1):
         confidence_levels.append("core" + str(i))
     confidence_levels.append("assembly")
+
+    if output_dir is not None:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(exist_ok=True, parents=True)
+
     for level in confidence_levels:
+        output_dir_lev = None
         if output_dir is not None:
-            output_dir_lev = Path(output_dir) / (level + ".xml")
-        else:
-            output_dir_lev = None
+            output_dir_lev = output_dir / (level + ".xml")
+
         output_models.update(
             {
                 level: get_model_of_interest(
