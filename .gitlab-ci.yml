@@ -50,7 +50,7 @@ pages:
   stage: build
   script:
   - pip install -U sphinx nbsphinx
-  - sphinx-build -b html . public
+  - cd docs && sphinx-build -b html . public
   artifacts:
     paths:
     - public
