@@ -83,6 +83,7 @@ gemsembler = { workspace = true }
 [dependency-groups]
 dev = [
     "gemsembler",
+    "nbsphinx>=0.9.7",
     "sphinx>=7.4.7",
 ]
 testing = [

@@ -8,6 +8,7 @@
 *.egg-info/
 build/
 dist/
+docs/_build/
 .jupyter.log
 .venv/
 .tox/
