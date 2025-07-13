@@ -51,10 +51,10 @@ pages:
   script:
   - pip install -U sphinx nbsphinx
   - apt update && apt install -y pandoc
-  - cd docs && sphinx-build -b html . public
+  - sphinx-build -b html docs public
   artifacts:
     paths:
-    - docs/public
+    - public
   only:
   - master
 
