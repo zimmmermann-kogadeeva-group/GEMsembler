@@ -1,5 +1,7 @@
 # GEMsembler
 
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://grp-zimmermann-kogadeeva.embl-community.io/GEMsembler)
+
 <img src="gemsembler_long.gif" alt="drawing" width="150"/>
 
 GEMsembler tool for assembling and comparing several types of Genome-Scale Metabolic
