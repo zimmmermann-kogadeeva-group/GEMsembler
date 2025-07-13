@@ -6,10 +6,20 @@
 GEMsembler documentation
 ========================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+GEMsembler tool for assembling and comparing several types of Genome-Scale Metabolic
+Models.
 
+Usage
+-----
+
+Input models have to be COBRApy readable files. And models need to be
+particular type. Currently models made by CarveMe (carveme), ModelSEED
+(modelseed), gapseq (gapseq) and models downloaded from AGORA VMH database
+(agora) are supported. Custom type is coming soon. Genomes, from which the
+models are built will allow to convert and assemble genes as well.
+First, we import gemsembler and get the path to data files:
+
+More information can be found in the tutorial.
 
 .. toctree::
    :maxdepth: 2
