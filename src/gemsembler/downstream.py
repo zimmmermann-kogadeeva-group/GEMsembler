@@ -184,14 +184,7 @@ def write_metabolites_production_output(
     if not column_order:
         jt = linkage(num_no_grow.T.values, method=method, metric=metric)
         column_order = leaves_list(jt)
-    df_plot = (
-        num_no_grow.iloc[row_order]
-        .drop(columns="Metabolites")
-        .set_index("Metabolite names")
-        .iloc[row_order]
-        .drop(columns="Metabolites")
-        .set_index("Metabolite names")[column_order]
-    )
+    df_plot = num_no_grow.iloc[row_order][column_order]
 
     fig, ax = plt.subplots(figsize=(4, 5.3))
     cbar_ax = fig.add_axes([0.05, 0.05, 0.03, 0.2])
