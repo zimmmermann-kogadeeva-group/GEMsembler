@@ -133,6 +133,8 @@ def write_metabolites_production_output(
     method="single",
     linewidths=0.5,
     dpi=300,
+    fig_height=None,
+    fig_width=None,
     **kwargs,
 ):
     """Function to plot heatmap of produced or not produced metabolites.
@@ -180,14 +182,19 @@ def write_metabolites_production_output(
     )
 
     j = linkage(num_no_grow.values, method=method, metric=metric)
-    row_order = leaves_list(j)
+    row_order = num_no_grow.index[leaves_list(j)]
     if not column_order:
         jt = linkage(num_no_grow.T.values, method=method, metric=metric)
-        column_order = leaves_list(jt)
-    df_plot = num_no_grow.iloc[row_order][column_order]
+        column_order = num_no_grow.columns[leaves_list(jt)]
 
-    fig, ax = plt.subplots(figsize=(4, 5.3))
-    cbar_ax = fig.add_axes([0.05, 0.05, 0.03, 0.2])
+    df_plot = num_no_grow.loc[row_order][column_order]
+
+    if fig_width is None:
+        fig_width = 0.55 * len(column_order)
+    if fig_height is None:
+        fig_height = 0.17 * len(row_order)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    cbar_ax = fig.add_axes([0.05, 0.05, 0.03, 0.1])
     fig.subplots_adjust(left=0.62, top=0.99, bottom=0.13, right=0.98)
     sns.heatmap(
         df_plot,
@@ -221,7 +228,7 @@ def write_metabolites_production_output(
         fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png", dpi=dpi)
     else:
         fig.savefig(plot_file_name, dpi=dpi)
-    return [fig, row_order, column_order]
+    return [fig, list(row_order), list(column_order)]
 
 
 def table_reactions_confidence(
@@ -1034,6 +1041,7 @@ def _write_pfba_mq_results(
     and_as_solid=False,
     add_original_models=True,
     dpi=300,
+    fig_height=None,
     **kwargs,
 ):
     if (draw_pfba_mq is True) and (output_folder_mq_paths_plots is None):
@@ -1193,11 +1201,13 @@ def _write_pfba_mq_results(
                 index=False,
                 sep="\t",
             )
+        if fig_height is None:
+            fig_height = 0.17 * len(all_met)
         g = (
             sns.FacetGrid(
                 data=confidence_paths_tab,
                 col="Reactions/GPRs",
-                height=5.3,
+                height=fig_height,
                 aspect=0.5,
                 legend_out=True,
             )
@@ -1275,6 +1285,8 @@ def run_growth_full_flux_analysis(
     met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
+    fig_height=None,
+    fig_width=None,
     flux_threshold=0.001,
     **kwargs,
 ):
@@ -1306,14 +1318,19 @@ def run_growth_full_flux_analysis(
         column_order=column_order,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
+        fig_height=fig_height,
+        fig_width=fig_width,
         **kwargs,
     )
     if not production_plots:
         met_order = out_bp_production_tab.drop(index="overall_growth", errors="ignore")[
             "Metabolites"
         ].to_list()
+        if not column_order:
+            column_order = list(out_bp_production_tab.columns)
     else:
         met_order = production_plots[1]
+        column_order = production_plots[2]
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
@@ -1343,6 +1360,7 @@ def run_growth_full_flux_analysis(
             met_order,
             met_rm_from_ptw,
             dpi,
+            fig_height,
             **kwargs,
         )
     return (
@@ -1382,6 +1400,8 @@ def run_metquest_results_analysis(
     met_rm_from_ptw=None,
     id_instead_long_name=20,
     dpi=300,
+    fig_height=None,
+    fig_width=None,
     **kwargs,
 ):
     if output_folder_mq_paths_plots is not None:
@@ -1489,12 +1509,17 @@ def run_metquest_results_analysis(
         column_order=column_order,
         id_instead_long_name=id_instead_long_name,
         dpi=dpi,
+        fig_height=fig_height,
+        fig_width=fig_width,
         **kwargs,
     )
     if not production_plots:
         met_order = synthes_tab_out["Metabolites"].to_list()
+        if not column_order:
+            column_order = list(synthes_tab_out.columns)
     else:
         met_order = production_plots[1]
+        column_order = production_plots[2]
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
@@ -1518,6 +1543,7 @@ def run_metquest_results_analysis(
             met_order,
             met_rm_from_ptw,
             dpi,
+            fig_height,
             **kwargs,
         )
     return synthes_tab_out, production_plots, stat_out_tab, met_interest_mq_paths
