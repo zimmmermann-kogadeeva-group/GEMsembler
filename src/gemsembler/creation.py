@@ -36,6 +36,7 @@ class KnowledgeConnectingOldNew:
         m_periplasmic: dict,
         r_periplasmic: dict,
         gene_folder: PosixPath,
+        do_old_genes: dict,
     ):
         self.m_go_old_new = m_dictionaries[0]
         self.m_go_new_old = m_dictionaries[1]
@@ -49,15 +50,18 @@ class KnowledgeConnectingOldNew:
         self.r_periplasmic = r_periplasmic
         self.periplasmic_models = list(r_periplasmic.keys())
         self.g_conversion_tables = defaultdict()
+        self.do_genes = {}
         for model_id in self.m_go_old_new.keys():
             if gene_folder is None:
                 self.g_conversion_tables[model_id] = None
+                self.do_genes[model_id] = do_old_genes[model_id]
                 continue
             blast_file = gene_folder / (model_id + "_blast.tsv")
             try:
                 conversion_table = pd.read_csv(str(blast_file), sep="\t", header=None)
             except:
                 self.g_conversion_tables[model_id] = None
+                self.do_genes[model_id] = do_old_genes[model_id]
             else:
                 conversion_table.columns = [
                     "old_id",
@@ -74,6 +78,7 @@ class KnowledgeConnectingOldNew:
                     "11",
                 ]
                 self.g_conversion_tables[model_id] = conversion_table
+                self.do_genes[model_id] = True
 
     def get_old_mets(self, model_id: str, new_id: str, do_notconv: bool):
         if do_notconv:
@@ -261,7 +266,7 @@ class NewMetabolite(NewElement):
             row = args["db_info"].query(f"universal_bigg_id == '{id_noc}'")
 
             # Get additional attributes from db_info table if present
-            name = row.name.iloc[0]if "name" in row else None
+            name = row.name.iloc[0] if "name" in row else None
             formula = row.formula.iloc[0] if "formula" in row else None
             charge = row.charge.iloc[0] if "charge" in row else None
         else:
@@ -853,10 +858,7 @@ class NewReaction(NewElement):
                             )
 
     def _find_gene_and_gpr(
-        self,
-        connections: KnowledgeConnectingOldNew,
-        do_old_genes: dict,
-        do_notconv=False,
+        self, connections: KnowledgeConnectingOldNew, do_notconv=False,
     ):
         genes_to_add = defaultdict(list)
         for model_id in self.in_models["models_list"]:
@@ -871,16 +873,16 @@ class NewReaction(NewElement):
                 for oldrg in oldr.genes:
                     pot_new_g_id = connections.get_new_gene_id(model_id, oldrg.id)
                     gene_convert.update({oldrg.id: pot_new_g_id})
-                    if do_old_genes[model_id]:
+                    if connections.do_genes[model_id]:
                         genes_to_add[model_id].append(pot_new_g_id)
                 old_gpr = oldr.gene_reaction_rule
                 new_gpr, mix_gpr = makeNewGPR(old_gpr, gene_convert)
                 if new_gpr:
                     new_gpr_unite_r.append(new_gpr)
                 self.gene_reaction_rule.get(model_id + "_mixed").append(mix_gpr)
-            if len(new_gpr_unite_r) == 1 and do_old_genes[model_id]:
+            if len(new_gpr_unite_r) == 1 and connections.do_genes[model_id]:
                 self.gene_reaction_rule.get(model_id).append(new_gpr_unite_r[0])
-            elif len(new_gpr_unite_r) >= 1 and do_old_genes[model_id]:
+            elif len(new_gpr_unite_r) >= 1 and connections.do_genes[model_id]:
                 united_gpr = uniteGPR(new_gpr_unite_r)
                 self.gene_reaction_rule.get(model_id).append(united_gpr)
         return genes_to_add
@@ -1615,9 +1617,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
         self,
         connection_knowledge: KnowledgeConnectingOldNew,
         all_models_data: dict,
-        do_old_genes: dict,
         do_mix: bool,
-        gene_folder,
     ):
         for met in self.metabolites.assembly.values():
             met._find_reactions(connection_knowledge)
@@ -1625,7 +1625,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             r._find_reactants_products(connection_knowledge, "reactants")
             r._find_reactants_products(connection_knowledge, "products")
             r._find_metabolites(connection_knowledge)
-            g_to_add = r._find_gene_and_gpr(connection_knowledge, do_old_genes)
+            g_to_add = r._find_gene_and_gpr(connection_knowledge)
             for model_id, gene_ids in g_to_add.items():
                 for g_id in list(set(gene_ids)):
                     if g_id in self.genes.assembly.keys():
@@ -1643,9 +1643,7 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
                     connection_knowledge, "products", do_notconv=True
                 )
                 r._find_metabolites(connection_knowledge, do_notconv=True)
-                g_to_add = r._find_gene_and_gpr(
-                    connection_knowledge, do_old_genes, do_notconv=True
-                )
+                g_to_add = r._find_gene_and_gpr(connection_knowledge, do_notconv=True)
                 for model_id, gene_ids in g_to_add.items():
                     for g_id in list(set(gene_ids)):
                         if g_id in self.genes.notconverted.keys():
@@ -2007,13 +2005,10 @@ class SuperModel:  # TODO REAL 30.08.23 add transport reactions for periplasmic 
             additional_periplasmic_m,
             periplasmic_r,
             gene_folder,
+            do_old_genes,
         )
         self.__find_connections(
-            connection_knowledge,
-            all_models_data,
-            do_old_genes,
-            do_mix_conv_notconv,
-            gene_folder,
+            connection_knowledge, all_models_data, do_mix_conv_notconv,
         )
         print("Finalizing supermodel attributes")
         self.__get_additional_attributes(
