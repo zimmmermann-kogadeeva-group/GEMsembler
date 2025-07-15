@@ -173,21 +173,34 @@ def write_metabolites_production_output(
     else:
         out_bp_production_tab.index = out_bp_production_tab["Metabolites"]
 
-    num = out_bp_production_tab.drop(columns=["Metabolites", "Metabolite names"])
-
-    num_no_grow = num.drop(index="overall_growth", errors="ignore")
-
+    num_no_grow = out_bp_production_tab.drop(index="overall_growth", errors="ignore")
     num_no_grow = num_no_grow.astype(
-        {mod_name: "float" for mod_name in num_no_grow.columns}
+        {
+            mod_name: "float"
+            for mod_name in num_no_grow.columns
+            if mod_name not in ["Metabolites", "Metabolite names"]
+        }
     )
 
-    j = linkage(num_no_grow.values, method=method, metric=metric)
+    j = linkage(
+        num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).values,
+        method=method,
+        metric=metric,
+    )
     row_order = num_no_grow.index[leaves_list(j)]
+    met_order = num_no_grow.loc[row_order]["Metabolites"].to_list()
+
     if not column_order:
-        jt = linkage(num_no_grow.T.values, method=method, metric=metric)
+        jt = linkage(
+            num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).T.values,
+            method=method,
+            metric=metric,
+        )
         column_order = num_no_grow.columns[leaves_list(jt)]
 
-    df_plot = num_no_grow.loc[row_order][column_order]
+    df_plot = num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).loc[
+        row_order
+    ][column_order]
 
     if fig_width is None:
         fig_width = 0.55 * len(column_order)
@@ -228,7 +241,7 @@ def write_metabolites_production_output(
         fig.savefig(f"{write_output_to_folder}/all_metabolites_production.png", dpi=dpi)
     else:
         fig.savefig(plot_file_name, dpi=dpi)
-    return [fig, list(row_order), list(column_order)]
+    return [fig, met_order]
 
 
 def table_reactions_confidence(
@@ -1106,7 +1119,7 @@ def _write_pfba_mq_results(
         if met_order is not None:
             all_met = met_order
     if met_rm_from_ptw is not None:
-        all_met = list(set(all_met) - set(met_rm_from_ptw))
+        all_met = [m for m in all_met if m not in met_rm_from_ptw]
     for m in all_met:
         if m not in met_model.keys():
             if draw_confidence:
@@ -1326,11 +1339,8 @@ def run_growth_full_flux_analysis(
         met_order = out_bp_production_tab.drop(index="overall_growth", errors="ignore")[
             "Metabolites"
         ].to_list()
-        if not column_order:
-            column_order = list(out_bp_production_tab.columns)
     else:
         met_order = production_plots[1]
-        column_order = production_plots[2]
     if stat_file is None:
         stat_file = output_folder + "/production_confidence_stat.tsv"
     stat_out_tab.to_csv(stat_file, sep="\t", index=False)
