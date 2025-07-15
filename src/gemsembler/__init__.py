@@ -8,7 +8,7 @@ from .anticreation import get_model_of_interest, get_models_with_all_confidence_
 from .creation import read_supermodel_from_json
 from .gathering import GatheredModels, load_sbml_model
 
-__version__ = "0.11.2"
+__version__ = "0.11.3"
 
 
 lp_example = [
