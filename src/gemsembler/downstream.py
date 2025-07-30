@@ -6,29 +6,29 @@ from copy import deepcopy
 from pathlib import Path
 
 import dill
+import matplotlib.patches as mpatches
 import networkx as nx
 import pandas as pd
 from cobra.flux_analysis import pfba
 from matplotlib import pyplot as plt
-import matplotlib.patches as mpatches
-from scipy.cluster.hierarchy import linkage, leaves_list
+from scipy.cluster.hierarchy import leaves_list, linkage
 
 plt.rcParams["svg.fonttype"] = "none"
 
-from .creation import SuperModel
-from .comparison import getCoreGPR, getCoreConnections
 import seaborn as sns
+
+from .comparison import getCoreConnections, getCoreGPR
+from .creation import SuperModel
 from .drawing import (
-    draw_one_known_pathway,
-    draw_one_synt_path,
-    get_pyvis_from_nx,
+    MET_NOT_INT_GLOBAL,
+    custom_histplot,
     define_edge_features,
     define_node_features,
+    draw_one_known_pathway,
+    draw_one_synt_path,
     get_color_palette,
-    custom_histplot,
-    MET_NOT_INT_GLOBAL,
+    get_pyvis_from_nx,
 )
-
 
 GLYCOLYSIS_GLOBAL = {
     "HEX1": [("glc__D_c", "g6p_c")],
@@ -182,25 +182,26 @@ def write_metabolites_production_output(
         }
     )
 
+    clust_df = num_no_grow.drop(columns=["Metabolites", "Metabolite names"])
     j = linkage(
-        num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).values,
+        clust_df.values,
         method=method,
         metric=metric,
     )
     row_order = num_no_grow.index[leaves_list(j)]
     met_order = num_no_grow.loc[row_order]["Metabolites"].to_list()
 
-    if not column_order:
+    if column_order is None:
         jt = linkage(
-            num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).T.values,
+            clust_df.values.transpose(),
             method=method,
             metric=metric,
         )
-        column_order = num_no_grow.columns[leaves_list(jt)]
+        column_order = clust_df.columns[leaves_list(jt)]
 
-    df_plot = num_no_grow.drop(columns=["Metabolites", "Metabolite names"]).loc[
-        row_order
-    ][column_order]
+    df_plot = clust_df.loc[
+        row_order, column_order
+    ]
 
     if fig_width is None:
         fig_width = 0.55 * len(column_order)
